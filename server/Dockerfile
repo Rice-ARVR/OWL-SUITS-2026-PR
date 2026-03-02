@@ -6,7 +6,7 @@ RUN apk add --no-cache git  # ← add this
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen
 
 COPY . .
 

@@ -17,7 +17,7 @@ export function Welcome() {
               alt="React Router"
               className="hidden w-full dark:block"
             />
-            <p> hello checking for autoupdates </p>
+            <p> hello checking for changes </p>
           </div>
         </header>
         <div className="max-w-[300px] w-full space-y-6 px-4">
