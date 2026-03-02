@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project uses a **Docker Compose** setup with a **VS Code Dev Container** so every developer gets an identical environment with no manual setup. When you open the project in VS Code and reopen it in the container, two services spin up automatically — a Python backend and a React frontend — and VS Code attaches directly into the backend container where you can edit the full monorepo.
+This project uses a **Docker Compose** setup with a **VS Code Dev Container** so every developer gets an identical environment with no manual setup. When you open the project in VS Code and reopen it in the container, a single `dev` container is started and VS Code attaches to it. Both the Python backend and React frontend run inside this one container, and you can edit the full monorepo from a single VS Code window.
 
 ---
 
@@ -26,28 +26,30 @@ This project uses a **Docker Compose** setup with a **VS Code Dev Container** so
 | Package Manager | uv          |
 | Language        | Python 3.13 |
 
-### Database
-
-| Technology |
-| ---------- |
-| MongoDB    |
-
 ---
 
 ## How It Works
 
 ### Docker Compose Services
 
-Two containers run in parallel:
+A single container runs both services:
 
-- **`server`** — FastAPI app served by Uvicorn with `--reload` for hot reloading. Runs on port `8000`.
-- **`client`** — Vite dev server with HMR. Runs on port `5173`.
+- **`dev`** — A combined environment built from `.devcontainer/Dockerfile`, based on `ghcr.io/astral-sh/uv:python3.13-bookworm-slim` with Node 24 installed. The container starts with `sleep infinity` so you can launch services manually from the integrated terminal.
 
-The entire monorepo root is mounted into the server container at `/workspace`, so you can edit both client and server code from one VS Code window.
+The entire monorepo root is mounted into the container at `/workspace`, so all changes are reflected live without rebuilding.
 
 ### Dev Container
 
-The `.devcontainer/devcontainer.json` config tells VS Code to attach to the `server` container and set the workspace to `/workspace` (the monorepo root). VS Code extensions for Python, ESLint, and Prettier are installed automatically on first launch.
+The `.devcontainer/devcontainer.json` config tells VS Code to attach to the `dev` container and set the workspace to `/workspace` (the monorepo root).
+
+On first launch, `postCreateCommand` automatically runs:
+
+```bash
+cd /workspace/server && uv sync
+cd /workspace/client && npm ci
+```
+
+VS Code extensions for Python, Pylance, Ruff, ESLint, Prettier, and Docker are installed automatically.
 
 Ports are forwarded automatically:
 
@@ -61,9 +63,18 @@ Ports are forwarded automatically:
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VS Code extension.
 2. Clone the repo.
 3. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
-4. Wait for the build — subsequent opens are much faster.
+4. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically via `postCreateCommand`.
+5. Start the services manually from the integrated terminal:
 
-Both services start automatically. The API is available at `http://localhost:8000` and the frontend at `http://localhost:5173`.
+```bash
+# Backend (from /workspace/server)
+uv run fastapi dev main.py --host 0.0.0.0
+
+# Frontend (from /workspace/client)
+npm run dev
+```
+
+The API will be available at `http://localhost:8000` and the frontend at `http://localhost:5173`.
 
 ---
 
@@ -112,13 +123,14 @@ This updates `pyproject.toml` and `uv.lock`. Commit both files.
 ```
 repo-root/
 ├── .devcontainer/
+│   ├── Dockerfile          # Single dev container image (Python 3.13 + Node 24)
 │   └── devcontainer.json
-├── client/                  # React frontend
-│   ├── Dockerfile.dev
+├── client/                 # React frontend
+│   ├── Dockerfile.prod
 │   ├── .gitignore
 │   ├── .dockerignore
 │   └── ...
-├── server/                  # FastAPI backend
+├── server/                 # FastAPI backend
 │   ├── Dockerfile
 │   ├── .gitignore
 │   ├── .dockerignore
