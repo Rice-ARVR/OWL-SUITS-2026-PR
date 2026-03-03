@@ -1,25 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
-
-
-class Item(BaseModel):
-    name: str
-    price: float
-    is_offer: bool | None = None
+from app.routers.tss_example import router as tss_example_router
+from app.services.telemetry.telemetry_service import start_polling, stop_polling
 
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+# Starts TSS Polling
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await start_polling()
+    yield
+    await stop_polling()
 
 
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}
+app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["GET"],
+)
 
-# @app.put("/items/{item_id}")
-# def update_item(item_id: int, item: Item):
-#     return {"item_name": item.name, "item_id": item_id}
+# Include Routers Here:
+app.include_router(tss_example_router)

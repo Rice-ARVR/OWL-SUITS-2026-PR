@@ -1,0 +1,40 @@
+.container {
+  padding: 2rem;
+  max-width: 480px;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table td:first-child {
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.table td:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.loading {
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.error {
+  padding: 2rem;
+  color: #dc2626;
+}

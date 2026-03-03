@@ -1,5 +1,21 @@
 # Server Architecture Guide
 
+## Environment Setup
+
+Before running the server, create a `.env` file inside the `server/` folder:
+
+```
+server/.env
+```
+
+After starting the server on your local machine, it will output an address. Add that address to your `.env` file:
+
+```
+TSS_HOST=172.31.xxx.xx
+```
+
+---
+
 ## Overview
 
 The server is a **FastAPI** application organized in a layered architecture similar to MVC (Model-View-Controller). Each layer has a single, clearly defined responsibility. The React frontend never talks to the database or the SUITS telemetry server directly — all of that goes through this server.
