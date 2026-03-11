@@ -23,7 +23,8 @@ npm run dev
 ```
 
 The API will be available at `http://localhost:8000` and the frontend at `http://localhost:5173` (open this in your browser).
-
+You can navigate to different routes configured in the frontend by adding the route name at the end of the URL.
+For example, we have a `tss_example` route, so go to `http://localhost:5173/tss_example` to open this page.
 
 ## Tech Stack
 
