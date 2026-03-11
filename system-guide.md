@@ -5,6 +5,25 @@
 This project uses a **Docker Compose** setup with a **VS Code Dev Container** so every developer gets an identical environment with no manual setup. When you open the project in VS Code and reopen it in the container, a single `dev` container is started and VS Code attaches to it. Both the Python backend and React frontend run inside this one container, and you can edit the full monorepo from a single VS Code window.
 
 ---
+## Quick Start
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VS Code extension.
+2. Clone the repo.
+3. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
+4. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically via `postCreateCommand`.
+5. Open a terminal window, and start running the backend server with FastAPI
+```bash
+cd server
+uv run fastapi dev main.py --host 0.0.0.0
+```
+6. Open another terminal window, and start running the frontend client with React
+```bash
+cd client
+npm run dev
+```
+
+The API will be available at `http://localhost:8000` and the frontend at `http://localhost:5173` (open this in your browser).
+
 
 ## Tech Stack
 
@@ -58,23 +77,6 @@ Ports are forwarded automatically:
 
 ---
 
-## Getting Started
-
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VS Code extension.
-2. Clone the repo.
-3. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
-4. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically via `postCreateCommand`.
-5. Start the services manually from the integrated terminal:
-
-```bash
-# Backend (from /workspace/server)
-uv run fastapi dev main.py --host 0.0.0.0
-
-# Frontend (from /workspace/client)
-npm run dev
-```
-
-The API will be available at `http://localhost:8000` and the frontend at `http://localhost:5173`.
 
 ---
 
