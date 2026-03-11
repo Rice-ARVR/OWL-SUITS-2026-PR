@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.tss_example import router as tss_example_router
+from app.routers.locations import router as locations_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
 
 
@@ -25,3 +26,4 @@ app.add_middleware(
 
 # Include Routers Here:
 app.include_router(tss_example_router)
+app.include_router(locations_router)
