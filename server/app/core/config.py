@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     TSS_TIMEOUT: float = 2.0
     POLL_INTERVAL: float = 1.0
 
+    MONGODB_URL: str
+    MONGO_DB: str = "app"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -8,7 +8,6 @@ from pydantic import BaseModel
 class PrTelemetry(BaseModel):
     cabin_heating: bool
     cabin_cooling: bool
-    co2_scrubber: bool
     lights_on: bool
     brakes: bool
     throttle: float
@@ -24,20 +23,26 @@ class PrTelemetry(BaseModel):
     sunlight: float
     surface_incline: float
     lidar: list[float]
-    oxygen_tank: float
+    oxygen_storage: float
     oxygen_pressure: float
-    fan_pri_rpm: float
-    fan_sec_rpm: float
     cabin_pressure: float
     cabin_temperature: float
-    battery_level: float
     external_temp: float
     coolant_pressure: float
     coolant_storage: float
+    primary_battery_level: float
+    secondary_battery_level: float
     rover_elapsed_time: float
     sim_running: bool
     dust_connected: bool
     distance_from_base: float
+    oxygen_tank: float
+    battery_level: float
+    fan_pri_rpm: float
+    fan_sec_rpm: float
+    scrubber_a_co2_storage: float
+    scrubber_b_co2_storage: float
+    cabin_temperature_target: float
 
 
 class RoverSchema(BaseModel):
@@ -69,10 +74,6 @@ class RoverData:
     async def get_pr_cabin_cooling(self) -> bool | None:
         async with self._lock:
             return self._data.pr_telemetry.cabin_cooling if self._data else None
-
-    async def get_pr_co2_scrubber(self) -> bool | None:
-        async with self._lock:
-            return self._data.pr_telemetry.co2_scrubber if self._data else None
 
     async def get_pr_lights_on(self) -> bool | None:
         async with self._lock:
@@ -140,9 +141,9 @@ class RoverData:
                 return None
             return self._data.pr_telemetry.lidar[index]
 
-    async def get_pr_oxygen_tank(self) -> float | None:
+    async def get_pr_oxygen_storage(self) -> float | None:
         async with self._lock:
-            return self._data.pr_telemetry.oxygen_tank if self._data else None
+            return self._data.pr_telemetry.oxygen_storage if self._data else None
 
     async def get_pr_oxygen_pressure(self) -> float | None:
         async with self._lock:
@@ -163,10 +164,6 @@ class RoverData:
     async def get_pr_cabin_temperature(self) -> float | None:
         async with self._lock:
             return self._data.pr_telemetry.cabin_temperature if self._data else None
-
-    async def get_pr_battery_level(self) -> float | None:
-        async with self._lock:
-            return self._data.pr_telemetry.battery_level if self._data else None
 
     async def get_pr_external_temp(self) -> float | None:
         async with self._lock:
@@ -195,3 +192,31 @@ class RoverData:
     async def get_pr_distance_from_base(self) -> float | None:
         async with self._lock:
             return self._data.pr_telemetry.distance_from_base if self._data else None
+
+    async def get_pr_oxygen_tank(self) -> float | None:
+        async with self._lock:
+            return self._data.pr_telemetry.oxygen_tank if self._data else None
+
+    async def get_pr_battery_level(self) -> float | None:
+        async with self._lock:
+            return self._data.pr_telemetry.battery_level if self._data else None
+
+    async def get_pr_primary_battery_level(self) -> float | None:
+        async with self._lock:
+            return self._data.pr_telemetry.primary_battery_level if self._data else None
+
+    async def get_pr_secondary_battery_level(self) -> float | None:
+        async with self._lock:
+            return self._data.pr_telemetry.secondary_battery_level if self._data else None
+
+    async def get_pr_scrubber_a_co2_storage(self) -> float | None:
+        async with self._lock:
+            return self._data.pr_telemetry.scrubber_a_co2_storage if self._data else None
+
+    async def get_pr_scrubber_b_co2_storage(self) -> float | None:
+        async with self._lock:
+            return self._data.pr_telemetry.scrubber_b_co2_storage if self._data else None
+
+    async def get_pr_cabin_temperature_target(self) -> float | None:
+        async with self._lock:
+            return self._data.pr_telemetry.cabin_temperature_target if self._data else None

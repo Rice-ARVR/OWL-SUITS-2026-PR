@@ -7,5 +7,6 @@ requires-python = ">=3.13.7"
 dependencies = [
     "fastapi[standard]>=0.134.0",
     "pydantic-settings>=2.13.1",
+    "pymongo[srv]>=4.0",
     "uvicorn>=0.41.0",
 ]
