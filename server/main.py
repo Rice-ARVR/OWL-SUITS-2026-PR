@@ -6,14 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers.tss_example import router as tss_example_router
 from app.routers.locations import router as locations_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
+from app.db.database import connect, disconnect
 
 
-# Starts TSS Polling
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    connect()
     await start_polling()
     yield
     await stop_polling()
+    disconnect()
 
 
 app = FastAPI(lifespan=lifespan)
