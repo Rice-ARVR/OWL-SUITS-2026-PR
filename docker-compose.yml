@@ -1,8 +1,9 @@
 services:
   dev:
     build:
-      context: .devcontainer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: dev
     ports:
       - "8000:8000"
       - "5173:5173"
@@ -13,3 +14,42 @@ services:
       - VITE_API_URL=http://localhost:8000
       - UVICORN_HOST=0.0.0.0
     command: sleep infinity
+
+  ollama:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: server
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - server
