@@ -9,6 +9,7 @@ from app.core.config import settings
 COMMAND_ROVER = 0
 COMMAND_EVA = 1
 COMMAND_LTV = 2
+COMMAND_LTV_ERRORS = 3
 
 
 def _build_packet(command: int) -> bytes:
@@ -35,6 +36,6 @@ async def fetch_json(command: int) -> dict:
         packet,
         settings.TSS_TIMEOUT,
     )
-    text = raw[8:].decode("utf-8")
+    text = raw[:].decode("utf-8")
     obj, _ = json.JSONDecoder().raw_decode(text.lstrip())
     return obj
