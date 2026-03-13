@@ -1,16 +1,17 @@
 import json
-
 import logging
+
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
+
+url = f"{settings.OLLAMA_URL.rstrip('/')}/api/generate"
 
 
 class GenerateRequest(BaseModel):
@@ -24,18 +25,20 @@ async def health():
     """Check whether the server can reach Ollama."""
     tags_url = f"{settings.OLLAMA_URL.rstrip('/')}/api/tags"
     logger.info("Ollama health check: GET %s", tags_url)
+
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.get(tags_url)
             r.raise_for_status()
             data = r.json()
-            return JSONResponse(
-                {
-                    "ok": True,
-                    "ollama_url": settings.OLLAMA_URL,
-                    "models": data.get("models", []),
-                }
-            )
+
+        return JSONResponse(
+            {
+                "ok": True,
+                "ollama_url": settings.OLLAMA_URL,
+                "models": data.get("models", []),
+            }
+        )
     except Exception as e:
         logger.exception("Ollama health check failed: %s", e)
         return JSONResponse(
@@ -51,12 +54,12 @@ async def health():
 @router.post("/ollama/generate")
 async def generate(request: GenerateRequest):
     """Proxy to Ollama /api/generate with optional streaming."""
-    url = f"{settings.OLLAMA_URL.rstrip('/')}/api/generate"
     payload = {
         "model": request.model,
         "prompt": request.prompt,
         "stream": request.stream,
     }
+
     logger.info(
         "Ollama generate: POST %s model=%s prompt_len=%s stream=%s",
         url,
@@ -65,51 +68,105 @@ async def generate(request: GenerateRequest):
         request.stream,
     )
 
-    if request.stream:
-        async def stream_from_ollama():
-            try:
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    async with client.stream(
-                        "POST",
-                        url,
-                        json=payload,
-                    ) as response:
-                        try:
-                            response.raise_for_status()
-                        except httpx.HTTPStatusError as e:
-                            error_payload = {
-                                "error": e.response.text
-                                or f"HTTP {e.response.status_code} from Ollama",
-                            }
-                            yield (json.dumps(error_payload) + "\n").encode("utf-8")
-                            return
-                        async for chunk in response.aiter_bytes():
-                            yield chunk
-            except httpx.ConnectError:
-                logger.exception("Ollama connect error: POST %s", url)
-                error_payload = {
-                    "error": "Cannot connect to Ollama. Is it running?",
+    try:
+        if request.stream:
+
+            async def stream_from_ollama():
+                async with httpx.AsyncClient(timeout=None) as client:
+                    async with client.stream("POST", url, json=payload) as response:
+                        response.raise_for_status()
+
+                        async for line in response.aiter_lines():
+                            if line:
+                                try:
+                                    chunk = json.loads(line)
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+
+                                    if chunk.get("done", False):
+                                        yield "data: [DONE]\n\n"
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+
+            return StreamingResponse(
+                stream_from_ollama(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                },
+            )
+
+        else:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                result = response.json()
+
+            return JSONResponse(
+                {
+                    "model": request.model,
+                    "response": result.get("response", ""),
+                    "done": result.get("done", True),
                 }
-                yield (json.dumps(error_payload) + "\n").encode("utf-8")
+            )
 
-        return StreamingResponse(
-            stream_from_ollama(),
-            media_type="application/x-ndjson",
-        )
+    except Exception as e:
+        logger.exception("Ollama generate failed: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
-    # Non-streaming: proxy and return full body
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        try:
-            r = await client.post(url, json=payload)
-            r.raise_for_status()
-            return JSONResponse(r.json())
-        except httpx.ConnectError as e:
-            raise HTTPException(
-                status_code=503,
-                detail="Cannot connect to Ollama. Is it running?",
-            ) from e
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=e.response.text,
-            ) from e
+
+@router.post("/api/query")
+async def query_model(req: Request):
+    data = await req.json()
+
+    model = data.get("model", "llama3.2")
+    prompt = data.get("prompt", "")
+    stream = data.get("stream", True)
+
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": stream,
+    }
+
+    try:
+        if stream:
+
+            async def generate_stream():
+                async with httpx.AsyncClient(timeout=None) as client:
+                    async with client.stream("POST", url, json=payload) as response:
+                        response.raise_for_status()
+
+                        async for line in response.aiter_lines():
+                            if line:
+                                try:
+                                    chunk = json.loads(line)
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+
+                                    if chunk.get("done", False):
+                                        yield "data: [DONE]\n\n"
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+
+            return StreamingResponse(
+                generate_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                },
+            )
+
+        else:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                result = response.json()
+
+            return JSONResponse(result)
+
+    except Exception as e:
+        logger.exception("Query model failed: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)

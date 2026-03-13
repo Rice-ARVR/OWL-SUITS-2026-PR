@@ -22,7 +22,6 @@ export function useOllama(model = "llama3.2") {
 
       if (!res.ok) {
         const text = await res.text();
-        // Try to parse server error JSON from FastAPI / Ollama proxy
         try {
           const json = JSON.parse(text) as { detail?: string; error?: string };
           const message = json.detail ?? json.error ?? text;
@@ -41,40 +40,44 @@ export function useOllama(model = "llama3.2") {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n").filter(Boolean);
+
+        const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
-        for (const line of lines) {
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+
+          if (!line) continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const data = line.slice(6).trim();
+
+          if (data === "[DONE]") {
+            break;
+          }
+
           try {
-            const json = JSON.parse(line) as { response?: string; error?: string };
-            if (json.error) {
-              setError(json.error);
+            const parsed = JSON.parse(data) as {
+              response?: string;
+              error?: string;
+              done?: boolean;
+            };
+
+            if (parsed.error) {
+              setError(parsed.error);
               setConnected(false);
               continue;
             }
-            if (json.response) setResponse((prev) => prev + json.response);
-            if (json.response && connected !== true) {
+
+            if (parsed.response) {
+              setResponse((prev) => prev + parsed.response);
               setConnected(true);
             }
-          } catch {
-            // skip malformed lines
+          } catch (e) {
+            console.error("Failed to parse SSE JSON:", data, e);
           }
-        }
-      }
-      if (buffer) {
-        try {
-          const json = JSON.parse(buffer) as { response?: string; error?: string };
-          if (json.error) {
-            setError(json.error);
-            setConnected(false);
-            return;
-          }
-          if (json.response) setResponse((prev) => prev + json.response);
-          if (json.response && connected !== true) {
-            setConnected(true);
-          }
-        } catch {
-          // skip
         }
       }
     } catch (err) {
@@ -88,5 +91,6 @@ export function useOllama(model = "llama3.2") {
   console.log("Ollama connection status:", connected);
   console.log("Ollama error:", error);
   console.log("Ollama response:", response);
+
   return { chat, response, loading, error, connected };
 }
