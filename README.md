@@ -1,8 +1,8 @@
 # OWL-SUITS-2026-PR
 
-Rice University's pressurized rover interface for the [NASA SUITS 2026 Challenge](https://www.nasa.gov/nasa-suits/).
+Rice University's pressurized rover interface for the [NASA SUITS 2026 Challenge](https://www.nasa.gov/learning-resources/spacesuit-user-interface-technologies-for-students/).
 
-NASA SUITS (Spacesuit User Interface Technologies for Students) is a challenge that tasks university teams with designing and building software interfaces for astronaut spacesuits and rovers. Our team, OWL, is building the pressurized rover (PR) interface — a dual-monitor display system used inside the rover during simulated lunar surface operations.
+NASA SUITS (Spacesuit User Interface Technologies for Students) is a challenge that tasks university teams with designing and building software interfaces for astronaut spacesuits and rovers. Our team, OWL SUITS, is building the pressurized rover (PR) interface — a dual-monitor display system used inside the rover during simulated lunar surface operations.
 
 The interface is designed to reduce astronaut cognitive load during high-stakes tasks. We validate this through human-in-the-loop testing grounded in HF (human factors) research, measuring how interface design choices affect operator performance and mental workload.
 
