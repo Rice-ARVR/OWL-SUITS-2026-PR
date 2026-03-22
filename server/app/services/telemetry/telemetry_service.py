@@ -6,6 +6,7 @@ from app.models.eva import EvaData
 from app.models.ltv import LtvData
 from app.models.ltv_errors import LtvErrorsData
 from app.models.rover import RoverData
+from app.services.telemetry.warning_service import check_and_broadcast
 from app.services.telemetry.tss_client import (
     COMMAND_EVA,
     COMMAND_LTV,
@@ -57,6 +58,11 @@ async def _poll_once() -> None:
         logger.error("Failed to fetch LTV ERRORS data: %s", ltv_errors_result)
     else:
         await ltv_errors_data.update(ltv_errors_result)
+    # check telemetry values against ranges and broadcast warnings over websocket if needed
+    await check_and_broadcast(
+        await eva_data.get_snapshot(),
+        await rover_data.get_snapshot(),
+    )
 
 
 async def _polling_loop() -> None:
