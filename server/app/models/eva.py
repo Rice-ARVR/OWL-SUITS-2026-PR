@@ -1,58 +1,61 @@
 import asyncio
+from typing import Annotated
 
 from pydantic import BaseModel
+
+from app.models.ranges import NominalRange
 
 
 # --- Pydantic schema ---
 
 class Eva1Telemetry(BaseModel):
-    primary_battery_level: float
-    secondary_battery_level: float
-    oxy_pri_storage: float
-    oxy_sec_storage: float
-    oxy_pri_pressure: float
-    oxy_sec_pressure: float
-    suit_pressure_oxy: float
-    suit_pressure_co2: float
-    suit_pressure_other: float
-    suit_pressure_total: float
-    helmet_pressure_co2: float
-    fan_pri_rpm: float
-    fan_sec_rpm: float
-    scrubber_a_co2_storage: float
-    scrubber_b_co2_storage: float
-    temperature: float
-    coolant_storage: float
-    coolant_gas_pressure: float
-    coolant_liquid_pressure: float
-    heart_rate: float
-    oxy_consumption: float
-    co2_production: float
+    primary_battery_level: Annotated[float, NominalRange(min=20, max=100)]
+    secondary_battery_level: Annotated[float, NominalRange(min=20, max=100)]
+    oxy_pri_storage: Annotated[float, NominalRange(min=20, max=100)]
+    oxy_sec_storage: Annotated[float, NominalRange(min=20, max=100)]
+    oxy_pri_pressure: Annotated[float, NominalRange(min=600, max=3000)]
+    oxy_sec_pressure: Annotated[float, NominalRange(min=600, max=3000)]
+    suit_pressure_oxy: Annotated[float, NominalRange(min=3.5, max=4.1, nominal=4.0)]
+    suit_pressure_co2: Annotated[float, NominalRange(min=0.0, max=0.1, nominal=0.0)]
+    suit_pressure_other: Annotated[float, NominalRange(min=0.0, max=0.5, nominal=0.0)]
+    suit_pressure_total: Annotated[float, NominalRange(min=3.5, max=4.5, nominal=4.0)]
+    helmet_pressure_co2: Annotated[float, NominalRange(min=0.0, max=0.15, nominal=0.0)]
+    fan_pri_rpm: Annotated[float, NominalRange(min=20000, max=30000, nominal=30000)]
+    fan_sec_rpm: Annotated[float, NominalRange(min=20000, max=30000, nominal=30000)]
+    scrubber_a_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
+    scrubber_b_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
+    temperature: Annotated[float, NominalRange(min=10, max=32, nominal=21)]
+    coolant_storage: Annotated[float, NominalRange(min=80, max=100, nominal=100)]
+    coolant_gas_pressure: Annotated[float, NominalRange(min=0, max=700, nominal=0)]
+    coolant_liquid_pressure: Annotated[float, NominalRange(min=100, max=700, nominal=500)]
+    heart_rate: Annotated[float, NominalRange(min=50, max=160)]
+    oxy_consumption: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
+    co2_production: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
     eva_elapsed_time: float
 
 
 class Eva2Telemetry(BaseModel):
-    battery_level: float
-    oxy_pri_storage: float
-    oxy_sec_storage: float
-    oxy_pri_pressure: float
-    oxy_sec_pressure: float
-    suit_pressure_oxy: float
-    suit_pressure_co2: float
-    suit_pressure_other: float
-    suit_pressure_total: float
-    helmet_pressure_co2: float
-    fan_pri_rpm: float
-    fan_sec_rpm: float
-    scrubber_a_co2_storage: float
-    scrubber_b_co2_storage: float
-    temperature: float
-    coolant_storage: float
-    coolant_gas_pressure: float
-    coolant_liquid_pressure: float
-    heart_rate: float
-    oxy_consumption: float
-    co2_production: float
+    battery_level: Annotated[float, NominalRange(min=20, max=100)]
+    oxy_pri_storage: Annotated[float, NominalRange(min=20, max=100)]
+    oxy_sec_storage: Annotated[float, NominalRange(min=20, max=100)]
+    oxy_pri_pressure: Annotated[float, NominalRange(min=600, max=3000)]
+    oxy_sec_pressure: Annotated[float, NominalRange(min=600, max=3000)]
+    suit_pressure_oxy: Annotated[float, NominalRange(min=3.5, max=4.1, nominal=4.0)]
+    suit_pressure_co2: Annotated[float, NominalRange(min=0.0, max=0.1, nominal=0.0)]
+    suit_pressure_other: Annotated[float, NominalRange(min=0.0, max=0.5, nominal=0.0)]
+    suit_pressure_total: Annotated[float, NominalRange(min=3.5, max=4.5, nominal=4.0)]
+    helmet_pressure_co2: Annotated[float, NominalRange(min=0.0, max=0.15, nominal=0.0)]
+    fan_pri_rpm: Annotated[float, NominalRange(min=20000, max=30000, nominal=30000)]
+    fan_sec_rpm: Annotated[float, NominalRange(min=20000, max=30000, nominal=30000)]
+    scrubber_a_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
+    scrubber_b_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
+    temperature: Annotated[float, NominalRange(min=10, max=32, nominal=21)]
+    coolant_storage: Annotated[float, NominalRange(min=80, max=100, nominal=100)]
+    coolant_gas_pressure: Annotated[float, NominalRange(min=0, max=700, nominal=0)]
+    coolant_liquid_pressure: Annotated[float, NominalRange(min=100, max=700, nominal=500)]
+    heart_rate: Annotated[float, NominalRange(min=50, max=160)]
+    oxy_consumption: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
+    co2_production: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
     eva_elapsed_time: float
 
 
