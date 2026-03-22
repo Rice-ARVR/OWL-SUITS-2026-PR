@@ -1,6 +1,9 @@
 import asyncio
+from typing import Annotated
 
 from pydantic import BaseModel
+
+from app.models.ranges import NominalRange
 
 
 # --- Pydantic schema ---
@@ -10,36 +13,36 @@ class PrTelemetry(BaseModel):
     cabin_cooling: bool
     lights_on: bool
     brakes: bool
-    throttle: float
-    steering: float
-    rover_pos_x: float
-    rover_pos_y: float
-    rover_pos_z: float
+    throttle: Annotated[float, NominalRange(min=0, max=100)]
+    steering: Annotated[float, NominalRange(min=-1, max=1)]
+    rover_pos_x: float # TODO: get min/max from DUST
+    rover_pos_y: float # TODO: get min/max from DUST
+    rover_pos_z: float # TODO: get min/max from DUST
     heading: float
-    pitch: float
-    roll: float
-    distance_traveled: float
-    speed: float
+    pitch: Annotated[float, NominalRange(min=-50, max=50)]
+    roll: Annotated[float, NominalRange(min=0, max=50)]
+    distance_traveled: Annotated[float, NominalRange(min=0)]
+    speed: Annotated[float, NominalRange(min=0, max=18)]
     sunlight: float
-    surface_incline: float
+    surface_incline: Annotated[float, NominalRange(min=-50, max=50)]
     lidar: list[float]
-    oxygen_storage: float
-    oxygen_pressure: float
-    cabin_pressure: float
-    cabin_temperature: float
+    oxygen_storage: Annotated[float, NominalRange(min=25, max=100)] 
+    oxygen_pressure: Annotated[float, NominalRange(min=2997, max=3000)]
+    cabin_pressure: Annotated[float, NominalRange(min=3.5, max=4.1, nominal=4.0)]
+    cabin_temperature: Annotated[float, NominalRange(min=10, max=21)]
     external_temp: float
-    coolant_pressure: float
-    coolant_storage: float
+    coolant_pressure: Annotated[float, NominalRange(min=495, max=501, nominal=500)]
+    coolant_storage: Annotated[float, NominalRange(min=80, max=100, nominal=100)]
     primary_battery_level: float
     secondary_battery_level: float
     rover_elapsed_time: float
     sim_running: bool
     dust_connected: bool
-    distance_from_base: float
-    oxygen_tank: float
-    battery_level: float
-    fan_pri_rpm: float
-    fan_sec_rpm: float
+    distance_from_base: Annotated[float, NominalRange(min=0, max=2500)]
+    oxygen_tank: Annotated[float, NominalRange(min=25, max=100)]
+    battery_level: Annotated[float, NominalRange(min=30, max=100)]
+    fan_pri_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
+    fan_sec_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
     scrubber_a_co2_storage: float
     scrubber_b_co2_storage: float
     cabin_temperature_target: float
