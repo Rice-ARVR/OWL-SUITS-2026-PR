@@ -2,17 +2,7 @@ import { useEffect, useState } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 
 import "./app.css";
-
-interface Warning {
-  source: string;
-  field: string;
-  value: number;
-  min: number | null;
-  max: number | null;
-  nominal: number | null;
-  out_of_range: boolean;
-  off_nominal: boolean;
-}
+import type { Warning } from "~/types/warning";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
