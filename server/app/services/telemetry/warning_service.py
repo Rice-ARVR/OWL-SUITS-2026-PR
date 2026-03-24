@@ -1,25 +1,14 @@
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 
 from app.core.ws_manager import WebSocketManager
 from app.models.eva import Eva1Telemetry, Eva2Telemetry, EvaSchema
 from app.models.ranges import NominalRange
 from app.models.rover import PrTelemetry, RoverSchema
+from app.models.warning import Warning
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Warning:
-    source: str        # "eva1", "eva2", "rover"
-    field: str
-    value: float
-    min: float | None
-    max: float | None
-    nominal: float | None
-    out_of_range: bool
-    off_nominal: bool  # in range but deviating from nominal
 
 
 manager = WebSocketManager()
