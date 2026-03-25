@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     POLL_INTERVAL: float = 1.0
     OLLAMA_URL: str = "http://localhost:11434"
 
+    MONGODB_URL: str
+    MONGO_DB: str = "app"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

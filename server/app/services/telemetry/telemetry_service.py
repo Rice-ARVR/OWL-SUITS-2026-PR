@@ -4,10 +4,13 @@ import logging
 from app.core.config import settings
 from app.models.eva import EvaData
 from app.models.ltv import LtvData
+from app.models.ltv_errors import LtvErrorsData
 from app.models.rover import RoverData
+from app.services.telemetry.warning_service import check_and_broadcast
 from app.services.telemetry.tss_client import (
     COMMAND_EVA,
     COMMAND_LTV,
+    COMMAND_LTV_ERRORS,
     COMMAND_ROVER,
     fetch_json,
 )
@@ -16,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 eva_data: EvaData | None = None
 ltv_data: LtvData | None = None
+ltv_errors_data: LtvErrorsData | None = None
 rover_data: RoverData | None = None
 
 _polling_task: asyncio.Task | None = None
@@ -24,14 +28,15 @@ _polling_task: asyncio.Task | None = None
 async def _poll_once() -> None:
     """Pulls Rover, EVA, and LTV Data from TSS once"""
 
-    # Fetch Rover, EVA, and LTV data at once
+    # Fetch Rover, EVA, LTV, and LTV Errors data at once
     results = await asyncio.gather(
         fetch_json(COMMAND_ROVER),
         fetch_json(COMMAND_EVA),
         fetch_json(COMMAND_LTV),
+        fetch_json(COMMAND_LTV_ERRORS),
         return_exceptions=True,
     )
-    rover_result, eva_result, ltv_result = results
+    rover_result, eva_result, ltv_result, ltv_errors_result = results
 
     # Error checking on fetch request
     if isinstance(rover_result, Exception):
@@ -48,6 +53,16 @@ async def _poll_once() -> None:
         logger.error("Failed to fetch LTV data: %s", ltv_result)
     else:
         await ltv_data.update(ltv_result)
+
+    if isinstance(ltv_errors_result, Exception):
+        logger.error("Failed to fetch LTV ERRORS data: %s", ltv_errors_result)
+    else:
+        await ltv_errors_data.update(ltv_errors_result)
+    # check telemetry values against ranges and broadcast warnings over websocket if needed
+    await check_and_broadcast(
+        await eva_data.get_snapshot(),
+        await rover_data.get_snapshot(),
+    )
 
 
 async def _polling_loop() -> None:
@@ -70,10 +85,11 @@ async def start_polling() -> None:
     """Creates and starts updating global TSS data objects"""
 
     # Initializes global representations of the pulled data
-    global eva_data, ltv_data, rover_data, _polling_task
+    global eva_data, ltv_data, ltv_errors_data, rover_data, _polling_task
 
     eva_data = EvaData()
     ltv_data = LtvData()
+    ltv_errors_data = LtvErrorsData()
     rover_data = RoverData()
 
     # Starts polling task
