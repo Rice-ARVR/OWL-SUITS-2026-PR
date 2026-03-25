@@ -32,5 +32,4 @@ app.add_middleware(
 # Include Routers Here:
 app.include_router(tss_example_router)
 app.include_router(locations_router)
-app.include_router(rover_control_router)
 app.include_router(warnings_router)
