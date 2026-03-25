@@ -40,6 +40,37 @@ git checkout -b 12-add-navigation-router
 
 Always branch off of an up-to-date `main`. Never work directly on `main`.
 
+### Updating your branch from main
+Let's say someone added some changes to `main` that you need in your branch. 
+
+Follow these steps:
+
+0. Open terminal in the repo (Terminal>New Terminal on top left of VSCode)
+1. Switch to your branch (if not already in branch)
+```bash
+git checkout your-branch-name
+```
+2. Fetch the latest changes from main
+```bash
+git fetch origin
+```
+  
+3. Rebase your branch onto main
+```bash
+git rebase origin/main
+```
+
+
+4. Resolve any conflicts in VS Code that might occur during the rebase
+5. Continue rebase after resolving conflicts (if no conflicts occur, skip this step)
+```bash
+git rebase --continue
+```
+6. Force push your branch to update the remote branch's history
+```bash
+git push origin your-branch-name --force
+```
+
 ---
 
 ## Commits
