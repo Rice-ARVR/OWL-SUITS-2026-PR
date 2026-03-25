@@ -10,11 +10,44 @@ COMMAND_ROVER = 0
 COMMAND_EVA = 1
 COMMAND_LTV = 2
 COMMAND_LTV_ERRORS = 3
+COMMAND_BRAKES = 1107
+COMMAND_THROTTLE = 1109
+COMMAND_STEERING = 1110
 
 
 def _build_packet(command: int) -> bytes:
     """Prepares packet of data to send over network"""
     return struct.pack(">II", int(time.time()), command)
+
+
+def _build_control_packet(command: int, value: float) -> bytes:
+    """Prepares a control packet with command and float value."""
+    return struct.pack(">IIf", int(time.time()), command, value)
+
+
+def _send_command(host: str, port: int, packet: bytes, timeout: float) -> None:
+    """Sends a UDP packet without demanding a reply."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(timeout)
+        sock.sendto(packet, (host, port))
+
+
+def send_brakes(value: float) -> None:
+    """Send brakes control to TSS server."""
+    packet = _build_control_packet(COMMAND_BRAKES, value)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
+
+
+def send_throttle(value: float) -> None:
+    """Send throttle control to TSS server."""
+    packet = _build_control_packet(COMMAND_THROTTLE, value)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
+
+
+def send_steering(value: float) -> None:
+    """Send steering control to TSS server."""
+    packet = _build_control_packet(COMMAND_STEERING, value)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
 
 
 def _send_and_receive(host: str, port: int, packet: bytes, timeout: float) -> bytes:

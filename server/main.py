@@ -8,6 +8,8 @@ from app.routers.locations import router as locations_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
 from app.db.database import connect, disconnect
 
+from app.routers.rover_control import router as rover_control_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,9 +25,10 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
 )
 
 # Include Routers Here:
 app.include_router(tss_example_router)
 app.include_router(locations_router)
+app.include_router(rover_control_router)
