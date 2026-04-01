@@ -1,15 +1,8 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from typing import Annotated
+from app.models.rover_control_request import RoverControlRequest
 from app.services.rover_control_service import send_rover_command
 
 router = APIRouter()
-
-
-class RoverControlRequest(BaseModel):
-    throttle: Annotated[float, Field(ge=-100.0, le=100.0)] = 0.0
-    steering: Annotated[float, Field(ge=-1.0, le=1.0)] = 0.0
-    brakes: Annotated[float, Field(ge=0.0, le=1.0)] = 0.0
 
 
 @router.post("/rover/control")
