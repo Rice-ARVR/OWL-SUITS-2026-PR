@@ -54,6 +54,9 @@ export default function App() {
                 [{w.source}] {w.field}: {w.value}
                 {w.out_of_range && ` (range: ${w.min} – ${w.max})`}
                 {w.off_nominal && ` (nominal: ${w.nominal})`}
+                {w.reason && (
+                  <div style={{ color: "#ccc", fontSize: 11, marginTop: 2 }}>{w.reason}</div>
+                )}
               </li>
             ))}
           </ul>
