@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-
 import styles from "../examples/TssExample.module.css";
 
 interface TssData {
@@ -28,8 +27,16 @@ export default function WASDControls() {
   const [data, setData] = useState<TssData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [brakes, setBrakes] = useState<number>(1.0);
+
+  // State for UI rendering
   const [throttle, setThrottle] = useState<number>(0.0);
   const [steering, setSteering] = useState<number>(0.0);
+
+  // Refs to allow the interval to read the latest values without
+  // adding them to the useEffect dependency array
+  const throttleRef = useRef<number>(0.0);
+  const steeringRef = useRef<number>(0.0);
+
   const pressedKeys = useRef<Set<string>>(new Set());
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -45,8 +52,9 @@ export default function WASDControls() {
   };
 
   const updateControls = () => {
-    let newThrottle = throttle;
-    let newSteering = steering;
+    // Read from refs instead of state
+    let newThrottle = throttleRef.current;
+    let newSteering = steeringRef.current;
 
     if (pressedKeys.current.has("w")) {
       newThrottle = Math.min(100.0, newThrottle + 10);
@@ -61,16 +69,25 @@ export default function WASDControls() {
       newSteering = Math.min(1.0, newSteering + 0.1);
     }
 
-    if (newThrottle !== throttle || newSteering !== steering) {
+    if (
+      newThrottle !== throttleRef.current ||
+      newSteering !== steeringRef.current
+    ) {
+      // Update refs
+      throttleRef.current = newThrottle;
+      steeringRef.current = newSteering;
+
+      // Update UI state
       setThrottle(newThrottle);
       setSteering(newSteering);
+
       sendControl(newThrottle, newSteering);
     }
   };
 
   const startInterval = () => {
     if (!intervalRef.current) {
-      intervalRef.current = setInterval(updateControls, 400);
+      intervalRef.current = setInterval(updateControls, 100);
     }
   };
 
@@ -96,6 +113,7 @@ export default function WASDControls() {
       const key = event.key.toLowerCase();
       if (["w", "a", "s", "d", "e"].includes(key)) {
         event.preventDefault();
+
         if (key === "e") {
           if (event.repeat) return;
           setBrakes((prevBrakes) => {
@@ -110,7 +128,16 @@ export default function WASDControls() {
             return nextBrakes;
           });
         } else {
+          // Ignore OS auto-repeat for WASD keys
+          // (Our setInterval handles the holding logic)
+          if (event.repeat) return;
+
           pressedKeys.current.add(key);
+
+          // 1. Immediate change upon press
+          updateControls();
+
+          // 2. Start repeating every 400ms while held
           startInterval();
         }
       }
@@ -135,7 +162,7 @@ export default function WASDControls() {
       clearInterval(telemetryInterval);
       stopInterval();
     };
-  }, [throttle, steering]);
+  }, []); // <-- Empty dependency array ensures listeners aren't destroyed on value updates
 
   if (error) return <p className={styles.error}>{error}</p>;
   if (!data) return <p className={styles.loading}>Loading...</p>;
