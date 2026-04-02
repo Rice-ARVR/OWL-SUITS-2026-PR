@@ -1,6 +1,4 @@
 // Utility for reading PS5 DualSense gamepad state via the Web Gamepad API.
-// The browser only exposes gamepad data through polling — there are no events
-// for axis changes, so callers must poll this on every animation frame.
 
 export interface PS5State {
   throttle: number; // -100 to 100
@@ -9,12 +7,9 @@ export interface PS5State {
   connected: boolean;
 }
 
-// Axis indices on a PS5 DualSense (standard mapping)
-const AXIS_LEFT_Y = 1;  // Left stick vertical    → throttle (up = negative)
+const AXIS_LEFT_Y = 1; // Left stick vertical → throttle
 const AXIS_RIGHT_X = 2; // Right stick horizontal → steering
-
-// Button indices on a PS5 DualSense (standard mapping)
-const BUTTON_L2 = 6; // L2 trigger (analog 0–1) → brakes
+const BUTTON_L2 = 6; // L2 trigger → brakes
 
 // Ignore axis input below this threshold to prevent stick drift.
 const DEADZONE = 0.08;
@@ -36,6 +31,7 @@ export function readPS5State(): PS5State {
     return { throttle: 0, steering: 0, brakes: 1.0, connected: false };
   }
 
+  // Read raw hardware values
   const rawSteerAxis = gamepad.axes[AXIS_RIGHT_X] ?? 0;
   const rawThrottleAxis = gamepad.axes[AXIS_LEFT_Y] ?? 0;
   const l2Value = gamepad.buttons[BUTTON_L2]?.value ?? 0;
