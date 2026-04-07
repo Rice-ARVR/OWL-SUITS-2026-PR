@@ -77,21 +77,31 @@ If you have a Mac, then you can't run DUST at the moment. We are currently figur
 
 ## Setting up our rover interface for development
 Our interface has a back-end (contained in [`/server`](/server) folder) and a front-end (contained in [`/client`](/client) folder).
-- back-end handles all TSS connections, navigation algos, telemetry data, warnings, and other backend logic
-- front-end actually runs our interface website
 
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VS Code extension.
+Back-end handles all TSS connections, navigation algos, telemetry data, warnings, and other backend logic.
+
+Front-end actually runs our interface website
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VS Code extension. **Make sure Docker Desktop is running before proceeding to the next step!**
 2. Clone the repo.
-3. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
+3. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the VS Code command palette).
 4. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically via `postCreateCommand`.
-5. Open a terminal window, and start running the backend server with FastAPI
+5. Make a new file called `.env` in `server`, and paste the following contents inside it. Replace `TSS_HOST` with the TSS IP (without the port). Replace `MONGODB_URL` with the URL in our secrets doc [here](https://docs.google.com/document/d/1GB9PZO9CKcKTO5EB2WIfzqwH7wHggEAKAZEkM3onnzA/edit?tab=t.ye7rhscwk00a) (you must be in the AR/VR Club Google Drive to access it).
+  - *Alternatively, you can run a local MongoDB instance by following [this guide](https://github.com/Rice-ARVR/OWL-SUITS-2026-PR/blob/main/docs/local-mongodb.md).*
+
+```env
+TSS_HOST=172.20.XXX.XXX
+MONGODB_URL=mongodb://localhost:27017
+```
+
+6. Open a terminal window, and start running the backend server with FastAPI
 
 ```bash
 cd server
 uv run fastapi dev main.py --host 0.0.0.0
 ```
 
-6. Open another terminal window, and start running the frontend client with React
+7. Open another terminal window, and start running the frontend client with React
 
 ```bash
 cd client
@@ -104,7 +114,11 @@ You can navigate to different routes configured in the frontend by adding the ro
 
 For example, we have a `tss_example` route, so go to `http://localhost:5173/tss_example` to open this page.
 
-You are now ready to start working with our codebase! Feel free to continue reading if you're interested in learning how our dev environment is set up.
+You are now ready to start working with our codebase!
+
+**Next step**: read [example.md](https://github.com/Rice-ARVR/OWL-SUITS-2026-PR/blob/main/docs/example.md) for a walkthrough on an example feature!
+
+_Feel free to continue reading if you're interested in learning how our dev environment is set up._
 
 ---
 
