@@ -1,38 +1,39 @@
 import { useEffect, useRef, useState } from "react";
-import { readPS5State, type PS5State } from "../../lib/ps5_controller";
-import styles from "../examples/TssExample.module.css";
+import { readGamepadState, type GamepadState } from "./gamepad_controller";
+import styles from "../../examples/TssExample.module.css";
 
-// Minimum time between API calls, in milliseconds (20 Hz).
+// Minimum time between API calls.
 const SEND_INTERVAL_MS = 50;
 
-// Only send a new command when a value has changed by at least this much.
+// Set command thresholds.
 const THROTTLE_THRESHOLD = 1; // out of 100
 const STEERING_THRESHOLD = 0.01; // out of 1.0
 const BRAKES_THRESHOLD = 0.01; // out of 1.0
 
 // Safe default state used when the controller is disconnected.
-const DISCONNECTED_STATE: PS5State = {
+const DISCONNECTED_STATE: GamepadState = {
   throttle: 0,
   steering: 0,
   brakes: 1.0,
   connected: false,
+  hardwareError: null,
 };
 
-export default function PS5Controls() {
+export default function GamepadControls() {
   const [connected, setConnected] = useState(false);
   const [throttle, setThrottle] = useState(0);
   const [steering, setSteering] = useState(0);
   const [brakes, setBrakes] = useState(1.0);
 
-  // Refs track values that need to persist across animation frames without
-  // triggering re-renders.
-  const prevSentRef = useRef<PS5State>(DISCONNECTED_STATE); // last state sent to the API
-  const lastSendTimeRef = useRef<number>(0);                // rAF timestamp of last send
-  const rafRef = useRef<number | null>(null);               // handle for the rAF loop
+  // Refs track values that need to persist across animation frames without triggering re-renders.
+  const prevSentRef = useRef<GamepadState>(DISCONNECTED_STATE); // last state sent to the API
+  const lastSendTimeRef = useRef<number>(0); // rAF timestamp of last send
+  const rafRef = useRef<number | null>(null); // handle for the rAF loop
+  const prevHardwareErrorRef = useRef<string | null>(null); // last logged hardware error
 
   const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-  const sendControl = (state: PS5State) => {
+  const sendControl = (state: GamepadState) => {
     void fetch(`${apiUrl}/rover/control`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -50,12 +51,27 @@ export default function PS5Controls() {
   // frame and fires an API call when values change beyond the dead-zone thresholds.
   useEffect(() => {
     const poll = (timestamp: number) => {
-      const state = readPS5State();
+      const state = readGamepadState();
       const prev = prevSentRef.current;
 
       setConnected(state.connected);
 
       if (state.connected) {
+        // Log when controller first connects.
+        if (!prev.connected) {
+          console.log("Controller connected");
+        }
+
+        // Log hardware faults on transition (new error, cleared error, or changed error).
+        if (state.hardwareError !== prevHardwareErrorRef.current) {
+          if (state.hardwareError !== null) {
+            console.error("Controller hardware fault:", state.hardwareError);
+          } else {
+            console.log("Controller hardware fault cleared");
+          }
+          prevHardwareErrorRef.current = state.hardwareError;
+        }
+
         // Check whether any axis has moved past its dead-zone threshold.
         const throttleChanged =
           Math.abs(state.throttle - prev.throttle) >= THROTTLE_THRESHOLD;
@@ -81,6 +97,8 @@ export default function PS5Controls() {
           sendControl(state);
         }
       } else if (prev.connected) {
+        console.log("Controller disconnected");
+
         // Gamepad just disconnected — apply brakes as a safety measure.
         const safeState = { ...DISCONNECTED_STATE };
         prevSentRef.current = safeState;
@@ -104,7 +122,7 @@ export default function PS5Controls() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>PS5 Controller</h1>
+      <h1 className={styles.title}>Gamepad Controller</h1>
       <p>
         Status: <strong>{connected ? "Connected" : "Disconnected"}</strong>
         {!connected && (
@@ -114,15 +132,15 @@ export default function PS5Controls() {
       <table className={styles.table}>
         <tbody>
           <tr>
-            <td>Throttle (left stick Y)</td>
+            <td>Throttle (left stick vertical)</td>
             <td>{throttle}</td>
           </tr>
           <tr>
-            <td>Steering (left stick X)</td>
+            <td>Steering (right stick horizontal)</td>
             <td>{steering.toFixed(2)}</td>
           </tr>
           <tr>
-            <td>Brakes (L2)</td>
+            <td>Brakes (left trigger)</td>
             <td>{brakes.toFixed(2)}</td>
           </tr>
         </tbody>

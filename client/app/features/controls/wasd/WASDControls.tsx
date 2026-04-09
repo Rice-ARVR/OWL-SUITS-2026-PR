@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import styles from "../examples/TssExample.module.css";
+import styles from "../../examples/TssExample.module.css";
 
 interface TssData {
   eva_heart_rate: number;
