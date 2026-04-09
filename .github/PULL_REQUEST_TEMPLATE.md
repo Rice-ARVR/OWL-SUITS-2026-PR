@@ -1,6 +1,6 @@
 ---
 name: Pull Request
-title: "type: "
+title: "type: (#issue)"
 ---
 
 ## Summary
