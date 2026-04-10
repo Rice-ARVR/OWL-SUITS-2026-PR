@@ -32,6 +32,13 @@ export default function WASDControls() {
   const [throttle, setThrottle] = useState<number>(0.0);
   const [steering, setSteering] = useState<number>(0.0);
 
+  // --- DEBUG: TSS echo check — remove when done testing ---
+  const [tssEcho, setTssEcho] = useState<{
+    throttle: number | null;
+    steering: number | null;
+    brakes: boolean | null;
+  } | null>(null);
+
   // Refs to allow the interval to read the latest values without
   // adding them to the useEffect dependency array
   const throttleRef = useRef<number>(0.0);
@@ -41,16 +48,22 @@ export default function WASDControls() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-  const sendControl = (newThrottle: number, newSteering: number) => {
+  // Send rover control command to TSS.
+  const sendControl = (payload: {
+    throttle?: number;
+    steering?: number;
+    brakes?: number;
+  }) => {
     void fetch(`${apiUrl}/rover/control`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ throttle: newThrottle, steering: newSteering }),
+      body: JSON.stringify(payload),
     }).catch((err) => {
       console.error("Failed to send control command:", err);
     });
   };
 
+  // Updates control state.
   const updateControls = () => {
     // Read from refs instead of state
     let newThrottle = throttleRef.current;
@@ -69,10 +82,11 @@ export default function WASDControls() {
       newSteering = Math.min(1.0, newSteering + 0.1);
     }
 
-    if (
-      newThrottle !== throttleRef.current ||
-      newSteering !== steeringRef.current
-    ) {
+    const throttleChanged = newThrottle !== throttleRef.current;
+    const steeringChanged = newSteering !== steeringRef.current;
+
+    // Render changes in throttle and steering.
+    if (throttleChanged || steeringChanged) {
       // Update refs
       throttleRef.current = newThrottle;
       steeringRef.current = newSteering;
@@ -81,10 +95,14 @@ export default function WASDControls() {
       setThrottle(newThrottle);
       setSteering(newSteering);
 
-      sendControl(newThrottle, newSteering);
+      const payload: { throttle?: number; steering?: number } = {};
+      if (throttleChanged) payload.throttle = newThrottle;
+      if (steeringChanged) payload.steering = newSteering;
+      sendControl(payload);
     }
   };
 
+  // Set interval logic to handle key holding.
   const startInterval = () => {
     if (!intervalRef.current) {
       intervalRef.current = setInterval(updateControls, 100);
@@ -98,6 +116,33 @@ export default function WASDControls() {
     }
   };
 
+  // Syncs UI with TSS server readings of rover state.
+  useEffect(() => {
+    fetch(`${apiUrl}/rover/state`)
+      .then((res) => res.json())
+      .then(
+        (state: {
+          throttle: number | null;
+          steering: number | null;
+          brakes: boolean | null;
+        }) => {
+          if (state.throttle != null) {
+            throttleRef.current = state.throttle;
+            setThrottle(state.throttle);
+          }
+          if (state.steering != null) {
+            steeringRef.current = state.steering;
+            setSteering(state.steering);
+          }
+          if (state.brakes != null) {
+            setBrakes(state.brakes ? 1.0 : 0.0);
+          }
+        },
+      )
+      .catch(() => {});
+  }, []);
+
+  // Starts 3 polling loops (Telemetry, TSS echo, and keyboard input handling)
   useEffect(() => {
     const fetchTelemetry = () => {
       fetch(`${apiUrl}/tss_example`)
@@ -107,8 +152,23 @@ export default function WASDControls() {
     };
 
     fetchTelemetry();
+
+    // 1. Start Telemetry Polling.
     const telemetryInterval = setInterval(fetchTelemetry, 1000);
 
+    const fetchTssEcho = () => {
+      fetch(`${apiUrl}/rover/state`)
+        .then((res) => res.json())
+        .then(setTssEcho)
+        .catch(() => {});
+    };
+
+    fetchTssEcho();
+
+    // 2. Starts TSS Echo polling.
+    const tssEchoInterval = setInterval(fetchTssEcho, 1000);
+
+    // 3. Start Key pressing polling.
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if (["w", "a", "s", "d", "e"].includes(key)) {
@@ -118,18 +178,11 @@ export default function WASDControls() {
           if (event.repeat) return;
           setBrakes((prevBrakes) => {
             const nextBrakes = prevBrakes === 1.0 ? 0.0 : 1.0;
-            void fetch(`${apiUrl}/rover/control`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ brakes: nextBrakes }),
-            }).catch((err) => {
-              console.error("Failed to send brakes command:", err);
-            });
+            sendControl({ brakes: nextBrakes });
             return nextBrakes;
           });
         } else {
           // Ignore OS auto-repeat for WASD keys
-          // (Our setInterval handles the holding logic)
           if (event.repeat) return;
 
           pressedKeys.current.add(key);
@@ -160,9 +213,10 @@ export default function WASDControls() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       clearInterval(telemetryInterval);
+      clearInterval(tssEchoInterval);
       stopInterval();
     };
-  }, []); // <-- Empty dependency array ensures listeners aren't destroyed on value updates
+  }, []);
 
   if (error) return <p className={styles.error}>{error}</p>;
   if (!data) return <p className={styles.loading}>Loading...</p>;
@@ -173,6 +227,11 @@ export default function WASDControls() {
       <p>Press E to toggle brakes (currently: {brakes === 1 ? "ON" : "OFF"})</p>
       <p>
         WASD: Throttle {throttle.toFixed(0)}, Steering {steering.toFixed(1)}
+      </p>
+      <p>
+        TSS Echo: Throttle {tssEcho?.throttle?.toFixed(0) ?? "?"}, Steering{" "}
+        {tssEcho?.steering?.toFixed(1) ?? "?"}, Brakes{" "}
+        {tssEcho == null ? "?" : tssEcho.brakes ? "ON" : "OFF"}
       </p>
       <table className={styles.table}>
         <tbody>
