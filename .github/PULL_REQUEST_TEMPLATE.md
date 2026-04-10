@@ -39,5 +39,6 @@ Closes #
 
 - [ ] PR title follows naming convention (`type: short description`)
 - [ ] Rebased off of latest `main` before opening PR
+- [ ] Ran `make format`
 - [ ] No unintended files or changes included
 - [ ] PR is ready for admin review
