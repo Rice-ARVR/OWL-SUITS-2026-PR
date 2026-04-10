@@ -29,7 +29,10 @@ def _send_command(host: str, port: int, packet: bytes, timeout: float) -> None:
     """Sends a UDP packet without demanding a reply."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.settimeout(timeout)
-        sock.sendto(packet, (host, port))
+        try:
+            sock.sendto(packet, (host, port))
+        except OSError:
+            pass
 
 
 def send_brakes(value: float) -> None:
