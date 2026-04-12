@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.rag.rag_service import build_rag_prompt, get_raw_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -113,6 +114,82 @@ async def generate(request: GenerateRequest):
 
     except Exception as e:
         logger.exception("Ollama generate failed: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+class RagQueryRequest(BaseModel):
+    model: str = "llama3.2"
+    question: str
+    stream: bool = True
+
+
+@router.get("/ollama/rag-context")
+async def rag_context():
+    """Returns the current TSS context that will be injected into RAG queries. Use for debugging."""
+    return JSONResponse({"context": get_raw_context()})
+
+
+@router.post("/ollama/rag-query")
+async def rag_query(request: RagQueryRequest):
+    """Ask a question about live TSS telemetry data using RAG context injection."""
+    system_prompt, prompt = build_rag_prompt(request.question)
+    payload = {
+        "model": request.model,
+        "system": system_prompt,
+        "prompt": prompt,
+        "stream": request.stream,
+    }
+
+    logger.info(
+        "Ollama rag-query: model=%s question_len=%d stream=%s",
+        request.model,
+        len(request.question),
+        request.stream,
+    )
+
+    try:
+        if request.stream:
+
+            async def stream_rag():
+                async with httpx.AsyncClient(timeout=None) as client:
+                    async with client.stream("POST", url, json=payload) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            if line:
+                                try:
+                                    chunk = json.loads(line)
+                                    yield f"data: {json.dumps(chunk)}\n\n"
+                                    if chunk.get("done", False):
+                                        yield "data: [DONE]\n\n"
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+
+            return StreamingResponse(
+                stream_rag(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                },
+            )
+
+        else:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+                result = response.json()
+
+            return JSONResponse(
+                {
+                    "model": request.model,
+                    "response": result.get("response", ""),
+                    "done": result.get("done", True),
+                }
+            )
+
+    except Exception as e:
+        logger.exception("Ollama rag-query failed: %s", e)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
