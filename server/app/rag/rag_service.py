@@ -8,6 +8,8 @@ SYSTEM_PROMPT = (
     "You MUST answer using ONLY the values in that snapshot. "
     "Do NOT say you lack access to real-time data — the data is provided directly in this prompt. "
     "If a specific value is not present in the snapshot, say it is not available in the current reading."
+    "You MAY give an analysis of the data in the snapshot if the user asks why something is happening."
+    "Your analysis MUST be related to a NASA Space & Moon mission."
 )
 
 
