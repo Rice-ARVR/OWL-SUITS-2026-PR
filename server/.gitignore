@@ -5,4 +5,4 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .env
-app/rag/tss_context.txt
+app/services/rag/tss_context.txt

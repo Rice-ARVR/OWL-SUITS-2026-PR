@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.rag.rag_service import build_rag_prompt, get_raw_context
+from app.services.rag.rag_service import build_rag_prompt, get_raw_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

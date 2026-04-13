@@ -6,7 +6,7 @@ from app.models.eva import EvaData
 from app.models.ltv import LtvData
 from app.models.ltv_errors import LtvErrorsData
 from app.models.rover import RoverData
-from app.rag.context_builder import build_and_save_context
+from app.services.rag.context_builder import build_and_save_context
 from app.services.telemetry.warning_service import check_and_broadcast
 from app.services.telemetry.tss_client import (
     COMMAND_EVA,
