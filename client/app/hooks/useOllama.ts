@@ -14,10 +14,10 @@ export function useOllama(model = "llama3.2") {
     setError(null);
 
     try {
-      const res = await fetch(`${apiUrl}/ollama/generate`, {
+      const res = await fetch(`${apiUrl}/ollama/rag-query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt, stream: true }),
+        body: JSON.stringify({ model, question: prompt, stream: true }),
       });
 
       if (!res.ok) {
