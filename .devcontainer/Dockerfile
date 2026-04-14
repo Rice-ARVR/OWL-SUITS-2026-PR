@@ -1,3 +1,6 @@
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
+RUN apt-get update && apt-get install -y git curl make \
 # Stage 1: Ollama with model baked in
 FROM ollama/ollama AS ollama
 RUN apt-get update && apt-get install -y curl

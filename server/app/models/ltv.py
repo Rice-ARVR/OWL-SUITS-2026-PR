@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 # --- Pydantic schema ---
 
+
 class LtvLocation(BaseModel):
     last_known_x: float
     last_known_y: float
@@ -22,6 +23,7 @@ class LtvSchema(BaseModel):
 
 
 # --- Wrapper ---
+
 
 class LtvData:
     def __init__(self) -> None:

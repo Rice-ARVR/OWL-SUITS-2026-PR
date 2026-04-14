@@ -10,6 +10,7 @@ from app.routers.tss_example import router as tss_example_router
 from app.core.config import settings
 from app.routers.locations import router as locations_router
 from app.routers.warnings import router as warnings_router
+from app.routers.rover_control import router as rover_control_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
 from app.db.database import connect, disconnect
 
@@ -42,7 +43,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["*", "POST"],
 )
 
 # Include Routers Here:
@@ -50,3 +51,4 @@ app.include_router(ollama_router)
 app.include_router(tss_example_router)
 app.include_router(locations_router)
 app.include_router(warnings_router)
+app.include_router(rover_control_router)

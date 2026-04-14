@@ -1,0 +1,9 @@
+/** @type {import("prettier").Config} */
+export default {
+    printWidth: 100,
+    tabWidth: 4,
+    semi: true,
+    singleQuote: false,
+    trailingComma: "all",
+    bracketSpacing: true,
+};
