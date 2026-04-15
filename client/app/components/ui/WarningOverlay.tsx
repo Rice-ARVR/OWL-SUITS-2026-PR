@@ -29,7 +29,7 @@ export default function WarningOverlay() {
       <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none" }}>
         {warnings.map((w, i) => (
           <li key={i} style={{ color: w.out_of_range ? "#f66" : "#fa0", fontSize: 13, marginTop: 6 }}>
-            [{w.source}] {w.field}: {w.value}
+            [{w.source}] {w.field}: {Number(w.value).toFixed(2)}
             {w.out_of_range && ` (range: ${w.min} – ${w.max})`}
             {w.off_nominal && ` (nominal: ${w.nominal})`}
           </li>
