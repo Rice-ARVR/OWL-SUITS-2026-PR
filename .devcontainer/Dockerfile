@@ -1,20 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
-
-RUN apt-get update && apt-get install -y git curl make \
-# Stage 1: Ollama with model baked in
-FROM ollama/ollama AS ollama
-RUN apt-get update && apt-get install -y curl
-RUN /bin/ollama serve & \
-    SERVER_PID=$! && \
-    until curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do \
-      echo 'Waiting for Ollama...' && sleep 2; \
-    done && \
-    ollama pull llama3.2 && \
-    kill $SERVER_PID
-EXPOSE 11434
-CMD ["ollama", "serve"]
-
-# Stage 2: FastAPI server
+# Stage 1: FastAPI server
 FROM python:3.13-slim AS server
 WORKDIR /app
 COPY server/ .
