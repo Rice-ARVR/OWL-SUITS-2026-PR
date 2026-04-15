@@ -61,6 +61,7 @@ client/
 ## Key Conventions
 
 ### Routes are thin
+
 Route files in `routes/` handle only data loading (`loader`) and actions (`action`), then hand off rendering to the matching feature view:
 
 ```tsx
@@ -68,18 +69,22 @@ Route files in `routes/` handle only data loading (`loader`) and actions (`actio
 import { MapView } from "~/features/map/MapView";
 
 export async function loader() {
-  return { /* map data */ };
+    return {
+        /* map data */
+    };
 }
 
 export default function MapRoute() {
-  return <MapView />;
+    return <MapView />;
 }
 ```
 
 ### Features are self-contained
+
 This app runs across three monitors, each mapped to a route. Because each monitor's components are only relevant to that monitor, all component files, subcomponents, and hooks live inside their respective feature folder. Do not move something to `components/` unless a second feature needs it.
 
 ### Promotion rule
+
 Start co-located inside a feature. Promote to `components/` only when genuinely shared across two or more features.
 
 ```
@@ -93,12 +98,15 @@ features/map/
 ```
 
 ### Feature-specific types stay in the feature
+
 Only types shared across multiple features belong in `types/index.ts`. Types like `TaskCard` props or internal map state stay inside their feature folder.
 
 ### `lib/` is framework-free
+
 No JSX, no React hooks. Pure TypeScript utilities only — API clients, date formatters, the `cn()` Tailwind helper, etc.
 
 ## Styling
+
 CSS Modules are used for component-level styling. Each component has a co-located `.module.css` file:
 
 ```
@@ -120,14 +128,14 @@ Global CSS custom properties (colors, spacing tokens) are defined in `app.css` a
 ```css
 /* app.css */
 :root {
-  --color-primary: #3b82f6;
-  --panel-bg: #1a1a2e;
+    --color-primary: #3b82f6;
+    --panel-bg: #1a1a2e;
 }
 ```
 
 ```css
 /* MapView.module.css */
 .container {
-  background: var(--panel-bg);
+    background: var(--panel-bg);
 }
 ```

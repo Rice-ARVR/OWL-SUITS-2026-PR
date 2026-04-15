@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 # --- Pydantic schema ---
 
+
 class ErrorProcedure(BaseModel):
     code: str
     description: str
@@ -17,6 +18,7 @@ class LtvErrorsSchema(BaseModel):
 
 
 # --- Wrapper ---
+
 
 class LtvErrorsData:
     def __init__(self) -> None:

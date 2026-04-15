@@ -10,3 +10,6 @@ dependencies = [
     "pymongo[srv]>=4.0",
     "uvicorn>=0.41.0",
 ]
+
+[dependency-groups]
+dev = ["ruff>=0.9"]

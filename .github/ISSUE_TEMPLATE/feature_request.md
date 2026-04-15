@@ -1,20 +1,37 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
-title: ''
-labels: ''
-assignees: ''
-
+name: Feature Request
+about: Propose a new feature or enhancement
+title: "feat: "
+labels: feat
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Summary
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+<!-- A brief description of the feature -->
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Motivation
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+<!-- Why is this needed? What problem does it solve? -->
+
+## Proposed Solution
+
+<!-- How should it work? -->
+
+## Acceptance Criteria
+
+- [ ] Feature works end-to-end as described in the proposed solution
+- [ ] Edge cases are handled
+- [ ] Tests are written and passing
+- [ ] Docs updated if applicable
+
+## Additional Context
+
+<!-- Mockups, references, related issues -->
+
+## Branch Naming
+
+<!-- Create your branch using the following format before starting work -->
+
+`feat/issuenum-description-netid`
+
+**Example:** `feat/67-user-authentication-ch185`

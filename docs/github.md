@@ -1,73 +1,79 @@
-# GitHub Guide
+Here's the updated guide:
 
-## GitHub Projects
+---
 
-All work is tracked in our **GitHub Project board**. Before writing any code, find your task on the board. Each card corresponds to a GitHub Issue — the issue number is what you'll use to name your branch.
+# Contributing Guide
 
-Check the board to:
-- See what's assigned to you
-- Move your card from **Todo → In Progress** when you start
+## Table of Contents
+
+1. [Project Board](#project-board)
+2. [Issues](#issues)
+3. [Branches](#branches)
+4. [Commits](#commits)
+5. [Pull Requests](#pull-requests)
+6. [Code Review](#code-review)
+7. [Merging](#merging)
+
+---
+
+## Project Board
+
+All work is tracked in our **GitHub Project board**. Before writing any code, find your task on the board.
+
+- Move your card **Todo → In Progress** when you start
 - Move it to **In Review** when you open a PR
 - It moves to **Done** automatically when the PR is merged
 
 ---
 
+## Issues
+
+Always open an issue before starting any work. Use the appropriate issue template and follow the type labels below:
+
+| Type       | When to use                              |
+| ---------- | ---------------------------------------- |
+| `feat`     | New feature or enhancement               |
+| `fix`      | Bug or broken behavior                   |
+| `refactor` | Code restructure with no behavior change |
+| `chore`    | Maintenance, dependencies, config        |
+| `docs`     | Documentation only                       |
+| `test`     | Adding or updating tests                 |
+
+Issue titles are pre-filled with the type prefix — complete the description after it:
+
+```
+feat: add user authentication
+fix: resolve login redirect bug
+```
+
+---
+
 ## Branches
 
-### Checking Out a Branch
-
-Every branch must be tied to a GitHub Issue. The branch name format is:
+**Format:** `type/issuenum-description-netid`
 
 ```
-{issue-number}-{short-kebab-case-description}
-```
-
-Examples from this repo:
-
-```
-10-update-and-organize-all-documentation-guides-readmes
-6-set-up-mongo-database
-9-pr-control-functionality
-```
-
-To create and switch to your branch:
-
-```bash
-git checkout main
-git pull
-git checkout -b 12-add-navigation-router
+feat/67-user-authentication-ch185
+fix/67-login-redirect-ch185
+refactor/67-api-cleanup-ch185
 ```
 
 Always branch off of an up-to-date `main`. Never work directly on `main`.
 
-### Updating your branch from main
-Let's say someone added some changes to `main` that you need in your branch. 
+```bash
+git checkout main
+git pull
+git checkout -b feat/67-user-authentication-ch185
+```
 
-Follow these steps:
+### Updating Your Branch from Main
 
-0. Open terminal in the repo (Terminal>New Terminal on top left of VSCode)
-1. Switch to your branch (if not already in branch)
 ```bash
 git checkout your-branch-name
-```
-2. Fetch the latest changes from main
-```bash
 git fetch origin
-```
-  
-3. Rebase your branch onto main
-```bash
 git rebase origin/main
-```
-
-
-4. Resolve any conflicts in VS Code that might occur during the rebase
-5. Continue rebase after resolving conflicts (if no conflicts occur, skip this step)
-```bash
-git rebase --continue
-```
-6. Force push your branch to update the remote branch's history
-```bash
+# resolve any conflicts in VS Code if they occur
+git rebase --continue  # skip if no conflicts
 git push origin your-branch-name --force
 ```
 
@@ -75,83 +81,57 @@ git push origin your-branch-name --force
 
 ## Commits
 
-We follow the **Conventional Commits** standard. Every commit message must start with a type prefix:
+Use the same type prefix as your issue and branch. Keep descriptions short and in present tense.
+
+**Format:** `type: short description`
 
 ```
-<type>: <short description>
+feat: add user authentication endpoint
+fix: handle null response from API client
+docs: update contributing guide
+chore: update dependencies
 ```
 
-Common types:
-
-| Type | When to use |
-|------|-------------|
-| `feat` | Adding a new feature |
-| `fix` | Fixing a bug |
-| `chore` | Maintenance, dependencies, config changes |
-| `docs` | Documentation only changes |
-| `refactor` | Code change that isn't a fix or feature |
-| `style` | Formatting, missing semicolons, etc. |
-
-Examples:
-
-```bash
-git commit -m "feat: add rover location endpoint"
-git commit -m "fix: handle None return from TSS client"
-git commit -m "docs: update backend architecture guide"
-git commit -m "chore: add pymongo to dependencies"
-```
-
-Keep the description short and in the present tense. Don't capitalize the first word after the colon.
+Since we squash merge, individual commit messages won't appear on `main` — only the PR title will. Keep commits clean enough to follow during review, but don't stress about perfection.
 
 ---
 
 ## Pull Requests
 
-### Naming
-
-PR titles follow the same Conventional Commits format as commit messages:
+**Format:** `type: short description`
 
 ```
-<type>: <short description>
-```
-
-Examples:
-```
-feat: add navigation router and service
-fix: correct EVA telemetry field names
-chore: set up MongoDB connection
+feat: add user authentication
+fix: resolve login redirect bug
 ```
 
 ### Opening a PR
 
 1. Push your branch: `git push -u origin your-branch-name`
-2. Open a PR against `main` on GitHub
-3. Link the issue in the PR body using `Closes #<issue-number>` — this auto-closes the issue when merged
-4. Move your card to **In Review** on the project board
-5. Request a review from a lead
-
-### PR Body
-
-At minimum include:
-- What the PR does
-- `Closes #<issue-number>`
+2. Rebase off of latest `main` before opening _(see Updating Your Branch from Main)_
+3. Open a PR against `main` on GitHub
+4. Fill out the PR template fully
+5. Link the issue using `Closes #<issue-number>` — this auto-closes the issue on merge
+6. Move your card to **In Review** on the project board
+7. Request review from an admin
 
 ---
 
 ## Code Review
 
-When your PR is up for review, one of the leads will either:
+- **Address every comment** before requesting a re-review
+- **Don't resolve threads yourself** — let the reviewer resolve them once satisfied
+- **Request changes** will be left if fixes are needed — push new commits to the same branch and the PR updates automatically
 
-- **Leave comments** — address every comment before requesting a re-review. Don't resolve threads yourself; let the reviewer resolve them once they're satisfied.
-- **Request changes** — fix the issues and push new commits to the same branch. The PR updates automatically.
+---
 
-When you are reviewing someone else's PR:
-- Leave clear, specific comments explaining what to change and why
-- Approve only when you're satisfied with the code
+## Merging
 
-### Merging
+- **main → branch:** rebase _(see Updating Your Branch from Main)_
+- **branch → main:** squash & merge, via PR only
+- An admin must review and approve before merging
+- Direct pushes to `main` are not allowed
 
-We use **squash and merge**. This means all commits on your branch get combined into a single commit on `main`, keeping the history clean. Because of this:
+Since we squash merge, your PR title becomes the single commit on `main` — make sure it's clean and follows the naming convention.
 
-- Don't worry about having messy or WIP commits on your branch while working
-- Make sure your **PR title** is clean — it becomes the final commit message on `main`
+---
