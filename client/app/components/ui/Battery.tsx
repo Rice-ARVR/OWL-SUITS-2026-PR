@@ -1,0 +1,183 @@
+interface BatteryProps {
+  level: number; // 0–100
+  label?: string;
+  showIcon?: boolean;
+  remaining?: string;
+}
+
+const BatteryIcon = () => (
+  <svg
+    width={22}
+    height={22}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="white"
+    strokeWidth={2}
+  >
+    <rect x="2" y="7" width="18" height="13" rx="2" ry="2" />
+    <line x1="22" y1="11" x2="22" y2="17" />
+  </svg>
+);
+
+export default function Battery({
+  level,
+  label = "PR Battery",
+  showIcon = true,
+  remaining = "8:00:00 Remaining",
+}: BatteryProps) {
+  const clamped = Math.min(100, Math.max(0, level));
+  const fillHeight = Math.max(0, clamped * 2.85);
+  const isLow = clamped < 50;
+  const fillColor = isLow ? "162, 112, 119" : "195, 210, 206";
+
+  return (
+    <div
+      style={{
+        background: "#3a3a41",
+        borderRadius: "12px",
+        padding: "20px 25px",
+        width: "100%",
+        maxWidth: "180px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "16px",
+      }}
+    >
+      {/* Battery visualization */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <div
+          style={{
+            width: "102px",
+            height: "285px",
+            background: "#2e2e32",
+            borderRadius: "20px",
+            padding: "61px 0 0 0",
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            overflow: "hidden",
+          }}
+        >
+          {/* Battery percentage display */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "4px",
+              zIndex: 10,
+            }}
+          >
+            <span
+              style={{
+                fontSize: "30px",
+                fontWeight: 500,
+                color: "rgba(232, 235, 242, 0.78)",
+                fontFamily: '"Be Vietnam Pro", sans-serif',
+                textShadow: "0px 4px 4px rgba(0, 0, 0, 0.25)",
+              }}
+            >
+              {clamped.toFixed(0)}%
+            </span>
+          </div>
+
+          {/* 20% interval lines */}
+          {[20, 40, 60, 80].map((pct) => (
+            <div
+              key={pct}
+              style={{
+                position: "absolute",
+                bottom: pct * 2.85,
+                left: 0,
+                right: "55%",
+                height: 3,
+                borderRadius: 2,
+                background: "rgba(255,255,255,0.25)",
+                zIndex: 5,
+              }}
+            />
+          ))}
+
+          {/* Battery fill gradient */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: fillHeight,
+              background: `linear-gradient(to bottom, rgba(${fillColor}, 0.58), rgba(${fillColor}, 0.35))`,
+              borderRadius: "0 0 20px 20px",
+              transition: "height 0.4s ease",
+            }}
+          />
+        </div>
+
+        {/* Battery label and status */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          {/* Label with icon */}
+          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+            {showIcon && <BatteryIcon />}
+            <span
+              style={{
+                fontSize: "18px",
+                color: "#f4f4f4",
+                fontFamily: '"Be Vietnam Pro", sans-serif',
+                fontWeight: 400,
+                letterSpacing: "0.18px",
+              }}
+            >
+              {label}
+            </span>
+          </div>
+        </div>
+
+        {remaining && (
+          <div
+            style={{
+              background: "#333734",
+              borderRadius: 8,
+              padding: "5px 10px",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: '"Be Vietnam Pro", sans-serif',
+                fontSize: 18,
+                color: "#9de4ce",
+                letterSpacing: "0.18px",
+              }}
+            >
+              {remaining}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

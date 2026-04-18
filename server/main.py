@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers.tss_example import router as tss_example_router
 from app.routers.locations import router as locations_router
 from app.routers.warnings import router as warnings_router
+from app.routers.vital_signs import router as vital_signs_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
 from app.db.database import connect, disconnect
 
@@ -31,3 +32,4 @@ app.add_middleware(
 app.include_router(tss_example_router)
 app.include_router(locations_router)
 app.include_router(warnings_router)
+app.include_router(vital_signs_router)
