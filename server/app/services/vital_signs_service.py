@@ -6,7 +6,7 @@ async def get_vital_signs_rover() -> dict:
         "cabin_temperature": await telemetry_service.rover_data.get_pr_cabin_temperature(),
         "outside_temperature": await telemetry_service.rover_data.get_pr_external_temp(),
         "oxygen_storage": await telemetry_service.rover_data.get_pr_oxygen_storage(),
-        "battery_level": await telemetry_service.rover_data.get_pr_battery_level(),
+        "battery_level": await telemetry_service.rover_data.get_pr_primary_battery_level(),
         "cabin_pressure": await telemetry_service.rover_data.get_pr_cabin_pressure(),
         "o2_pressure": await telemetry_service.rover_data.get_pr_oxygen_pressure(),
         "coolant_storage": await telemetry_service.rover_data.get_pr_coolant_storage(),
