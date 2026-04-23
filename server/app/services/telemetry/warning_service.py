@@ -24,9 +24,8 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
         for meta in field_info.metadata:
             if isinstance(meta, NominalRange):
                 value = getattr(obj, field_name)
-                out_of_range = (
-                    (meta.min is not None and value < meta.min)
-                    or (meta.max is not None and value > meta.max)
+                out_of_range = (meta.min is not None and value < meta.min) or (
+                    meta.max is not None and value > meta.max
                 )
                 off_nominal = (
                     not out_of_range
@@ -34,16 +33,18 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
                     and value != meta.nominal
                 )
                 if out_of_range or off_nominal:
-                    warnings.append(Warning(
-                        source=source,
-                        field=field_name,
-                        value=value,
-                        min=meta.min,
-                        max=meta.max,
-                        nominal=meta.nominal,
-                        out_of_range=out_of_range,
-                        off_nominal=off_nominal,
-                    ))
+                    warnings.append(
+                        Warning(
+                            source=source,
+                            field=field_name,
+                            value=value,
+                            min=meta.min,
+                            max=meta.max,
+                            nominal=meta.nominal,
+                            out_of_range=out_of_range,
+                            off_nominal=off_nominal,
+                        )
+                    )
     return warnings
 
 

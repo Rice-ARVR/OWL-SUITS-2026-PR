@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Warning:
-    source: str        # "eva1", "eva2", "rover"
+    source: str  # "eva1", "eva2", "rover"
     field: str
     value: float
     min: float | None
