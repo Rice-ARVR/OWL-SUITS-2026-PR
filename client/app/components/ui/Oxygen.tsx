@@ -26,7 +26,7 @@ export default function Oxygen({
     y: -innerRadius * Math.sin(theta),
   };
 
-  const TICK_PCTS = [1/6, 2/6, 3/6, 4/6, 5/6];
+  const TICK_PCTS = [1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6];
   function arcPoint(r: number, p: number) {
     const t = Math.PI * (1 - p);
     return { x: r * Math.cos(t), y: -r * Math.sin(t) };
@@ -37,7 +37,7 @@ export default function Oxygen({
       style={{
         background: "#3a3a41",
         borderRadius: "12px",
-        padding: "20px",
+        padding: "4px 20px 20px",
         width: "100%",
         maxWidth: 240,
         display: "flex",
@@ -97,7 +97,7 @@ export default function Oxygen({
                 strokeLinecap="round"
                 strokeDasharray={innerCircumference}
                 strokeDashoffset={fillOffset}
-                opacity={0.4}
+                opacity={0.2}
               />
               {/* Ticks on top of outer ring */}
               {TICK_PCTS.map((p) => {
@@ -229,7 +229,7 @@ export default function Oxygen({
           <span
             style={{
               fontFamily: '"Be Vietnam Pro", sans-serif',
-              fontSize: 18,
+              fontSize: 16,
               color: "#9de4ce",
               letterSpacing: "0.18px",
             }}

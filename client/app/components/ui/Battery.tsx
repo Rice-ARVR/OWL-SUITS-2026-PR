@@ -26,7 +26,7 @@ export default function Battery({
   remaining = "8:00:00 Remaining",
 }: BatteryProps) {
   const clamped = Math.min(100, Math.max(0, level));
-  const fillHeight = Math.max(0, clamped * 2.85);
+  const fillHeight = Math.max(0, clamped * 2.3);
   const isLow = clamped < 50;
   const fillColor = isLow ? "162, 112, 119" : "195, 210, 206";
 
@@ -35,9 +35,8 @@ export default function Battery({
       style={{
         background: "#3a3a41",
         borderRadius: "12px",
-        padding: "20px 25px",
+        padding: "4px 0 16px",
         width: "100%",
-        maxWidth: "180px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -56,11 +55,11 @@ export default function Battery({
       >
         <div
           style={{
-            width: "102px",
-            height: "285px",
+            width: "120px",
+            height: "230px",
             background: "#2e2e32",
             borderRadius: "20px",
-            padding: "61px 0 0 0",
+            padding: "50px 0 0 0",
             position: "relative",
             display: "flex",
             flexDirection: "column",
@@ -89,7 +88,7 @@ export default function Battery({
               style={{
                 fontSize: "30px",
                 fontWeight: 500,
-                color: "rgba(232, 235, 242, 0.78)",
+                color: isLow ? "#F59095" : "rgba(232, 235, 242, 0.78)",
                 fontFamily: '"Be Vietnam Pro", sans-serif',
                 textShadow: "0px 4px 4px rgba(0, 0, 0, 0.25)",
               }}
@@ -104,7 +103,7 @@ export default function Battery({
               key={pct}
               style={{
                 position: "absolute",
-                bottom: pct * 2.85,
+                bottom: pct * 2.3,
                 left: 0,
                 right: "55%",
                 height: 3,

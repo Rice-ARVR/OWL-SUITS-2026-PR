@@ -78,7 +78,7 @@ export default function Temperature({
             <path
               d={`M ${-radius} 0 A ${radius} ${radius} 0 0 1 ${radius} 0`}
               fill="none"
-              stroke="#6d7077"
+              stroke="#4E5457"
               strokeWidth={12}
               strokeLinecap="round"
             />
