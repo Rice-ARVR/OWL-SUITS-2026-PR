@@ -17,9 +17,15 @@ class LtvSignal(BaseModel):
     ping_unlimited_requested: int
 
 
+class LtvConsumables(BaseModel):
+    fuel_level: float  # Percentage
+    battery_level: float  # Percentage
+
+
 class LtvSchema(BaseModel):
     location: LtvLocation
     signal: LtvSignal
+    consumables: LtvConsumables
 
 
 # --- Wrapper ---
@@ -29,15 +35,21 @@ class LtvData:
     def __init__(self) -> None:
         self._data: LtvSchema | None = None
         self._lock: asyncio.Lock = asyncio.Lock()
+        self._last_updated: float | None = None
 
     async def update(self, raw: dict) -> None:
         parsed = LtvSchema.model_validate(raw)
         async with self._lock:
             self._data = parsed
+            self._last_updated = asyncio.get_event_loop().time()
 
     async def get_snapshot(self) -> LtvSchema | None:
         async with self._lock:
             return self._data
+
+    async def get_last_updated(self) -> float | None:
+        async with self._lock:
+            return self._last_updated
 
     # --- location ---
 
@@ -45,9 +57,13 @@ class LtvData:
         async with self._lock:
             return self._data.location.last_known_x if self._data else None
 
-    async def get_location_last_known_y(self) -> float | None:
+    async def get_consumables_fuel_level(self) -> float | None:
         async with self._lock:
-            return self._data.location.last_known_y if self._data else None
+            return self._data.consumables.fuel_level if self._data else None
+
+    async def get_consumables_battery_level(self) -> float | None:
+        async with self._lock:
+            return self._data.consumables.battery_level if self._data else None
 
     # --- signal ---
 
