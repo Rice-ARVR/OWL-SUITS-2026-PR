@@ -6,12 +6,14 @@ interface GraphProps {
   unit?: string;
   min?: number;
   max?: number;
+  safeMin?: number;
+  safeMax?: number;
 }
 
 const MAX_POINTS = 20;
 const W = 160;
 const H = 120;
-const COLOR = "#9de4ce";
+const LINE_COLOR = "#A1A4AF";
 const PAD = { top: 10, right: 12, bottom: 28, left: 44 };
 const plotW = W - PAD.left - PAD.right;
 const plotH = H - PAD.top - PAD.bottom;
@@ -22,7 +24,15 @@ export default function Graph({
   unit = "",
   min,
   max,
+  safeMin,
+  safeMax,
 }: GraphProps) {
+  const hasRange = safeMin !== undefined && safeMax !== undefined;
+  const inRange = hasRange && value !== null && value >= safeMin! && value <= safeMax!;
+  const statusLabel = !hasRange ? null : value === null || inRange ? "Normal" : "Critical";
+  const statusColor = value === null || inRange ? "#9DE4CE" : "#F59095";
+  const fillColor = !hasRange || value === null || inRange ? "#6F7674" : "#5C5357";
+
   const [history, setHistory] = useState<(number | null)[]>([]);
 
   useEffect(() => {
@@ -156,7 +166,7 @@ export default function Graph({
         })}
 
         {fills.map((d, i) => (
-          <path key={i} d={d} fill={COLOR} opacity={0.16} stroke="none" />
+          <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
         ))}
 
         {segments.map((d, i) => (
@@ -164,7 +174,7 @@ export default function Graph({
             key={i}
             d={d}
             fill="none"
-            stroke={COLOR}
+            stroke={LINE_COLOR}
             strokeWidth={1.5}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -178,7 +188,7 @@ export default function Graph({
               y1={PAD.top}
               x2={xOf(currentIdx)}
               y2={PAD.top + plotH}
-              stroke={COLOR}
+              stroke={LINE_COLOR}
               strokeWidth={1}
               strokeDasharray="3 3"
               opacity={0.4}
@@ -187,7 +197,7 @@ export default function Graph({
               cx={xOf(currentIdx)}
               cy={yOf(currentVal)}
               r={3.5}
-              fill={COLOR}
+              fill={LINE_COLOR}
             />
           </>
         )}
@@ -201,29 +211,43 @@ export default function Graph({
             gap: 4,
           }}
         >
-          <span
-            style={{
-              fontFamily: '"Be Vietnam Pro", sans-serif',
-              fontSize: 13,
-              color: "#9ca3af",
-              letterSpacing: "0.18px",
-            }}
-          >
-            {label}
-          </span>
+          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+            {statusLabel && (
+              <span
+                style={{
+                  fontFamily: '"Be Vietnam Pro", sans-serif',
+                  fontSize: 18,
+                  fontWeight: 600,
+                  color: statusColor,
+                }}
+              >
+                {statusLabel}
+              </span>
+            )}
+            <span
+              style={{
+                fontFamily: '"Be Vietnam Pro", sans-serif',
+                fontSize: 18,
+                color: "#9ca3af",
+                letterSpacing: "0.18px",
+              }}
+            >
+              {label}
+            </span>
+          </div>
           {currentVal !== null && (
             <span
               style={{
                 color: "#ffffff",
                 fontWeight: 700,
                 fontFamily: '"Be Vietnam Pro", sans-serif',
-                fontSize: 22,
+                fontSize: 31,
               }}
             >
               {currentVal.toFixed(1)}
               <span
                 style={{
-                  fontSize: 13,
+                  fontSize: 18,
                   fontWeight: 400,
                   color: "#9ca3af",
                   marginLeft: 4,

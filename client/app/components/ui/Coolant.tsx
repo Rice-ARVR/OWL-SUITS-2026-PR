@@ -2,16 +2,23 @@ interface CoolantProps {
   storage: number | null;
   pressure: number | null;
   pressureUnit?: string;
+  pressureSafeMin?: number;
+  pressureSafeMax?: number;
 }
 
 export default function Coolant({
   storage,
   pressure,
   pressureUnit = "psi",
+  pressureSafeMin = 100,
+  pressureSafeMax = 3500,
 }: CoolantProps) {
+  const pressureInRange = pressure !== null && pressure >= pressureSafeMin && pressure <= pressureSafeMax;
+  const pressureStatus = pressure === null ? "Safe" : pressureInRange ? "Safe" : "Unsafe";
+  const pressureStatusColor = pressure === null || pressureInRange ? "#9DE4CE" : "#F59095";
   const storagePct = Math.min(100, Math.max(0, storage ?? 0));
   const isLow = storagePct < 50;
-  const fillColor = isLow ? "#A27077" : "#C3D2CE";
+  const fillColor = isLow ? "#A27077" : "#97A09C";
 
   return (
     <div
@@ -39,7 +46,7 @@ export default function Coolant({
           style={{
             fontFamily: '"Be Vietnam Pro", sans-serif',
             fontSize: 13,
-            color: "#9ca3af",
+            color: "#C5C9D2",
             letterSpacing: "0.18px",
           }}
         >
@@ -59,7 +66,7 @@ export default function Coolant({
             style={{
               fontSize: 13,
               fontWeight: 400,
-              color: "#9ca3af",
+              color: "#ffffff",
               marginLeft: 4,
             }}
           >
@@ -109,17 +116,17 @@ export default function Coolant({
           style={{
             fontFamily: '"Be Vietnam Pro", sans-serif',
             fontSize: 13,
-            color: "#9de4ce",
+            color: pressureStatusColor,
             fontWeight: 600,
           }}
         >
-          Safe
+          {pressureStatus}
         </span>
         <span
           style={{
             fontFamily: '"Be Vietnam Pro", sans-serif',
             fontSize: 13,
-            color: "#9ca3af",
+            color: "#C5C9D2",
             letterSpacing: "0.18px",
           }}
         >
@@ -139,7 +146,7 @@ export default function Coolant({
             style={{
               fontSize: 13,
               fontWeight: 400,
-              color: "#9ca3af",
+              color: "#ffffff",
               marginLeft: 4,
             }}
           >

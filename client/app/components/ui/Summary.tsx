@@ -1,9 +1,11 @@
+import Warnings, { type Warning } from "~/components/ui/Warnings";
+
 interface SummaryProps {
   time?: string;
-  status?: string;
   image?: string;
   label?: string;
   showReflection?: boolean;
+  warnings?: Warning[];
 }
 
 const imgVector =
@@ -13,15 +15,21 @@ const imgAiIcon =
 
 export default function Summary({
   time = "00:00:00 CST",
-  status = "Everything normal",
   image = "/rover.png",
   label = "Pressurized Rover",
   showReflection = true,
+  warnings = [],
 }: SummaryProps) {
+  const hasWarnings = warnings.length > 0;
+  const statusText = hasWarnings ? `${warnings.length} warnings` : "Everything normal";
+  const statusColor = hasWarnings ? "#F59095" : "#c5c9d2";
+
   return (
     <div
       style={{
-        background: "#3a3a41",
+        background: hasWarnings
+          ? "linear-gradient(to bottom, #493E3E, #3a3a41)"
+          : "#3a3a41",
         borderRadius: 12,
         padding: 20,
         width: 314,
@@ -100,6 +108,7 @@ export default function Summary({
         >
           {time}
         </p>
+        <Warnings warnings={warnings} />
         <div
           style={{
             display: "flex",
@@ -133,12 +142,12 @@ export default function Summary({
                 fontFamily: '"Be Vietnam Pro", sans-serif',
                 fontSize: 16,
                 fontWeight: 400,
-                color: "#c5c9d2",
+                color: statusColor,
                 letterSpacing: "0.64px",
                 margin: 0,
               }}
             >
-              {status}
+              {statusText}
             </p>
           </div>
           <div

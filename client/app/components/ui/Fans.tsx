@@ -1,50 +1,122 @@
+import { useEffect, useRef } from "react";
+
 interface FanStatus {
   label: string;
   rpm: number;
-  direction?: "up" | "down";
+}
+
+function useTrend(value: number): "up" | "down" | "stable" {
+  const prev = useRef<number | null>(null);
+  const trend = useRef<"up" | "down" | "stable">("stable");
+
+  useEffect(() => {
+    if (prev.current !== null) {
+      if (value > prev.current) trend.current = "up";
+      else if (value < prev.current) trend.current = "down";
+      else trend.current = "stable";
+    }
+    prev.current = value;
+  }, [value]);
+
+  return trend.current;
 }
 
 interface FansProps {
-  mode?: string;
   caption?: string;
   fans?: FanStatus[];
+  safeMinRpm?: number;
+  safeMaxRpm?: number;
 }
 
 const imgEllipse2 =
   "https://www.figma.com/api/mcp/asset/326bf7fd-f943-4e0b-b93b-609d3737f912";
-const imgVector =
-  "https://www.figma.com/api/mcp/asset/71769b0d-b893-43bf-823f-447f52d34e0a";
-const imgVector1 =
-  "https://www.figma.com/api/mcp/asset/f0b68e6a-6405-45a6-8682-dcb469331511";
+const imgVector = "/fan.png";
 
 const FanArrowIcon = ({ direction = "up" }: { direction?: "up" | "down" }) => (
-  <div
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
     style={{
-      width: 20,
-      height: 20,
-      background: "#3a3a41",
-      borderRadius: 4,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
+      transform: direction === "down" ? "rotate(180deg)" : "none",
+      flexShrink: 0,
     }}
   >
-    <img
-      src={imgVector1}
-      alt={direction === "up" ? "Up arrow" : "Down arrow"}
-      style={{ width: 10, height: 10 }}
+    <path
+      d="M8 12V4M8 4L4.5 7.5M8 4L11.5 7.5"
+      stroke="#f87171"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
-  </div>
+  </svg>
 );
 
+function FanItem({ fan }: { fan: FanStatus }) {
+  const direction = useTrend(fan.rpm);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      <p
+        style={{
+          margin: 0,
+          fontFamily: '"Be Vietnam Pro", sans-serif',
+          fontSize: 18,
+          fontWeight: 400,
+          lineHeight: "100%",
+          color: "#a1a4af",
+          letterSpacing: "0.18px",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {fan.label}
+      </p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          height: 47,
+          marginTop: 3,
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontSize: 18,
+            fontWeight: 400,
+            lineHeight: "100%",
+            color: "#c5c9d2",
+            letterSpacing: "0.18px",
+            whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <span>{fan.rpm} </span>
+          <span style={{ fontSize: 16, letterSpacing: "0.64px" }}>rpm</span>
+        </p>
+        <FanArrowIcon direction={direction === "stable" ? "up" : direction} />
+      </div>
+    </div>
+  );
+}
+
 export default function Fans({
-  mode = "Normal",
   caption = "fan operation",
   fans = [
-    { label: "Fan 1", rpm: 3000, direction: "up" },
-    { label: "Fan 2", rpm: 3000, direction: "up" },
+    { label: "Fan 1", rpm: 3000 },
+    { label: "Fan 2", rpm: 3000 },
   ],
+  safeMinRpm = 500,
+  safeMaxRpm = 5000,
 }: FansProps) {
+  const allSafe = fans.every((f) => f.rpm >= safeMinRpm && f.rpm <= safeMaxRpm);
+  const mode = allSafe ? "Normal" : "Failure";
+  const modeColor = allSafe ? "#9DE4CE" : "#F59095";
+
   return (
     <div
       style={{
@@ -54,6 +126,7 @@ export default function Fans({
         display: "flex",
         gap: 16,
         alignItems: "flex-start",
+        width: "100%",
       }}
     >
       <div
@@ -121,62 +194,13 @@ export default function Fans({
             margin: 0,
           }}
         >
-          <span style={{ color: "#9de4ce" }}>{mode}</span>
+          <span style={{ color: modeColor }}>{mode}</span>
           <span>{` ${caption}`}</span>
         </p>
 
         <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
           {fans.map((fan) => (
-            <div
-              key={fan.label}
-              style={{ display: "flex", flexDirection: "column", gap: 0 }}
-            >
-              <p
-                style={{
-                  margin: 0,
-                  fontFamily: '"Be Vietnam Pro", sans-serif',
-                  fontSize: 18,
-                  fontWeight: 400,
-                  lineHeight: "100%",
-                  color: "#a1a4af",
-                  letterSpacing: "0.18px",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {fan.label}
-              </p>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  height: 47,
-                  marginTop: 3,
-                }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    fontFamily: '"Be Vietnam Pro", sans-serif',
-                    fontSize: 18,
-                    fontWeight: 400,
-                    lineHeight: "100%",
-                    color: "#c5c9d2",
-                    letterSpacing: "0.18px",
-                    whiteSpace: "nowrap",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <span>{`${fan.rpm} `}</span>
-                  <span style={{ fontSize: 16, letterSpacing: "0.64px" }}>
-                    rpm
-                  </span>
-                </p>
-                <FanArrowIcon direction={fan.direction} />
-              </div>
-            </div>
+            <FanItem key={fan.label} fan={fan} />
           ))}
         </div>
       </div>

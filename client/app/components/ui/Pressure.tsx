@@ -80,7 +80,7 @@ export default function Pressure({
             stroke="white"
             strokeWidth={12}
             strokeLinecap="round"
-            opacity={0.7}
+            opacity={0.3}
           />
 
           {/* Tick marks */}
