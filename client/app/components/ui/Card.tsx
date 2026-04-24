@@ -10,8 +10,8 @@ export default function Card({ title, children, style }: CardProps) {
   return (
     <div
       style={{
-        background: "#3a3a41",
-        borderRadius: 16,
+        background: "#3A3A41",
+        borderRadius: 12,
         padding: "16px",
         display: "flex",
         flexDirection: "column",
@@ -19,20 +19,6 @@ export default function Card({ title, children, style }: CardProps) {
         ...style,
       }}
     >
-      {title && (
-        <span
-          style={{
-            fontFamily: '"Be Vietnam Pro", sans-serif',
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#a1a4af",
-            letterSpacing: "0.18px",
-            textTransform: "uppercase",
-          }}
-        >
-          {title}
-        </span>
-      )}
       {children}
     </div>
   );

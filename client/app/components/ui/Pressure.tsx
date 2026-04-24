@@ -9,7 +9,7 @@ interface PressureProps {
 }
 
 const RADIUS = 68;
-const TICK_PCTS = [0.2, 0.4, 0.6, 0.8];
+const TICK_PCTS = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875];
 
 function arcPoint(r: number, pct: number) {
   const theta = Math.PI * (1 - pct);
@@ -68,8 +68,8 @@ export default function Pressure({
           <path
             d={arcPath(RADIUS, 0, 1)}
             fill="none"
-            stroke="#6d7077"
-            strokeWidth={12}
+            stroke="#4F4F59"
+            strokeWidth={8}
             strokeLinecap="round"
           />
 
@@ -77,10 +77,10 @@ export default function Pressure({
           <path
             d={arcPath(RADIUS, safeMinPct, safeMaxPct)}
             fill="none"
-            stroke="white"
+            stroke="#E9FFF6"
             strokeWidth={12}
             strokeLinecap="round"
-            opacity={0.3}
+            strokeOpacity={0.415}
           />
 
           {/* Tick marks */}
@@ -94,7 +94,7 @@ export default function Pressure({
                 y1={outer.y}
                 x2={inner.x}
                 y2={inner.y}
-                stroke="#8F9396"
+                stroke="#7B7B84"
                 strokeWidth={2}
                 strokeLinecap="round"
               />
@@ -103,7 +103,7 @@ export default function Pressure({
 
           {/* Indicator circle */}
           {indicator && (
-            <circle cx={indicator.x} cy={indicator.y} r={5} fill="white" />
+            <circle cx={indicator.x} cy={indicator.y} r={6} fill="#E8EBF2" />
           )}
         </g>
       </svg>

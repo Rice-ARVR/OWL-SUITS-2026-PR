@@ -36,6 +36,10 @@ export default function Graph({
   const [history, setHistory] = useState<(number | null)[]>([]);
 
   useEffect(() => {
+    if (value === null) {
+      setHistory([]);
+      return;
+    }
     setHistory((prev) => {
       const next = [...prev, value];
       return next.length > MAX_POINTS ? next.slice(-MAX_POINTS) : next;
@@ -70,28 +74,24 @@ export default function Graph({
 
   const baseline = yOf(yMin);
 
-  const segments: string[] = [];
-  const fills: string[] = [];
+  let segments: string[] = [];
+  let fills: string[] = [];
   let pathCmd = "";
   let segStartX = 0;
   let segLastX = 0;
   for (let i = 0; i < history.length; i++) {
     const v = history[i];
-    if (v === null) {
-      if (pathCmd) {
-        segments.push(pathCmd);
-        fills.push(
-          `${pathCmd} L ${segLastX} ${baseline} L ${segStartX} ${baseline} Z`,
-        );
-      }
+    if (v === null || v < yMin || v > yMax) {
+      segments = [];
+      fills = [];
       pathCmd = "";
       continue;
     }
     const x = xOf(i);
     const y = yOf(v);
     if (pathCmd === "") {
-      pathCmd = `M ${x} ${y}`;
-      segStartX = x;
+      pathCmd = `M ${PAD.left} ${y}`;
+      segStartX = PAD.left;
     } else {
       pathCmd += ` L ${x} ${y}`;
     }
