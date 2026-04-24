@@ -12,6 +12,7 @@ from app.routers.locations import router as locations_router
 from app.routers.warnings import router as warnings_router
 from app.routers.rover_control import router as rover_control_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
+from app.services.rag.document_service import ingest_documents
 from app.db.database import connect, disconnect
 
 
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
             logger.info("Route registered: %s methods=%s", path, methods)
     connect()
     await start_polling()
+    await ingest_documents()
     yield
     await stop_polling()
     disconnect()

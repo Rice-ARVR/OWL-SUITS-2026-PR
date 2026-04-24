@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.services.rag.rag_service import build_rag_prompt, get_raw_context
+from app.services.rag.document_service import ingest_documents
+from app.services.rag.rag_service import build_rag_chain, get_raw_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -131,15 +132,7 @@ async def rag_context():
 
 @router.post("/ollama/rag-query")
 async def rag_query(request: RagQueryRequest):
-    """Ask a question about live TSS telemetry data using RAG context injection."""
-    system_prompt, prompt = build_rag_prompt(request.question)
-    payload = {
-        "model": request.model,
-        "system": system_prompt,
-        "prompt": prompt,
-        "stream": request.stream,
-    }
-
+    """Ask a question answered using live TSS telemetry + retrieved mission documents."""
     logger.info(
         "Ollama rag-query: model=%s question_len=%d stream=%s",
         request.model,
@@ -148,22 +141,14 @@ async def rag_query(request: RagQueryRequest):
     )
 
     try:
+        chain = build_rag_chain(request.model)
+
         if request.stream:
 
             async def stream_rag():
-                async with httpx.AsyncClient(timeout=None) as client:
-                    async with client.stream("POST", url, json=payload) as response:
-                        response.raise_for_status()
-                        async for line in response.aiter_lines():
-                            if line:
-                                try:
-                                    chunk = json.loads(line)
-                                    yield f"data: {json.dumps(chunk)}\n\n"
-                                    if chunk.get("done", False):
-                                        yield "data: [DONE]\n\n"
-                                        break
-                                except json.JSONDecodeError:
-                                    continue
+                async for chunk in chain.astream(request.question):
+                    yield f"data: {json.dumps({'response': chunk})}\n\n"
+                yield "data: [DONE]\n\n"
 
             return StreamingResponse(
                 stream_rag(),
@@ -174,22 +159,25 @@ async def rag_query(request: RagQueryRequest):
                 },
             )
 
-        else:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-                result = response.json()
-
-            return JSONResponse(
-                {
-                    "model": request.model,
-                    "response": result.get("response", ""),
-                    "done": result.get("done", True),
-                }
-            )
+        result = await chain.ainvoke(request.question)
+        return JSONResponse({"model": request.model, "response": result, "done": True})
 
     except Exception as e:
         logger.exception("Ollama rag-query failed: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/ollama/ingest")
+async def ingest(force: bool = False):
+    """
+    Ingest documents from the server/documents/ directory into the Chroma vector store.
+    Supports .pdf and .txt files. Pass ?force=true to wipe and re-index from scratch.
+    """
+    try:
+        result = await ingest_documents(force=force)
+        return JSONResponse(result)
+    except Exception as e:
+        logger.exception("Document ingestion failed: %s", e)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 

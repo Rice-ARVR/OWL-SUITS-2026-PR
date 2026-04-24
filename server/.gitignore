@@ -6,3 +6,8 @@ __pycache__/
 .ruff_cache/
 .env
 app/services/rag/tss_context.txt
+app/services/rag/chroma_db/
+app/services/rag/chroma_db/
+app/services/rag/chroma_db/
+app/services/rag/chroma_db/
+app/services/rag/chroma_db/
