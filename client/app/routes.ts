@@ -6,4 +6,5 @@ export default [
     route("wasd_controls", "routes/wasd_controls.tsx"),
     route("gamepad_controls", "routes/gamepad_controls.tsx"),
     route("telemetry", "routes/telemetry.tsx"),
+    route("ui", "routes/ui.tsx")
 ] satisfies RouteConfig;

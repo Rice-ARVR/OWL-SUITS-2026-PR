@@ -13,4 +13,64 @@ body {
     @media (prefers-color-scheme: dark) {
         color-scheme: dark;
     }
+    background-color: black;
+}
+/* #E8EBF2 kind of prominent */
+/* #F1F2F5 prominent */
+/* #C5C9D2 medium text */
+/* #A1A4AF small body */
+
+h1{
+    font-size: 60px;
+    color:#E8EBF2;
+}
+h1.large{
+    font-size: 60px;
+    color:#E8EBF2;
+}
+
+h2{
+    font-size: 40px;
+    color:#F1F2F5;
+}
+h2.xlarge{
+    font-size: 40px;
+    color:#F1F2F5;
+}
+
+h3{
+    font-size: 30px;
+    color: #F1F2F5;
+}
+h3.xlarge{
+    font-size: 30px;
+    color: #F1F2F5;
+}
+
+
+h4.xlarge {
+    font-size: 22px;
+    color: #F1F2F5; /* prominent */
+
+}
+
+h4.large {
+    font-size: 22px;
+    color: #E8EBF2; /* kind of promiment */
+    
+}
+
+h5.medium {
+    font-size: 18px;
+    color: #C5C9D2; /* medium text */
+}
+
+h5.small{
+    font-size: 18px;
+    color: #A1A4AF; /* small body */
+}
+
+p { /* small text */
+    font-size: 16px;
+    color: #A1A4AF;
 }
