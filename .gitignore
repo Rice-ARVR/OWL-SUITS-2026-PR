@@ -1,1 +1,3 @@
-.venv
+.venvnode_modules/
+node_modules/
+package.json
