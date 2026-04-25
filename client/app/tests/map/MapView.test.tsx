@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import MapViewComponent from "./MapView";
+import MapViewComponent from "../features/map/MapView";
 
 vi.mock("../features/map/hooks/usePositions", () => ({
     usePositions: () => ({

@@ -1,11 +1,21 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
-const MapView = lazy(() => import("~/routes/MapView"));
+const LazyMap = lazy(() => import("../features/map/MapView"));
 
-export default function MapPage() {
-  return (
-    <Suspense fallback={<div>Loading map...</div>}>
-      <MapView />
-    </Suspense>
-  );
+export default function MapView() {
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    if (!isClient) {
+        return <div>Loading map...</div>;
+    }
+
+    return (
+        <Suspense fallback={<div>Loading map...</div>}>
+            <LazyMap />
+        </Suspense>
+    );
 }
