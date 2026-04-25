@@ -152,7 +152,9 @@ export default function Telemetry() {
         .map((w) => ({ message: warningMessage(w) }));
 
     const w = (source: "rover" | "eva1", field: string) =>
-        telemetryWarnings.some((warn) => warn.source === source && warn.field === field && warn.out_of_range);
+        telemetryWarnings.some(
+            (warn) => warn.source === source && warn.field === field && warn.out_of_range,
+        );
 
     return (
         <div className={styles.container}>
