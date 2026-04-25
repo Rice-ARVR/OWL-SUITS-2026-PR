@@ -1,8 +1,10 @@
 import logging
 from pathlib import Path
+from typing import Any
 
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_ollama import ChatOllama
 
@@ -47,7 +49,7 @@ def get_raw_context() -> str:
     return _read_telemetry()
 
 
-def build_rag_chain(model: str):
+def build_rag_chain(model: str, chat_history: list[dict[str, Any]] | None = None):
     """
     LCEL chain: question → parallel(telemetry fetch, document retrieval) → prompt → LLM.
     Both data sources are combined before the model sees anything.
@@ -55,8 +57,14 @@ def build_rag_chain(model: str):
     llm = ChatOllama(model=model, base_url=settings.OLLAMA_URL)
     retriever = get_retriever()
 
+    history_messages = [
+        HumanMessage(content=m["content"]) if m["role"] == "user" else AIMessage(content=m["content"])
+        for m in (chat_history or [])
+    ]
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", _SYSTEM),
+        MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{question}"),
     ])
 
@@ -65,6 +73,7 @@ def build_rag_chain(model: str):
             "question": RunnablePassthrough(),
             "telemetry": RunnableLambda(lambda _: _read_telemetry()),
             "documents": retriever | RunnableLambda(_format_docs),
+            "chat_history": RunnableLambda(lambda _: history_messages),
         }
         | prompt
         | llm

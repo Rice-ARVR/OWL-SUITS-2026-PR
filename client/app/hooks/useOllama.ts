@@ -1,23 +1,38 @@
 import { useState } from "react";
 
+export interface Message {
+    role: "user" | "assistant";
+    content: string;
+}
+
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export function useOllama(model = "llama3.2") {
-    const [response, setResponse] = useState("");
+    const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [connected, setConnected] = useState<boolean | null>(null);
 
     const chat = async (prompt: string) => {
         setLoading(true);
-        setResponse("model says: ");
         setError(null);
+
+        // Snapshot history before this turn, then immediately show the user message
+        const historyToSend = [...messages];
+        setMessages((prev) => [...prev, { role: "user", content: prompt }]);
+
+        let fullResponse = "";
 
         try {
             const res = await fetch(`${apiUrl}/ollama/rag-query`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ model, question: prompt, stream: true }),
+                body: JSON.stringify({
+                    model,
+                    question: prompt,
+                    stream: true,
+                    chat_history: historyToSend,
+                }),
             });
 
             if (!res.ok) {
@@ -37,6 +52,9 @@ export function useOllama(model = "llama3.2") {
             const decoder = new TextDecoder();
             let buffer = "";
 
+            // Append an empty assistant bubble to stream tokens into
+            setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -48,21 +66,15 @@ export function useOllama(model = "llama3.2") {
 
                 for (const rawLine of lines) {
                     const line = rawLine.trim();
-
-                    if (!line) continue;
-                    if (!line.startsWith("data: ")) continue;
+                    if (!line || !line.startsWith("data: ")) continue;
 
                     const data = line.slice(6).trim();
-
-                    if (data === "[DONE]") {
-                        break;
-                    }
+                    if (data === "[DONE]") break;
 
                     try {
                         const parsed = JSON.parse(data) as {
                             response?: string;
                             error?: string;
-                            done?: boolean;
                         };
 
                         if (parsed.error) {
@@ -72,7 +84,15 @@ export function useOllama(model = "llama3.2") {
                         }
 
                         if (parsed.response) {
-                            setResponse((prev) => prev + parsed.response);
+                            fullResponse += parsed.response;
+                            setMessages((prev) => {
+                                const updated = [...prev];
+                                updated[updated.length - 1] = {
+                                    role: "assistant",
+                                    content: fullResponse,
+                                };
+                                return updated;
+                            });
                             setConnected(true);
                         }
                     } catch (e) {
@@ -83,14 +103,16 @@ export function useOllama(model = "llama3.2") {
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to connect to Ollama");
             setConnected(false);
+            // Drop the empty assistant bubble if nothing was received
+            if (!fullResponse) {
+                setMessages((prev) => prev.slice(0, -1));
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    console.log("Ollama connection status:", connected);
-    console.log("Ollama error:", error);
-    console.log("Ollama response:", response);
+    const clearHistory = () => setMessages([]);
 
-    return { chat, response, loading, error, connected };
+    return { chat, messages, loading, error, connected, clearHistory };
 }
