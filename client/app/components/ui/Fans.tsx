@@ -1,24 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useTrend } from "~/components/ui/trend";
 
 interface FanStatus {
     label: string;
     rpm: number;
-}
-
-function useTrend(value: number): "up" | "down" | "stable" {
-    const prev = useRef<number | null>(null);
-    const trend = useRef<"up" | "down" | "stable">("stable");
-
-    useEffect(() => {
-        if (prev.current !== null) {
-            if (value > prev.current) trend.current = "up";
-            else if (value < prev.current) trend.current = "down";
-            else trend.current = "stable";
-        }
-        prev.current = value;
-    }, [value]);
-
-    return trend.current;
 }
 
 interface FansProps {
@@ -144,7 +128,8 @@ export default function Fans({
                         width: 30,
                         height: 4,
                         borderRadius: "50%",
-                        background: "radial-gradient(ellipse at center, rgba(255,255,255,0.25) 0%, transparent 100%)",
+                        background:
+                            "radial-gradient(ellipse at center, rgba(255,255,255,0.25) 0%, transparent 100%)",
                     }}
                 />
                 <div

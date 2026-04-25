@@ -1,6 +1,5 @@
-import { useEffect, useRef } from "react";
-
 import typo from "~/components/ui/typography.module.css";
+import { TrendArrow, useTrend } from "~/components/ui/trend";
 
 interface TemperatureProps {
     temperature: number | null;
@@ -19,43 +18,6 @@ function arcPoint(radius: number, pct: number) {
 
 function tempToPct(temp: number) {
     return Math.min(1, Math.max(0, (temp - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)));
-}
-
-type Trend = "up" | "down" | "stable";
-
-function useTrend(value: number | null): Trend {
-    const prev = useRef<number | null>(null);
-    const trend = useRef<Trend>("stable");
-    useEffect(() => {
-        if (value !== null && prev.current !== null) {
-            if (value > prev.current) trend.current = "up";
-            else if (value < prev.current) trend.current = "down";
-            else trend.current = "stable";
-        }
-        prev.current = value;
-    }, [value]);
-    return trend.current;
-}
-
-function TrendArrow({ direction }: { direction: Trend }) {
-    if (direction === "stable") return null;
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            style={{ transform: direction === "down" ? "rotate(180deg)" : "none", flexShrink: 0 }}
-        >
-            <path
-                d="M8 12V4M8 4L4.5 7.5M8 4L11.5 7.5"
-                stroke="#f87171"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
 }
 
 export default function Temperature({

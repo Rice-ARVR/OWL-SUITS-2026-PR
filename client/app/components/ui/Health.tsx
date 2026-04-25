@@ -1,24 +1,5 @@
-import { useEffect, useRef } from "react";
-
 import typo from "~/components/ui/typography.module.css";
-
-type Trend = "up" | "down" | "stable";
-
-function useTrend(value: number | null): Trend {
-    const prev = useRef<number | null>(null);
-    const trend = useRef<Trend>("stable");
-
-    useEffect(() => {
-        if (value !== null && prev.current !== null) {
-            if (value > prev.current) trend.current = "up";
-            else if (value < prev.current) trend.current = "down";
-            else trend.current = "stable";
-        }
-        prev.current = value;
-    }, [value]);
-
-    return trend.current;
-}
+import { TrendArrow, useTrend, type Trend } from "~/components/ui/trend";
 
 interface MetricProps {
     label: string;
@@ -28,34 +9,23 @@ interface MetricProps {
     max: number;
     safeMin: number;
     safeMax: number;
-    trend?: "up" | "down" | "stable";
+    trend?: Trend;
     isWarning?: boolean;
 }
 
 const TICKS = [1 / 8, 2 / 8, 3 / 8, 4 / 8, 5 / 8, 6 / 8, 7 / 8];
 
-function TrendArrow({ direction }: { direction: "up" | "down" | "stable" }) {
-    if (direction === "stable") return null;
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            style={{ transform: direction === "down" ? "rotate(180deg)" : "none" }}
-        >
-            <path
-                d="M8 12V4M8 4L4.5 7.5M8 4L11.5 7.5"
-                stroke="#f87171"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
-function Metric({ label, value, unit, min, max, safeMin, safeMax, trend = "up", isWarning }: MetricProps) {
+function Metric({
+    label,
+    value,
+    unit,
+    min,
+    max,
+    safeMin,
+    safeMax,
+    trend = "up",
+    isWarning,
+}: MetricProps) {
     const statusLabel = isWarning ? "Critical" : "Normal";
     const statusColor = isWarning ? "#F59095" : "#9DE4CE";
 
@@ -161,7 +131,12 @@ interface HealthProps {
     heartRateWarning?: boolean;
 }
 
-export default function Health({ bodyTemp, heartRate, bodyTempWarning, heartRateWarning }: HealthProps) {
+export default function Health({
+    bodyTemp,
+    heartRate,
+    bodyTempWarning,
+    heartRateWarning,
+}: HealthProps) {
     const bodyTempTrend = useTrend(bodyTemp);
     const heartRateTrend = useTrend(heartRate);
 

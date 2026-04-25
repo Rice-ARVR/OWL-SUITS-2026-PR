@@ -1,45 +1,5 @@
-import { useEffect, useRef } from "react";
-
 import typo from "~/components/ui/typography.module.css";
-
-type Trend = "up" | "down" | "stable";
-
-function useTrend(value: number | null): Trend {
-    const prev = useRef<number | null>(null);
-    const trend = useRef<Trend>("stable");
-
-    useEffect(() => {
-        if (value !== null && prev.current !== null) {
-            if (value > prev.current) trend.current = "up";
-            else if (value < prev.current) trend.current = "down";
-            else trend.current = "stable";
-        }
-        prev.current = value;
-    }, [value]);
-
-    return trend.current;
-}
-
-function TrendArrow({ direction }: { direction: Trend }) {
-    if (direction === "stable") return null;
-    return (
-        <svg
-            width="13"
-            height="13"
-            viewBox="0 0 16 16"
-            fill="none"
-            style={{ transform: direction === "down" ? "rotate(180deg)" : "none" }}
-        >
-            <path
-                d="M8 12V4M8 4L4.5 7.5M8 4L11.5 7.5"
-                stroke="#f87171"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
+import { TrendArrow, useTrend, type Trend } from "~/components/ui/trend";
 
 interface MetricProps {
     label: string;
@@ -79,7 +39,7 @@ function Metric({ label, value, unit, min, max, safeMin, safeMax, trend, isWarni
                 <span className={typo.h5} style={{ color: "#E8EBF2" }}>
                     {unit}
                 </span>
-                <TrendArrow direction={trend} />
+                <TrendArrow direction={trend} size={13} />
             </div>
 
             <div
@@ -129,7 +89,12 @@ interface CO2Props {
     helmetCo2Warning?: boolean;
 }
 
-export default function CO2({ co2Production, helmetCo2Pressure, co2ProductionWarning, helmetCo2Warning }: CO2Props) {
+export default function CO2({
+    co2Production,
+    helmetCo2Pressure,
+    co2ProductionWarning,
+    helmetCo2Warning,
+}: CO2Props) {
     const co2ProductionTrend = useTrend(co2Production);
     const helmetCo2Trend = useTrend(helmetCo2Pressure);
 
