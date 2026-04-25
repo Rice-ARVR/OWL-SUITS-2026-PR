@@ -1,159 +1,103 @@
+import typo from "~/components/ui/typography.module.css";
+
 interface CoolantProps {
-  storage: number | null;
-  pressure: number | null;
-  pressureUnit?: string;
-  pressureSafeMin?: number;
-  pressureSafeMax?: number;
+    storage: number | null;
+    pressure: number | null;
+    pressureUnit?: string;
+    storageWarning?: boolean;
+    pressureWarning?: boolean;
 }
 
 export default function Coolant({
-  storage,
-  pressure,
-  pressureUnit = "psi",
-  pressureSafeMin = 100,
-  pressureSafeMax = 3500,
+    storage,
+    pressure,
+    pressureUnit = "psi",
+    storageWarning,
+    pressureWarning,
 }: CoolantProps) {
-  const pressureInRange = pressure !== null && pressure >= pressureSafeMin && pressure <= pressureSafeMax;
-  const pressureStatus = pressure === null ? "Safe" : pressureInRange ? "Safe" : "Unsafe";
-  const pressureStatusColor = pressure === null || pressureInRange ? "#9DE4CE" : "#F59095";
-  const storagePct = Math.min(100, Math.max(0, storage ?? 0));
-  const isLow = storagePct < 50;
-  const fillColor = isLow ? "#A27077" : "#97A09C";
+    const pressureStatus = pressureWarning ? "Unsafe" : "Safe";
+    const pressureStatusColor = pressureWarning ? "#F59095" : "#9DE4CE";
+    const storagePct = Math.min(100, Math.max(0, storage ?? 0));
+    const isLow = storageWarning === true;
+    const fillColor = isLow ? "#A27077" : "#97A09C";
 
-  return (
-    <div
-      style={{
-        background: "#2E2E32",
-        borderRadius: 12,
-        padding: "16px 12px",
-        width: "100%",
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 24,
-      }}
-    >
-      {/* Left: storage */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          minWidth: 140,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: '"Be Vietnam Pro", sans-serif',
-            fontSize: 13,
-            color: "#C5C9D2",
-            letterSpacing: "0.18px",
-          }}
-        >
-          Coolant Storage
-        </span>
-        <span
-          style={{
-            fontFamily: '"Be Vietnam Pro", sans-serif',
-            fontSize: 22,
-            fontWeight: 700,
-            color: "#ffffff",
-            lineHeight: 1,
-          }}
-        >
-          {storage !== null ? `${storagePct.toFixed(0)}%` : "--"}
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 400,
-              color: "#ffffff",
-              marginLeft: 4,
-            }}
-          >
-            full
-          </span>
-        </span>
-        {/* Percentage bar */}
+    return (
         <div
-          style={{
-            width: "100%",
-            height: 6,
-            background: "#3a3a41",
-            borderRadius: 99,
-            overflow: "hidden",
-          }}
-        >
-          <div
             style={{
-              width: `${storagePct}%`,
-              height: "100%",
-              background: fillColor,
-              borderRadius: 99,
-              transition: "width 0.4s ease",
+                background: "#2E2E32",
+                borderRadius: 12,
+                padding: "16px 12px",
+                width: "100%",
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 24,
+                alignSelf: "flex-start",
             }}
-          />
+        >
+            {/* Left: storage */}
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    minWidth: 140,
+                }}
+            >
+                <span className={typo.p} style={{ color: "#C5C9D2" }}>
+                    Coolant Storage
+                </span>
+                <span className={typo.h5} style={{ color: "#F4F4F4", lineHeight: 1 }}>
+                    {storage !== null ? `${storagePct.toFixed(0)}%` : "--"}
+                    <span className={typo.h5} style={{ color: "#F4F4F4", marginLeft: 4 }}>
+                        full
+                    </span>
+                </span>
+                {/* Percentage bar */}
+                <div
+                    style={{
+                        width: "100%",
+                        height: 6,
+                        background: "#3a3a41",
+                        borderRadius: 99,
+                        overflow: "hidden",
+                    }}
+                >
+                    <div
+                        style={{
+                            width: `${storagePct}%`,
+                            height: "100%",
+                            background: fillColor,
+                            borderRadius: 99,
+                            transition: "width 0.4s ease",
+                        }}
+                    />
+                </div>
+            </div>
+
+            {/* Right: pressure */}
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                }}
+            >
+                <span className={typo.p} style={{ color: pressureStatusColor }}>
+                    {pressureStatus}
+                </span>
+                <span className={typo.p} style={{ color: "#C5C9D2" }}>
+                    Coolant Pressure
+                </span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                    <span className={typo.p} style={{ color: "#A1A4AF", lineHeight: 1 }}>
+                        {pressure !== null ? pressure.toFixed(0) : "--"}
+                    </span>
+                    <span className={typo.p} style={{ color: "#A1A4AF" }}>
+                        {pressureUnit}
+                    </span>
+                </div>
+            </div>
         </div>
-      </div>
-
-      {/* Divider */}
-      <div
-        style={{
-          width: 1,
-          alignSelf: "stretch",
-          background: "rgba(255,255,255,0.08)",
-        }}
-      />
-
-      {/* Right: pressure */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: '"Be Vietnam Pro", sans-serif',
-            fontSize: 13,
-            color: pressureStatusColor,
-            fontWeight: 600,
-          }}
-        >
-          {pressureStatus}
-        </span>
-        <span
-          style={{
-            fontFamily: '"Be Vietnam Pro", sans-serif',
-            fontSize: 13,
-            color: "#C5C9D2",
-            letterSpacing: "0.18px",
-          }}
-        >
-          Coolant Pressure
-        </span>
-        <span
-          style={{
-            fontFamily: '"Be Vietnam Pro", sans-serif',
-            fontSize: 22,
-            fontWeight: 700,
-            color: "#ffffff",
-            lineHeight: 1,
-          }}
-        >
-          {pressure !== null ? pressure.toFixed(0) : "--"}
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 400,
-              color: "#ffffff",
-              marginLeft: 4,
-            }}
-          >
-            {pressureUnit}
-          </span>
-        </span>
-      </div>
-    </div>
-  );
+    );
 }

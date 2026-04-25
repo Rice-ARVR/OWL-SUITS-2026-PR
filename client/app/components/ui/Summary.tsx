@@ -1,175 +1,208 @@
+import { useEffect, useState } from "react";
+
 import Warnings, { type Warning } from "~/components/ui/Warnings";
 
-interface SummaryProps {
-  time?: string;
-  image?: string;
-  label?: string;
-  showReflection?: boolean;
-  warnings?: Warning[];
+function useCSTClock() {
+    const [time, setTime] = useState("");
+    useEffect(() => {
+        const tick = () =>
+            setTime(
+                new Date().toLocaleTimeString("en-US", {
+                    timeZone: "America/Chicago",
+                    hour12: false,
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                }) + " CST",
+            );
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, []);
+    return time;
 }
 
-const imgVector =
-  "https://www.figma.com/api/mcp/asset/ffb45169-31ac-4c37-9ce5-ef097f9a568b";
-const imgAiIcon =
-  "https://www.figma.com/api/mcp/asset/5d84c1c8-34a4-4fed-aea5-f5a5693c8a83";
+interface SummaryProps {
+    image?: string;
+    label?: string;
+    showReflection?: boolean;
+    warnings?: Warning[];
+}
+
+const imgVector = "https://www.figma.com/api/mcp/asset/ffb45169-31ac-4c37-9ce5-ef097f9a568b";
 
 export default function Summary({
-  time = "00:00:00 CST",
-  image = "/rover.png",
-  label = "Pressurized Rover",
-  showReflection = true,
-  warnings = [],
+    image = "/rover.png",
+    label = "Pressurized Rover",
+    showReflection = true,
+    warnings = [],
 }: SummaryProps) {
-  const hasWarnings = warnings.length > 0;
-  const statusText = hasWarnings ? `${warnings.length} warnings` : "Everything normal";
-  const statusColor = hasWarnings ? "#F59095" : "#c5c9d2";
+    const time = useCSTClock();
+    const hasWarnings = warnings.length > 0;
+    const statusText = hasWarnings ? `${warnings.length} warnings` : "Everything normal";
+    const statusColor = hasWarnings ? "#F59095" : "#c5c9d2";
 
-  return (
-    <div
-      style={{
-        background: hasWarnings
-          ? "linear-gradient(to bottom, #493E3E, #3a3a41)"
-          : "#3a3a41",
-        borderRadius: 12,
-        padding: 20,
-        width: 314,
-        height: 384,
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
-      {/* Images positioned absolutely */}
-      <div
-        style={{
-          position: "absolute",
-          left: 20,
-          top: 83,
-          width: 227,
-          height: 188,
-        }}
-      >
-        <img
-          src={image}
-          alt="Rover"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            borderRadius: 12,
-            boxShadow: "0px 10px 15px 0px rgba(0,0,0,0.15)",
-          }}
-        />
-      </div>
-      {showReflection && (
+    return (
         <div
-          style={{
-            position: "absolute",
-            left: 23.79,
-            top: 83 + 18.73,
-            width: 219.547,
-            height: 153.149,
-            transform: "scaleY(-1)",
-          }}
-        >
-          <img
-            src={imgVector}
-            alt=""
             style={{
-              width: "100%",
-              height: "100%",
-            }}
-          />
-        </div>
-      )}
-
-      {/* Text content */}
-      <div
-        style={{
-          position: "relative",
-          width: 274,
-          height: 338,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <p
-          style={{
-            fontFamily: '"Be Vietnam Pro", sans-serif',
-            fontSize: 16,
-            fontWeight: 400,
-            color: "#c5c9d2",
-            letterSpacing: "0.64px",
-            margin: 0,
-          }}
-        >
-          {time}
-        </p>
-        <Warnings warnings={warnings} />
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "flex-end",
-            width: "100%",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              flex: 1,
-            }}
-          >
-            <p
-              style={{
-                fontFamily: '"Be Vietnam Pro", sans-serif',
-                fontSize: 18,
-                fontWeight: 400,
-                color: "#f1f2f5",
-                letterSpacing: "0.18px",
-                margin: 0,
-              }}
-            >
-              {label}
-            </p>
-            <p
-              style={{
-                fontFamily: '"Be Vietnam Pro", sans-serif',
-                fontSize: 16,
-                fontWeight: 400,
-                color: statusColor,
-                letterSpacing: "0.64px",
-                margin: 0,
-              }}
-            >
-              {statusText}
-            </p>
-          </div>
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 5,
-              overflow: "hidden",
-            }}
-          >
-            <img
-              src={imgAiIcon}
-              alt="AI"
-              style={{
+                background: hasWarnings
+                    ? "linear-gradient(to bottom, #493E3E, #3a3a41)"
+                    : "#3a3a41",
+                borderRadius: 12,
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          </div>
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+            }}
+        >
+            {/* Images positioned absolutely */}
+            <div
+                style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: 83,
+                    width: 272,
+                    height: 226,
+                    transform: "translateX(-50%)",
+                }}
+            >
+                <img
+                    src={image}
+                    alt="Rover"
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        alignContent: "center",
+                    }}
+                />
+            </div>
+            {showReflection && (
+                <div
+                    style={{
+                        position: "absolute",
+                        left: "50%",
+                        top: 83 + 18.73,
+                        width: 263,
+                        height: 184,
+                        transform: "translateX(-50%) scaleY(-1)",
+                    }}
+                >
+                    <img
+                        src={imgVector}
+                        alt=""
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                        }}
+                    />
+                </div>
+            )}
+
+            {/* Warnings centered absolutely */}
+            <div
+                style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: 260,
+                }}
+            >
+                <Warnings warnings={warnings.slice(0, 2)} />
+            </div>
+
+            {/* Text content */}
+            <div
+                style={{
+                    position: "relative",
+                    width: 274,
+                    height: 364,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                }}
+            >
+                <p
+                    style={{
+                        fontFamily: '"Be Vietnam Pro", sans-serif',
+                        fontSize: 16,
+                        fontWeight: 400,
+                        color: "#c5c9d2",
+                        letterSpacing: "0.64px",
+                        margin: 0,
+                        paddingTop: 20,
+                        paddingLeft: 10,
+                    }}
+                >
+                    {time}
+                </p>
+                <div
+                    style={{
+                        display: "flex",
+                        gap: 10,
+                        alignItems: "flex-end",
+                        width: "100%",
+                    }}
+                >
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                            flex: 1,
+                        }}
+                    >
+                        <p
+                            style={{
+                                fontFamily: '"Be Vietnam Pro", sans-serif',
+                                fontSize: 18,
+                                fontWeight: 400,
+                                color: "#f1f2f5",
+                                letterSpacing: "0.18px",
+                                margin: 0,
+                                paddingLeft: 10,
+                            }}
+                        >
+                            {label}
+                        </p>
+                        <p
+                            style={{
+                                fontFamily: '"Be Vietnam Pro", sans-serif',
+                                fontSize: 16,
+                                fontWeight: 400,
+                                color: statusColor,
+                                letterSpacing: "0.64px",
+                                margin: 0,
+                                paddingLeft: 10,
+                            }}
+                        >
+                            {statusText}
+                        </p>
+                    </div>
+                    <div
+                        style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 5,
+                            overflow: "hidden",
+                        }}
+                    >
+                        <img
+                            src="/AI.png"
+                            alt="AI"
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                            }}
+                        />
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

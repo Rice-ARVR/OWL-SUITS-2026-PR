@@ -13,6 +13,7 @@ async def get_vital_signs_rover() -> dict:
         "coolant_pressure": await telemetry_service.rover_data.get_pr_coolant_pressure(),
         "fan1_rpm": await telemetry_service.rover_data.get_pr_fan_pri_rpm(),
         "fan2_rpm": await telemetry_service.rover_data.get_pr_fan_sec_rpm(),
+        "cabin_temperature_target": await telemetry_service.rover_data.get_pr_cabin_temperature_target(),
     }
 
 

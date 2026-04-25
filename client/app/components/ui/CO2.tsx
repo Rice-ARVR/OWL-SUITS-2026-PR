@@ -1,167 +1,171 @@
 import { useEffect, useRef } from "react";
 
+import typo from "~/components/ui/typography.module.css";
+
 type Trend = "up" | "down" | "stable";
 
 function useTrend(value: number | null): Trend {
-  const prev = useRef<number | null>(null);
-  const trend = useRef<Trend>("stable");
+    const prev = useRef<number | null>(null);
+    const trend = useRef<Trend>("stable");
 
-  useEffect(() => {
-    if (value !== null && prev.current !== null) {
-      if (value > prev.current) trend.current = "up";
-      else if (value < prev.current) trend.current = "down";
-      else trend.current = "stable";
-    }
-    prev.current = value;
-  }, [value]);
+    useEffect(() => {
+        if (value !== null && prev.current !== null) {
+            if (value > prev.current) trend.current = "up";
+            else if (value < prev.current) trend.current = "down";
+            else trend.current = "stable";
+        }
+        prev.current = value;
+    }, [value]);
 
-  return trend.current;
+    return trend.current;
 }
 
-const TICKS = [0, 1 / 5, 2 / 5, 3 / 5, 4 / 5, 1];
-
 function TrendArrow({ direction }: { direction: Trend }) {
-  if (direction === "stable") return null;
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 16 16"
-      fill="none"
-      style={{ transform: direction === "down" ? "rotate(180deg)" : "none" }}
-    >
-      <path
-        d="M8 12V4M8 4L4.5 7.5M8 4L11.5 7.5"
-        stroke="#f87171"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+    if (direction === "stable") return null;
+    return (
+        <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            style={{ transform: direction === "down" ? "rotate(180deg)" : "none" }}
+        >
+            <path
+                d="M8 12V4M8 4L4.5 7.5M8 4L11.5 7.5"
+                stroke="#f87171"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
 }
 
 interface MetricProps {
-  label: string;
-  value: number | null;
-  unit: string;
-  min: number;
-  max: number;
-  safeMin?: number;
-  safeMax?: number;
-  trend: Trend;
+    label: string;
+    value: number | null;
+    unit: string;
+    min: number;
+    max: number;
+    safeMin: number;
+    safeMax: number;
+    trend: Trend;
+    isWarning?: boolean;
 }
 
-function Metric({ label, value, unit, min, max, safeMin, safeMax, trend }: MetricProps) {
-  const inRange =
-    value !== null &&
-    safeMin !== undefined &&
-    safeMax !== undefined &&
-    value >= safeMin &&
-    value <= safeMax;
-  const statusLabel = value === null ? "Normal" : inRange ? "Normal" : "Critical";
-  const statusColor = value === null || inRange ? "#9DE4CE" : "#F59095";
+function Metric({ label, value, unit, min, max, safeMin, safeMax, trend, isWarning }: MetricProps) {
+    const statusLabel = isWarning ? "Critical" : "Normal";
+    const statusColor = isWarning ? "#F59095" : "#9DE4CE";
 
-  const pct = value !== null ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
-  const safeMinPct = Math.min(1, Math.max(0, ((safeMin ?? min + (max - min) * 0.25) - min) / (max - min)));
-  const safeMaxPct = Math.min(1, Math.max(0, ((safeMax ?? min + (max - min) * 0.75) - min) / (max - min)));
+    const pct = value !== null ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
+    const safeMinPct = Math.min(1, Math.max(0, (safeMin - min) / (max - min)));
+    const safeMaxPct = Math.min(1, Math.max(0, (safeMax - min) / (max - min)));
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1 }}>
-      <div style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap" }}>
-        <span style={{ fontFamily: '"Be Vietnam Pro", sans-serif', fontSize: 10, fontWeight: 600, color: statusColor, whiteSpace: "nowrap" }}>
-          {statusLabel}
-        </span>
-        <span style={{ fontFamily: '"Be Vietnam Pro", sans-serif', fontSize: 10, color: "#c5c9d2", whiteSpace: "nowrap" }}>
-          {label}
-        </span>
-      </div>
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: 1 }}>
+            <div style={{ display: "flex", gap: 4, alignItems: "center", whiteSpace: "nowrap" }}>
+                <span className={typo.p} style={{ color: statusColor, whiteSpace: "nowrap" }}>
+                    {statusLabel}
+                </span>
+                <span className={typo.p} style={{ color: "#C5C9D2", whiteSpace: "nowrap" }}>
+                    {label}
+                </span>
+            </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
-        <span style={{ fontFamily: '"Be Vietnam Pro", sans-serif', fontSize: 26, fontWeight: 500, color: "#ffffff", lineHeight: 1 }}>
-          {value !== null ? value.toFixed(2) : "--"}
-        </span>
-        <span style={{ fontFamily: '"Be Vietnam Pro", sans-serif', fontSize: 11, color: "#c5c9d2" }}>
-          {unit}
-        </span>
-        <TrendArrow direction={trend} />
-      </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                <span className={typo.h5} style={{ color: "#E8EBF2", lineHeight: 1 }}>
+                    {value !== null ? value.toFixed(2) : "--"}
+                </span>
+                <span className={typo.h5} style={{ color: "#E8EBF2" }}>
+                    {unit}
+                </span>
+                <TrendArrow direction={trend} />
+            </div>
 
-      <div style={{ position: "relative", height: 19, display: "flex", alignItems: "center" }}>
-        <div style={{ position: "absolute", left: 0, right: 0, height: 8, background: "#4a4a52", borderRadius: 99 }} />
-        <div
-          style={{
-            position: "absolute",
-            left: `${safeMinPct * 100}%`,
-            width: `${(safeMaxPct - safeMinPct) * 100}%`,
-            height: 8,
-            background: "rgba(255,255,255,0.3)",
-            borderRadius: 99,
-          }}
-        />
-        {TICKS.map((t, i) => (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: `${t * 100}%`,
-              width: 2,
-              height: 8,
-              background: "#6b7280",
-              borderRadius: 1,
-              transform: "translateX(-50%)",
-            }}
-          />
-        ))}
-        <div
-          style={{
-            position: "absolute",
-            left: `${pct * 100}%`,
-            transform: "translateX(-50%)",
-            width: 11,
-            height: 11,
-            borderRadius: "50%",
-            background: "#ffffff",
-            boxShadow: "0 0 4px rgba(0,0,0,0.4)",
-          }}
-        />
-      </div>
-    </div>
-  );
+            <div
+                style={{ position: "relative", height: 19, display: "flex", alignItems: "center" }}
+            >
+                <div
+                    style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        height: 8,
+                        background: "#4a4a52",
+                        borderRadius: 99,
+                    }}
+                />
+                <div
+                    style={{
+                        position: "absolute",
+                        left: `${safeMinPct * 100}%`,
+                        width: `${(safeMaxPct - safeMinPct) * 100}%`,
+                        height: 8,
+                        background: "rgba(255,255,255,0.3)",
+                        borderRadius: 99,
+                    }}
+                />
+                <div
+                    style={{
+                        position: "absolute",
+                        left: `${pct * 100}%`,
+                        transform: "translateX(-50%)",
+                        width: 11,
+                        height: 11,
+                        borderRadius: "50%",
+                        background: "#ffffff",
+                        boxShadow: "0 0 4px rgba(0,0,0,0.4)",
+                    }}
+                />
+            </div>
+        </div>
+    );
 }
 
 interface CO2Props {
-  co2Production: number | null;
-  helmetCo2Pressure: number | null;
+    co2Production: number | null;
+    helmetCo2Pressure: number | null;
+    co2ProductionWarning?: boolean;
+    helmetCo2Warning?: boolean;
 }
 
-export default function CO2({ co2Production, helmetCo2Pressure }: CO2Props) {
-  const co2ProductionTrend = useTrend(co2Production);
-  const helmetCo2Trend = useTrend(helmetCo2Pressure);
+export default function CO2({ co2Production, helmetCo2Pressure, co2ProductionWarning, helmetCo2Warning }: CO2Props) {
+    const co2ProductionTrend = useTrend(co2Production);
+    const helmetCo2Trend = useTrend(helmetCo2Pressure);
 
-  return (
-    <div style={{ background: "#2e2e32", borderRadius: 10, padding: 16, display: "flex", gap: 19, width: "100%" }}>
-      <Metric
-        label="CO2 prod."
-        value={co2Production}
-        unit="psi/min"
-        min={0}
-        max={5000}
-        safeMin={0}
-        safeMax={3500}
-        trend={co2ProductionTrend}
-      />
-      <div style={{ width: 1, background: "rgba(255,255,255,0.08)", alignSelf: "stretch" }} />
-      <Metric
-        label="Helmet CO2 Press."
-        value={helmetCo2Pressure}
-        unit="psi"
-        min={0}
-        max={10}
-        safeMin={0}
-        safeMax={5}
-        trend={helmetCo2Trend}
-      />
-    </div>
-  );
+    return (
+        <div
+            style={{
+                background: "#2e2e32",
+                borderRadius: 10,
+                padding: 16,
+                display: "flex",
+                gap: 19,
+                width: "100%",
+            }}
+        >
+            <Metric
+                label="CO2 prod."
+                value={co2Production}
+                unit="psi/min"
+                min={0}
+                max={5000}
+                safeMin={0}
+                safeMax={3500}
+                trend={co2ProductionTrend}
+                isWarning={co2ProductionWarning}
+            />
+            <Metric
+                label="Helmet CO2 Press."
+                value={helmetCo2Pressure}
+                unit="psi"
+                min={0}
+                max={10}
+                safeMin={0}
+                safeMax={5}
+                trend={helmetCo2Trend}
+                isWarning={helmetCo2Warning}
+            />
+        </div>
+    );
 }

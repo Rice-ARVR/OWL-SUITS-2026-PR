@@ -1,19 +1,16 @@
 interface OtherPressureProps {
   value: number | null;
   unit?: string;
-  safeMin?: number;
-  safeMax?: number;
+  isWarning?: boolean;
 }
 
 export default function OtherPressure({
   value,
   unit = "psi",
-  safeMin = 0,
-  safeMax = 5,
+  isWarning,
 }: OtherPressureProps) {
-  const inRange = value !== null && value >= safeMin && value <= safeMax;
-  const statusLabel = value === null ? "Safe" : inRange ? "Safe" : "Unsafe";
-  const statusColor = inRange || value === null ? "#9DE4CE" : "#F59095";
+  const statusLabel = isWarning ? "Unsafe" : "Safe";
+  const statusColor = isWarning ? "#F59095" : "#9DE4CE";
 
   return (
     <div
