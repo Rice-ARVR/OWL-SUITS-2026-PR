@@ -27,7 +27,6 @@ interface FansProps {
     fanWarnings?: boolean[];
 }
 
-const imgEllipse2 = "https://www.figma.com/api/mcp/asset/326bf7fd-f943-4e0b-b93b-609d3737f912";
 const imgVector = "/fan.png";
 
 const FanArrowIcon = ({ direction = "up" }: { direction?: "up" | "down" }) => (
@@ -141,21 +140,13 @@ export default function Fans({
                     style={{
                         position: "absolute",
                         left: 6,
-                        top: 38,
+                        bottom: 4,
                         width: 30,
                         height: 4,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        transform: "scaleY(-1)",
+                        borderRadius: "50%",
+                        background: "radial-gradient(ellipse at center, rgba(255,255,255,0.25) 0%, transparent 100%)",
                     }}
-                >
-                    <img
-                        src={imgEllipse2}
-                        alt="Icon glow"
-                        style={{ width: 30, height: 4, display: "block" }}
-                    />
-                </div>
+                />
                 <div
                     style={{
                         position: "absolute",
