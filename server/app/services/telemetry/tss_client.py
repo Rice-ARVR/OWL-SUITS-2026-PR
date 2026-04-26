@@ -13,6 +13,8 @@ COMMAND_LTV_ERRORS = 3
 COMMAND_BRAKES = 1107
 COMMAND_THROTTLE = 1109
 COMMAND_STEERING = 1110
+COMMAND_LTV_PING_NORMAL = 2050
+COMMAND_LTV_PING_UNLIMITED = 2051
 
 
 def _build_packet(command: int) -> bytes:
@@ -50,6 +52,18 @@ def send_throttle(value: float) -> None:
 def send_steering(value: float) -> None:
     """Send steering control to TSS server."""
     packet = _build_control_packet(COMMAND_STEERING, value)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
+
+
+def send_ltv_ping_normal() -> None:
+    """Send LTV ping command (normal, 20s throttle)."""
+    packet = _build_packet(COMMAND_LTV_PING_NORMAL)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
+
+
+def send_ltv_ping_unlimited() -> None:
+    """Send LTV ping command (unlimited, for testing)."""
+    packet = _build_packet(COMMAND_LTV_PING_UNLIMITED)
     _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
 
 
