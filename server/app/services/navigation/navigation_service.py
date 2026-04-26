@@ -68,11 +68,22 @@ _autonomous_task: Optional[asyncio.Task] = None
 # --- Autonomy Loop (Backend-Driven) ---
 
 
-async def start_autonomous_loop():
+async def start_autonomous_loop(force_reset: bool = False):
     global _autonomous_task
+
+    # 1. Check current state
+    state = await navigation_state.get_snapshot()
+
+    # 2. If no session exists, or if a reset is explicitly requested, initialize it
+    if state.session is None or force_reset:
+        await start_search_session()
+        logger.info("New search session initialized.")
+
+    # 3. Enable autonomy and spin up the background loop
     await navigation_state.set_autonomous_driving(True)
     if _autonomous_task is None or _autonomous_task.done():
         _autonomous_task = asyncio.create_task(autonomous_driving_loop())
+
     logger.info("Autonomous Loop Started.")
 
 
