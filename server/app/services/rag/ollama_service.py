@@ -32,16 +32,16 @@ async def check_ollama_health() -> dict:
 
 
 async def stream_rag(
-    model: str, question: str, chat_history: list[dict]
+    model: str, question: str, chat_history: list[dict], use_rag: bool = True
 ) -> AsyncGenerator[str, None]:
-    chain = build_rag_chain(model, chat_history)
+    chain = build_rag_chain(model, chat_history, use_rag)
     async for chunk in chain.astream(question):
         yield f"data: {json.dumps({'response': chunk})}\n\n"
     yield "data: [DONE]\n\n"
 
 
-async def invoke_rag(model: str, question: str, chat_history: list[dict]) -> str:
-    chain = build_rag_chain(model, chat_history)
+async def invoke_rag(model: str, question: str, chat_history: list[dict], use_rag: bool = True) -> str:
+    chain = build_rag_chain(model, chat_history, use_rag)
     return await chain.ainvoke(question)
 
 

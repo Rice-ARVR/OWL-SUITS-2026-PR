@@ -51,6 +51,7 @@ class RagQueryRequest(BaseModel):
     question: str
     stream: bool = True
     chat_history: list[Message] = []
+    use_rag: bool = False
 
 
 @router.post("/ollama/rag-query")
@@ -66,11 +67,11 @@ async def rag_query(request: RagQueryRequest):
         history = [m.model_dump() for m in request.chat_history]
         if request.stream:
             return StreamingResponse(
-                stream_rag(request.model, request.question, history),
+                stream_rag(request.model, request.question, history, request.use_rag),
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
             )
-        result = await invoke_rag(request.model, request.question, history)
+        result = await invoke_rag(request.model, request.question, history, request.use_rag)
         return JSONResponse({"model": request.model, "response": result, "done": True})
     except Exception as e:
         logger.exception("Ollama rag-query failed: %s", e)

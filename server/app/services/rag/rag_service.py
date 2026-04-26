@@ -49,7 +49,7 @@ def get_raw_context() -> str:
     return _read_telemetry()
 
 
-def build_rag_chain(model: str, chat_history: list[dict[str, Any]] | None = None):
+def build_rag_chain(model: str, chat_history: list[dict[str, Any]] | None = None, use_rag: bool = True):
     """
     LCEL chain: question → parallel(telemetry fetch, document retrieval) → prompt → LLM.
     Both data sources are combined before the model sees anything.
@@ -68,11 +68,17 @@ def build_rag_chain(model: str, chat_history: list[dict[str, Any]] | None = None
         ("human", "{question}"),
     ])
 
+    documents_branch = (
+        retriever | RunnableLambda(_format_docs)
+        if use_rag
+        else RunnableLambda(lambda _: "(Document retrieval disabled.)")
+    )
+
     chain = (
         {
             "question": RunnablePassthrough(),
             "telemetry": RunnableLambda(lambda _: _read_telemetry()),
-            "documents": retriever | RunnableLambda(_format_docs),
+            "documents": documents_branch,
             "chat_history": RunnableLambda(lambda _: history_messages),
         }
         | prompt
