@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     TSS_PORT: int = 14141
     TSS_TIMEOUT: float = 2.0
     POLL_INTERVAL: float = 1.0
-    OLLAMA_URL: str = "http://localhost:11434"
+    OLLAMA_URL: str = "http://host.docker.internal:11434"
     EMBED_MODEL: str = "nomic-embed-text"
 
     MONGODB_URL: str
