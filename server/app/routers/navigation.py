@@ -7,7 +7,6 @@ from app.services.navigation.navigation_service import (
     execute_ping,
     navigation_state,
     start_autonomous_loop,
-    start_search_session,
     stop_autonomous_loop,
 )
 
@@ -30,25 +29,18 @@ async def navigation_stream():
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-@router.post("/navigation/session/start")
-async def start_navigation_session():
-    """Start a new navigation search session."""
+@router.post("/navigation/autonomy/start")
+async def autonomy_start(force_reset: bool = False):
+    """
+    Turn on autonomous driving.
+    If no session exists, it initializes a new one.
+    If force_reset=True is passed, it wipes the current map and starts over.
+    """
     try:
-        session = await start_search_session()
-        return {
-            "session_id": session.session_id,
-            "phase": session.phase.value,
-            "search_center": session.search_center.model_dump(),
-        }
+        await start_autonomous_loop(force_reset=force_reset)
+        return {"status": "Autonomous driving activated", "reset": force_reset}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/navigation/autonomy/start")
-async def autonomy_start():
-    """Turn on autonomous driving (backend loop takes control)."""
-    await start_autonomous_loop()
-    return {"status": "Autonomous driving activated"}
 
 
 @router.post("/navigation/autonomy/stop")
