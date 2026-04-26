@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "./TaskPanel.module.css";
+import { AiaChat } from "../../aia/aia";
 
 interface SubTask {
     id: number;
@@ -340,7 +341,7 @@ export default function TaskPanel() {
                 {/* Assistant tab */}
                 {activeTab === "assistant" && (
                     <div className={styles.assistantContent}>
-                        {/* Assistant component goes here */}
+                        <AiaChat></AiaChat>
                     </div>
                 )}
             </div>
