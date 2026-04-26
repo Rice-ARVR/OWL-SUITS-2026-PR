@@ -3,10 +3,22 @@ import { useOllama } from "~/hooks/useOllama";
 import { useVoice } from "~/hooks/useVoice";
 import styles from "./aia.module.css";
 
+function TypingDots() {
+    return (
+        <span className={styles.typingDots}>
+            <span />
+            <span />
+            <span />
+        </span>
+    );
+}
+
 export function AiaChat() {
     const [input, setInput] = useState("");
-    const { chat, messages, loading, error, connected, clearHistory } = useOllama("llama3.2");
-    const { isRecording, transcribing, transcript, voiceError, startRecording, stopRecording } = useVoice();
+    // Set AIA model here:
+    const { chat, messages, loading, error, connected, clearHistory } = useOllama("gemma4");
+    const { isRecording, transcribing, transcript, voiceError, startRecording, stopRecording } =
+        useVoice();
     const [health, setHealth] = useState<
         | { ok: true; ollama_url: string; models: unknown[] }
         | { ok: false; ollama_url: string; error: string }
@@ -64,7 +76,7 @@ export function AiaChat() {
                 {messages.map((msg, i) => (
                     <div key={i} className={`${styles.messageBubbleWrapper} ${styles[msg.role]}`}>
                         <span className={`${styles.messageBubble} ${styles[msg.role]}`}>
-                            {msg.content || <span className={styles.cursor}>▍</span>}
+                            {msg.content || <TypingDots />}
                         </span>
                     </div>
                 ))}
@@ -89,14 +101,14 @@ export function AiaChat() {
                         disabled={loading || !input.trim()}
                         className={styles.sendButton}
                     >
-                        {loading ? "..." : "Send"}
+                        {loading ? <TypingDots /> : "Send"}
                     </button>
                     <button
                         onClick={isRecording ? stopRecording : startRecording}
                         disabled={loading || transcribing}
                         className={`${styles.micButton} ${isRecording ? styles.micButtonActive : ""}`}
                     >
-                        {transcribing ? "..." : isRecording ? "■ Stop" : "🎙 Mic"}
+                        {transcribing ? <TypingDots /> : isRecording ? "■ Stop" : "🎙 Mic"}
                     </button>
                     <button
                         onClick={clearHistory}

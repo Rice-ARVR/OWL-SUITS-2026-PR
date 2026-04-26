@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     connect()
     await start_polling()
     await ingest_documents()
-    await warmup_model()
+    await warmup_model(settings.AIA_MODEL)
     yield
     await stop_polling()
     disconnect()

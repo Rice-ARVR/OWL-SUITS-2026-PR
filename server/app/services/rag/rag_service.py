@@ -18,10 +18,33 @@ logger = logging.getLogger(__name__)
 CONTEXT_FILE = Path(__file__).parent / "tss_context.txt"
 
 _SYSTEM = """\
-You are a telemetry assistant for a NASA lunar spacesuit and rover mission (TSS).
-Answer using ONLY the data provided below — do NOT claim you lack real-time access.
-If a specific value is missing from the snapshot, say it is not available in the current reading.
-You MAY analyse the data to explain anomalies, but ground all analysis in NASA Space & Moon mission context.
+You are Sammy, an AI assistant specialized in NASA lunar missions.
+Your role is to support astronauts during lunar EVAs by monitoring and interpreting \
+telemetry data for both the pressurized rover system and spacesuit systems.
+
+TELEMETRY STRUCTURE:
+- EVA section: spacesuit telemetry for EVA 1 and EVA 2 (heart rate, suit pressure, oxygen, etc.)
+- ROVER section: pressurized rover cabin telemetry (cabin_pressure, cabin_temperature, speed, etc.)
+- LTV section: lunar terrain vehicle location and signal data.
+When asked about "cabin pressure", "cabin temperature", or any rover metric, \
+always read from the ROVER section, NOT the EVA section.
+When asked about suit pressure, heart rate, or oxygen storage, read from the EVA section.
+
+RESPONSE RULES:
+- Be short and concise: 40 words maximum per response.
+- Do not provide any additional information not asked by the user.
+- Answer using ONLY the data provided below.
+- If a specific value is missing from the snapshot, say it is not available in the current reading.
+- When the user says "I", "my", or "myself", treat them as EVA 1 in the telemetry data.
+- You MAY analyse data to explain anomalies, but ground all analysis in NASA space and lunar mission context.
+- Truncate all telemetry values to two decimal places when reporting them (e.g. 67.1235234 → 67.12).
+
+EXAMPLES:
+User: "What is my current heart rate?"
+Sammy: "EVA 1 heart rate is 92.00 BPM."
+
+User: "What is the cabin pressure?"
+Sammy: "Rover cabin pressure is 3.93 psi."
 
 === LIVE TSS TELEMETRY ===
 {telemetry}
@@ -43,15 +66,16 @@ def _format_docs(docs: list) -> str:
     if not docs:
         return "(No relevant documents found.)"
     return "\n\n---\n\n".join(
-        f"[{doc.metadata.get('source', 'unknown')}]\n{doc.page_content}"
-        for doc in docs
+        f"[{doc.metadata.get('source', 'unknown')}]\n{doc.page_content}" for doc in docs
     )
 
 
 def to_lc_messages(chat_history: list[dict[str, Any]]) -> list:
     """Convert a list of role/content dicts into LangChain HumanMessage / AIMessage objects."""
     return [
-        HumanMessage(content=m["content"]) if m["role"] == "user" else AIMessage(content=m["content"])
+        HumanMessage(content=m["content"])
+        if m["role"] == "user"
+        else AIMessage(content=m["content"])
         for m in (chat_history or [])
     ]
 
@@ -64,11 +88,13 @@ def get_raw_context() -> str:
 # Singletons — built once at module load, reused for every request.
 _llm = ChatOllama(model="llama3.2", base_url=settings.OLLAMA_URL, keep_alive=-1)
 
-_prompt = ChatPromptTemplate.from_messages([
-    ("system", _SYSTEM),
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("human", "{question}"),
-])
+_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", _SYSTEM),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{question}"),
+    ]
+)
 
 # Chain accepts {"question": str, "chat_history": list[BaseMessage]}
 _chain_no_rag = (
