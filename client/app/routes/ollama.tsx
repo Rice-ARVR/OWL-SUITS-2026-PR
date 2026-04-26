@@ -8,5 +8,19 @@ export function meta() {
 }
 
 export default function OllamaPage() {
-    return <AiaChat />;
+    return (
+        <div
+            style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                width: "100%",
+                height: "100vh",
+            }}
+        >
+            <div style={{ width: 500, height: 600 }}>
+                <AiaChat />
+            </div>
+        </div>
+    );
 }

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useOllama } from "~/hooks/useOllama";
+import { useVoice } from "~/hooks/useVoice";
+import styles from "./aia.module.css";
 
 export function AiaChat() {
     const [input, setInput] = useState("");
     const { chat, messages, loading, error, connected, clearHistory } = useOllama("llama3.2");
+    const { isRecording, transcribing, transcript, voiceError, startRecording, stopRecording } = useVoice();
     const [health, setHealth] = useState<
         | { ok: true; ollama_url: string; models: unknown[] }
         | { ok: false; ollama_url: string; error: string }
@@ -26,6 +29,11 @@ export function AiaChat() {
             );
     }, []);
 
+    // populate input with voice transcript when it arrives
+    useEffect(() => {
+        if (transcript) setInput(transcript);
+    }, [transcript]);
+
     // auto scroll to newest message.
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,98 +54,55 @@ export function AiaChat() {
     };
 
     return (
-        <div
-            style={{
-                maxWidth: 700,
-                margin: "40px auto",
-                padding: "0 20px",
-                display: "flex",
-                flexDirection: "column",
-                height: "90vh",
-            }}
-        >
-            <h1>Local LLM Chat</h1>
-            <p style={{ marginBottom: 4, fontSize: 13 }}>
-                Server→Ollama:{" "}
-                {health === null
-                    ? "checking..."
-                    : health.ok
-                      ? `ok (${health.ollama_url}, models: ${health.models.length})`
-                      : `error (${health.ollama_url}): ${health.error}`}
-            </p>
-            <p style={{ marginBottom: 8, fontSize: 13 }}>
-                LLM:{" "}
-                {connected === null
-                    ? "unknown (no requests yet)"
-                    : connected
-                      ? "online"
-                      : "offline / unreachable"}
-            </p>
-
-            <div
-                style={{
-                    flex: 1,
-                    overflowY: "auto",
-                    border: "1px solid #ccc",
-                    borderRadius: 6,
-                    padding: 12,
-                    marginBottom: 8,
-                }}
-            >
+        <div className={styles.container}>
+            <div className={styles.messages}>
                 {messages.length === 0 && (
-                    <p style={{ color: "#888", fontSize: 14 }}>
+                    <p className={styles.emptyState}>
                         Ask something about the current mission telemetry...
                     </p>
                 )}
                 {messages.map((msg, i) => (
-                    <div
-                        key={i}
-                        style={{
-                            marginBottom: 12,
-                            textAlign: msg.role === "user" ? "right" : "left",
-                        }}
-                    >
-                        <span
-                            style={{
-                                display: "inline-block",
-                                background: msg.role === "user" ? "#0078d4" : "#f0f0f0",
-                                color: msg.role === "user" ? "#fff" : "#000",
-                                borderRadius: 8,
-                                padding: "8px 12px",
-                                maxWidth: "85%",
-                                whiteSpace: "pre-wrap",
-                                fontSize: 14,
-                                textAlign: "left",
-                            }}
-                        >
-                            {msg.content || <span style={{ color: "#aaa" }}>▍</span>}
+                    <div key={i} className={`${styles.messageBubbleWrapper} ${styles[msg.role]}`}>
+                        <span className={`${styles.messageBubble} ${styles[msg.role]}`}>
+                            {msg.content || <span className={styles.cursor}>▍</span>}
                         </span>
                     </div>
                 ))}
                 <div ref={bottomRef} />
             </div>
 
-            {error && <p style={{ color: "red", fontSize: 13, marginBottom: 4 }}>{error}</p>}
-
-            <div style={{ display: "flex", gap: 8 }}>
+            {error && <p className={styles.error}>{error}</p>}
+            {voiceError && <p className={styles.error}>{voiceError}</p>}
+            <div className={styles.inputRow}>
                 <textarea
                     rows={3}
-                    style={{ flex: 1, resize: "none" }}
+                    className={styles.textarea}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask something... (Enter to send, Shift+Enter for newline)"
+                    placeholder="Ask anything"
                     disabled={loading}
                 />
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div className={styles.actions}>
                     <button
                         onClick={handleSend}
                         disabled={loading || !input.trim()}
-                        style={{ flex: 1 }}
+                        className={styles.sendButton}
                     >
                         {loading ? "..." : "Send"}
                     </button>
-                    <button onClick={clearHistory} disabled={loading} style={{ fontSize: 12 }}>
+                    <button
+                        onClick={isRecording ? stopRecording : startRecording}
+                        disabled={loading || transcribing}
+                        className={`${styles.micButton} ${isRecording ? styles.micButtonActive : ""}`}
+                    >
+                        {transcribing ? "..." : isRecording ? "■ Stop" : "🎙 Mic"}
+                    </button>
+                    <button
+                        onClick={clearHistory}
+                        disabled={loading}
+                        className={styles.clearButton}
+                    >
                         Clear
                     </button>
                 </div>

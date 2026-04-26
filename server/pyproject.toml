@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "pymongo[srv]>=4.0",
     "uvicorn>=0.41.0",
+    "faster-whisper>=1.2.1",
 ]
 
 [dependency-groups]

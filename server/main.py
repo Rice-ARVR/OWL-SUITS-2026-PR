@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.routing import BaseRoute
 
 from app.routers.ollama import router as ollama_router
+from app.routers.speech import router as speech_router
 from app.routers.tss_example import router as tss_example_router
 from app.core.config import settings
 from app.routers.locations import router as locations_router
@@ -50,6 +51,7 @@ app.add_middleware(
 
 # Include Routers Here:
 app.include_router(ollama_router)
+app.include_router(speech_router)
 app.include_router(tss_example_router)
 app.include_router(locations_router)
 app.include_router(warnings_router)
