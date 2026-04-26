@@ -1,3 +1,4 @@
+import { ROVER_LIMITS } from "~/constants/telemetryLimits";
 import typo from "~/components/ui/typography.module.css";
 import { TrendArrow, useTrend } from "~/components/ui/trend";
 
@@ -8,8 +9,12 @@ interface TemperatureProps {
     target?: number | null;
 }
 
-const TEMP_MIN = 0;
-const TEMP_MAX = 30;
+const {
+    min: TEMP_MIN,
+    max: TEMP_MAX,
+    safeMin: TEMP_SAFE_MIN,
+    safeMax: TEMP_SAFE_MAX,
+} = ROVER_LIMITS.cabin_temperature;
 
 function arcPoint(radius: number, pct: number) {
     const theta = Math.PI * (1 - pct);
@@ -28,6 +33,11 @@ export default function Temperature({
 }: TemperatureProps) {
     const value =
         Number.isFinite(temperature) && temperature !== null ? (temperature as number) : TEMP_MIN;
+    const isSafe =
+        temperature !== null &&
+        Number.isFinite(temperature) &&
+        (temperature as number) >= TEMP_SAFE_MIN &&
+        (temperature as number) <= TEMP_SAFE_MAX;
     const radius = 94;
     const pct = tempToPct(value);
     const outsideTrend = useTrend(
@@ -65,7 +75,7 @@ export default function Temperature({
                     <path
                         d="M194 100C194 87.6557 191.569 75.4324 186.845 64.0278C182.121 52.6231 175.197 42.2607 166.468 33.532C157.739 24.8033 147.377 17.8793 135.972 13.1553C124.568 8.43138 112.344 6 100 6C87.6557 6 75.4324 8.43138 64.0278 13.1553C52.6231 17.8793 42.2607 24.8033 33.532 33.532C24.8033 42.2607 17.8793 52.6232 13.1553 64.0278C8.43138 75.4324 6 87.6557 6 100"
                         fill="none"
-                        stroke="#74857F"
+                        stroke={isSafe ? "#74857F" : "#9C8080"}
                         strokeOpacity="0.35"
                         strokeWidth="12"
                         strokeLinecap="round"
@@ -149,6 +159,11 @@ export default function Temperature({
                             ? `${Math.round(target as number)}${unit}`
                             : "--"}
                     </span>
+                    {!isSafe && (
+                        <span className={typo.p} style={{ color: "#F59095" }}>
+                            Risk of heat stress!
+                        </span>
+                    )}
                 </div>
             </div>
 

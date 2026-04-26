@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { EVA_LIMITS, ROVER_LIMITS } from "~/constants/telemetryLimits";
 import Battery from "~/components/ui/Battery";
 import Card from "~/components/ui/Card";
 import CO2 from "~/components/ui/CO2";
@@ -331,16 +332,15 @@ export default function Telemetry() {
                             >
                                 <Pressure
                                     value={rover.cabin_pressure}
-                                    min={0}
-                                    max={10}
+                                    {...ROVER_LIMITS.cabin_pressure}
                                     label="Cabin Pressure"
                                 />
                                 <Graph
                                     value={rover.o2_pressure}
                                     label="O2 Pressure"
                                     unit=" psi"
-                                    min={0}
-                                    max={3000}
+                                    min={ROVER_LIMITS.oxygen_pressure.min}
+                                    max={ROVER_LIMITS.oxygen_pressure.max}
                                     isWarning={w("rover", "oxygen_pressure")}
                                 />
                             </div>
@@ -466,8 +466,7 @@ export default function Telemetry() {
                         >
                             <Pressure
                                 value={eva.eva1.total_suit_pressure}
-                                min={0}
-                                max={10}
+                                {...EVA_LIMITS.suit_pressure_total}
                                 label="Total Suit Pressure"
                             />
                             <div style={{ height: "34px" }} />
@@ -475,8 +474,8 @@ export default function Telemetry() {
                                 value={eva.eva1.o2_suit_pressure}
                                 label="O2 Pressure"
                                 unit=" psi"
-                                min={0}
-                                max={10}
+                                min={EVA_LIMITS.suit_pressure_oxy.min}
+                                max={EVA_LIMITS.suit_pressure_oxy.max}
                                 borderBottom={false}
                                 isWarning={w("eva1", "suit_pressure_oxy")}
                             />
@@ -484,8 +483,8 @@ export default function Telemetry() {
                                 value={eva.eva1.co2_suit_pressure}
                                 label="CO2 Pressure"
                                 unit=" psi"
-                                min={0}
-                                max={10}
+                                min={EVA_LIMITS.suit_pressure_co2.min}
+                                max={EVA_LIMITS.suit_pressure_co2.max}
                                 borderBottom={false}
                                 borderTop={false}
                                 isWarning={w("eva1", "suit_pressure_co2")}
@@ -494,8 +493,8 @@ export default function Telemetry() {
                                 value={eva.eva1.co2_scrubber}
                                 label="CO2 Scrubber"
                                 unit="% full"
-                                min={0}
-                                max={100}
+                                min={EVA_LIMITS.scrubber_a_co2_storage.min}
+                                max={EVA_LIMITS.scrubber_a_co2_storage.max}
                                 borderTop={false}
                                 isWarning={w("eva1", "scrubber_a_co2_storage")}
                             />

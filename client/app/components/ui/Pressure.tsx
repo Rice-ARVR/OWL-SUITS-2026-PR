@@ -4,13 +4,13 @@ interface PressureProps {
     value: number | null;
     min: number;
     max: number;
+    safeMin?: number;
+    safeMax?: number;
     label?: string;
     unit?: string;
 }
 
 const RADIUS = 100;
-const SAFE_MIN_PCT = 0.25;
-const SAFE_MAX_PCT = 0.75;
 
 function arcPoint(r: number, pct: number) {
     const theta = Math.PI * (1 - pct);
@@ -28,8 +28,10 @@ function valueToPct(value: number, min: number, max: number) {
     return Math.min(1, Math.max(0, (value - min) / (max - min)));
 }
 
-export default function Pressure({ value, min, max, label, unit = "psi" }: PressureProps) {
+export default function Pressure({ value, min, max, safeMin, safeMax, label, unit = "psi" }: PressureProps) {
     const pct = value !== null && Number.isFinite(value) ? valueToPct(value, min, max) : null;
+    const safeMinPct = safeMin !== undefined ? valueToPct(safeMin, min, max) : 0.25;
+    const safeMaxPct = safeMax !== undefined ? valueToPct(safeMax, min, max) : 0.75;
 
     const indicator = pct !== null ? arcPoint(RADIUS, pct) : null;
 
@@ -57,7 +59,7 @@ export default function Pressure({ value, min, max, label, unit = "psi" }: Press
 
                     {/* Safe zone arc */}
                     <path
-                        d={arcPath(RADIUS, SAFE_MIN_PCT, SAFE_MAX_PCT)}
+                        d={arcPath(RADIUS, safeMinPct, safeMaxPct)}
                         fill="none"
                         stroke="#E9FFF6"
                         strokeWidth={12}

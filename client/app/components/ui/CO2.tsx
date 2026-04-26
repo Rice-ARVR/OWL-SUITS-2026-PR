@@ -1,3 +1,4 @@
+import { EVA_LIMITS } from "~/constants/telemetryLimits";
 import typo from "~/components/ui/typography.module.css";
 import { TrendArrow, useTrend, type Trend } from "~/components/ui/trend";
 
@@ -113,10 +114,7 @@ export default function CO2({
                 label="CO2 prod."
                 value={co2Production}
                 unit="psi/min"
-                min={0}
-                max={5000}
-                safeMin={0}
-                safeMax={3500}
+                {...EVA_LIMITS.co2_production}
                 trend={co2ProductionTrend}
                 isWarning={co2ProductionWarning}
             />
@@ -124,10 +122,7 @@ export default function CO2({
                 label="Helmet CO2 Press."
                 value={helmetCo2Pressure}
                 unit="psi"
-                min={0}
-                max={10}
-                safeMin={0}
-                safeMax={5}
+                {...EVA_LIMITS.helmet_pressure_co2}
                 trend={helmetCo2Trend}
                 isWarning={helmetCo2Warning}
             />

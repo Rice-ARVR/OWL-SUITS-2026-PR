@@ -1,3 +1,4 @@
+import { EVA_LIMITS } from "~/constants/telemetryLimits";
 import typo from "~/components/ui/typography.module.css";
 import { TrendArrow, useTrend, type Trend } from "~/components/ui/trend";
 
@@ -146,10 +147,7 @@ export default function Health({
                 label="Body Temp"
                 value={bodyTemp}
                 unit="°"
-                min={15}
-                max={35}
-                safeMin={20}
-                safeMax={30}
+                {...EVA_LIMITS.temperature}
                 trend={bodyTempTrend}
                 isWarning={bodyTempWarning}
             />
@@ -157,10 +155,7 @@ export default function Health({
                 label="Heart Rate"
                 value={heartRate}
                 unit="bpm"
-                min={40}
-                max={180}
-                safeMin={60}
-                safeMax={120}
+                {...EVA_LIMITS.heart_rate}
                 trend={heartRateTrend}
                 isWarning={heartRateWarning}
             />
