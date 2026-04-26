@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import math
 import uuid
 from datetime import datetime
@@ -50,6 +51,14 @@ RSSI_THRESHOLDS = {
     DistanceCategory.WEAK: -80.0,
     DistanceCategory.VERY_WEAK: -90.0,
 }
+
+# Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] NAV: %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 # LIDAR sensor tiers
 TIER_1_SENSORS = [0, 4, 9, 12]  # Emergency
@@ -433,6 +442,9 @@ async def update_search_phase(new_phase: SearchPhase) -> None:
     """Update the current search phase."""
     state = await navigation_state.get_snapshot()
     if state.session:
+        logger.info(
+            f"Phase Transition: {state.session.phase.value} -> {new_phase.value}"
+        )
         state.session.phase = new_phase
         await navigation_state.update_session(state.session)
 
@@ -458,6 +470,9 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
         rssi = ltv_data.signal.strength
         category = categorize_rssi(rssi)
         last_ping_time = now
+
+        # Log
+        logger.info(f"Ping successful! RSSI: {rssi} dBm ({category.value})")
 
         # Record ping in history
         state = await navigation_state.get_snapshot()
@@ -525,8 +540,10 @@ async def execute_navigation_step(
     target = session.current_target
 
     if target and has_reached_target(rover_x, rover_y, target):
+        logger.info(f"Reached Target: {target.description}")
         # Reached current target
         if session.phase == SearchPhase.TRANSIT_TO_LNP:
+            logger.info("Arrived at LNP. Transitioning to CONCENTRIC_SEARCH.")
             # Arrived at LNP, start concentric search
             session.search_center = position
             session.phase = SearchPhase.CONCENTRIC_SEARCH

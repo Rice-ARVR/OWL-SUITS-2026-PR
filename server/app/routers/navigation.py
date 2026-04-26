@@ -1,6 +1,8 @@
+import asyncio
 from typing import List
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.services.navigation.navigation_service import (
     execute_navigation_step,
@@ -10,6 +12,29 @@ from app.services.navigation.navigation_service import (
 )
 
 router = APIRouter()
+
+
+@router.get("/navigation/stream")
+async def navigation_stream():
+    """Server-Sent Events (SSE) stream for real-time navigation state."""
+
+    async def event_generator():
+        try:
+            while True:
+                # Grab the latest snapshot of the state
+                state = await navigation_state.get_snapshot()
+
+                # SSE format strictly requires "data: <string>\n\n"
+                # Pydantic's model_dump_json() safely handles datetimes and enums
+                yield f"data: {state.model_dump_json()}\n\n"
+
+                # Stream at 10Hz (100ms) to match smooth UI telemetry
+                await asyncio.sleep(0.1)
+        except asyncio.CancelledError:
+            # This cleanly handles the loop when the frontend disconnects
+            pass
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.post("/navigation/session/start")
