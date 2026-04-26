@@ -1,11 +1,12 @@
 import logging
+from operator import itemgetter
 from pathlib import Path
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.runnables import RunnableLambda
 from langchain_ollama import ChatOllama
 
 from app.core.config import settings
@@ -45,45 +46,58 @@ def _format_docs(docs: list) -> str:
     )
 
 
-def get_raw_context() -> str:
-    return _read_telemetry()
-
-
-def build_rag_chain(model: str, chat_history: list[dict[str, Any]] | None = None, use_rag: bool = True):
-    """
-    LCEL chain: question → parallel(telemetry fetch, document retrieval) → prompt → LLM.
-    Both data sources are combined before the model sees anything.
-    """
-    llm = ChatOllama(model=model, base_url=settings.OLLAMA_URL)
-    retriever = get_retriever()
-
-    history_messages = [
+def to_lc_messages(chat_history: list[dict[str, Any]]) -> list:
+    return [
         HumanMessage(content=m["content"]) if m["role"] == "user" else AIMessage(content=m["content"])
         for m in (chat_history or [])
     ]
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", _SYSTEM),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{question}"),
-    ])
 
-    documents_branch = (
-        retriever | RunnableLambda(_format_docs)
-        if use_rag
-        else RunnableLambda(lambda _: "(Document retrieval disabled.)")
-    )
+def get_raw_context() -> str:
+    return _read_telemetry()
 
-    chain = (
-        {
-            "question": RunnablePassthrough(),
-            "telemetry": RunnableLambda(lambda _: _read_telemetry()),
-            "documents": documents_branch,
-            "chat_history": RunnableLambda(lambda _: history_messages),
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
 
-    return chain
+# Singletons — built once at module load, reused for every request.
+_llm = ChatOllama(model="llama3.2", base_url=settings.OLLAMA_URL, keep_alive=-1)
+
+_prompt = ChatPromptTemplate.from_messages([
+    ("system", _SYSTEM),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{question}"),
+])
+
+# Chain accepts {"question": str, "chat_history": list[BaseMessage]}
+_chain_no_rag = (
+    {
+        "question": itemgetter("question"),
+        "telemetry": RunnableLambda(lambda _: _read_telemetry()),
+        "documents": RunnableLambda(lambda _: "(Document retrieval disabled.)"),
+        "chat_history": itemgetter("chat_history"),
+    }
+    | _prompt
+    | _llm
+    | StrOutputParser()
+)
+
+_chain_rag = None
+
+
+def _get_rag_chain():
+    global _chain_rag
+    if _chain_rag is None:
+        _chain_rag = (
+            {
+                "question": itemgetter("question"),
+                "telemetry": RunnableLambda(lambda _: _read_telemetry()),
+                "documents": get_retriever() | RunnableLambda(_format_docs),
+                "chat_history": itemgetter("chat_history"),
+            }
+            | _prompt
+            | _llm
+            | StrOutputParser()
+        )
+    return _chain_rag
+
+
+def get_chain(use_rag: bool = False):
+    return _chain_no_rag if not use_rag else _get_rag_chain()

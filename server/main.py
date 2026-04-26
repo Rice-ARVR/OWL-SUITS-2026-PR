@@ -14,6 +14,7 @@ from app.routers.warnings import router as warnings_router
 from app.routers.rover_control import router as rover_control_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
 from app.services.rag.document_service import ingest_documents
+from app.services.rag.ollama_service import warmup_model
 from app.db.database import connect, disconnect
 
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     connect()
     await start_polling()
     await ingest_documents()
+    await warmup_model()
     yield
     await stop_polling()
     disconnect()
