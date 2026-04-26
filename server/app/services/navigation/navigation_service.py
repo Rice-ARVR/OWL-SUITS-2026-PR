@@ -65,7 +65,7 @@ navigation_state = NavigationStateData()
 last_ping_time: Optional[datetime] = None
 ring_waypoints: List[Tuple[float, float]] = []
 current_ring_index: int = 0
-
+current_spiral_index: int = 0
 
 # --- Utility Functions ---
 
@@ -346,7 +346,7 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
 async def execute_navigation_step(
     rover_x: float, rover_y: float, rover_heading: float, lidar_array: List[float]
 ) -> Dict:
-    global ring_waypoints, current_ring_index
+    global ring_waypoints, current_ring_index, current_spiral_index
 
     position = Position(x=rover_x, y=rover_y, heading=rover_heading)
     await navigation_state.update_rover_position(position)
@@ -463,15 +463,17 @@ async def execute_navigation_step(
 
                 if rssi >= RSSI_THRESHOLDS[DistanceCategory.STRONG]:
                     await update_search_phase(SearchPhase.TIGHT_SPIRAL)
+                    current_spiral_index = 0  # <--- RESET INDEX HERE
                     spiral_points = generate_square_spiral(
                         session.search_center.x, session.search_center.y
                     )
-                    if spiral_points:
+                    if spiral_points and current_spiral_index < len(spiral_points):
                         session.current_target = NavigationTarget(
                             position=Position(
-                                x=spiral_points[0][0], y=spiral_points[0][1]
+                                x=spiral_points[current_spiral_index][0],
+                                y=spiral_points[current_spiral_index][1],
                             ),
-                            description="Spiral search waypoint",
+                            description=f"Spiral waypoint {current_spiral_index}",
                             arrival_threshold_m=5.0,
                         )
                 else:
@@ -507,7 +509,12 @@ async def execute_navigation_step(
         await navigation_state.update_session(session)
 
     if target:
-        await navigate_to_target(position, target, lidar_scan, session.phase)
+        # If we are within the threshold but still haven't acquired a new target
+        # (meaning we are waiting for the 20s ping cooldown), STOP the rover.
+        if has_reached_target(rover_x, rover_y, target):
+            await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
+        else:
+            await navigate_to_target(position, target, lidar_scan, session.phase)
 
     return {
         "throttle": THROTTLE_NORMAL
