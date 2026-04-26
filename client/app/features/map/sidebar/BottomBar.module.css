@@ -1,0 +1,111 @@
+.bottomBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #2a2a2e;
+    padding: 12px 20px;
+    border-radius: 10px;
+    width: 100%;
+}
+
+/* ── Mode section ───────────────────────── */
+
+.modeSection {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.modeText {
+    font-family: -apple-system, 'SF Pro Display', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: #e0e0e0;
+    white-space: nowrap;
+}
+
+.modeDivider {
+    color: #555;
+    margin: 0 2px;
+}
+
+.modeOn {
+    color: #e0e0e0;
+}
+
+.modeOff {
+    color: #888;
+}
+
+/* ── Toggle switch ──────────────────────── */
+
+.toggle {
+    width: 52px;
+    height: 28px;
+    border-radius: 999px;
+    border: none;
+    background-color: #444;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.2s ease;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.toggleOn {
+    background-color: #6ee7b7;
+}
+
+.toggleThumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: #fff;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.toggleOn .toggleThumb {
+    transform: translateX(24px);
+}
+
+/* ── Control buttons ────────────────────── */
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.controlBtn {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1px solid #444;
+    background-color: #1e1e22;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.controlBtn:hover {
+    border-color: #666;
+    color: #888;
+}
+
+.controlBtnActive {
+    color: #6ee7b7;
+    border-color: rgba(110, 231, 183, 0.3);
+    background-color: rgba(110, 231, 183, 0.08);
+}
+
+.controlBtnActive:hover {
+    color: #6ee7b7;
+    border-color: rgba(110, 231, 183, 0.5);
+}

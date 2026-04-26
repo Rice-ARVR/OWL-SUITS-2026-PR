@@ -1,5 +1,5 @@
-import MapSideBar from "../features/map/MapSideBar";
+import Map from "../features/map/Map";
 
 export default function MapSideBarPage() {
-    return <MapSideBar />;
+    return <Map />;
 }

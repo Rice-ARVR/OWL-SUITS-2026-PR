@@ -1,0 +1,105 @@
+.container {
+    background-color: #3a3a41;
+    border-radius: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 25rem;
+    padding: 1rem 1rem 2rem 1rem;
+}
+.gearSelector {
+    display: flex;
+    gap: 1rem;
+}
+
+/* used for alignment */
+.dashboardInfo {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+}
+.dashboardInfo > * {
+    flex: 1;
+}
+
+.dashboardInfo > *:nth-child(2) {
+    text-align: center;
+}
+
+.dashboardInfo > *:last-child {
+    text-align: right;
+}
+
+.innerContainer {
+    background-color: #2e2e32;
+    border-radius: 1rem;
+}
+
+.progressBar {
+    background-color: #29292c;
+    border-radius: 0.3rem;
+    height: 1rem;
+    width: 2.5rem;
+    overflow: hidden;
+}
+
+.progressFill {
+    background-color: #9de4ce;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.distanceContainer {
+    display: flex;
+    justify-content: right;
+    align-items: center;
+    gap: 1rem;
+}
+
+.sliderContainer {
+    background-color: #2e2e32;
+    border-radius: 1rem;
+    height: 0.6rem;
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    margin: 0.5rem 0rem 1rem 0rem;
+}
+
+.sliderFill {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-color: #9de4ce;
+    z-index: 1;
+}
+
+.thumb {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 0.6rem;
+    height: 0.6rem; /*1.125 */
+    background-color: #aaa;
+    border-radius: 100%;
+    z-index: 3;
+}
+.ticks {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.tick {
+    width: 2px;
+    height: 0.5rem;
+    background-color: #555;
+    border-radius: 1px;
+}
