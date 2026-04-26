@@ -10,6 +10,7 @@ from app.routers.speech import router as speech_router
 from app.routers.tss_example import router as tss_example_router
 from app.core.config import settings
 from app.routers.locations import router as locations_router
+from app.routers.telemetry_ws import router as telemetry_ws_router
 from app.routers.warnings import router as warnings_router
 from app.routers.rover_control import router as rover_control_router
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
@@ -57,4 +58,5 @@ app.include_router(speech_router)
 app.include_router(tss_example_router)
 app.include_router(locations_router)
 app.include_router(warnings_router)
+app.include_router(telemetry_ws_router)
 app.include_router(rover_control_router)

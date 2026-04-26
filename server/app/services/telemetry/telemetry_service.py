@@ -7,6 +7,7 @@ from app.models.ltv import LtvData
 from app.models.ltv_errors import LtvErrorsData
 from app.models.rover import RoverData
 from app.services.rag.context_builder import build_and_save_context
+from app.services.telemetry.telemetry_ws_service import broadcast_snapshot
 from app.services.telemetry.warning_service import check_and_broadcast
 from app.services.telemetry.tss_client import (
     COMMAND_EVA,
@@ -65,6 +66,8 @@ async def _poll_once() -> None:
     ltv_snap = await ltv_data.get_snapshot()
     ltv_errors_snap = await ltv_errors_data.get_snapshot()
 
+    # push full snapshot to connected telemetry WebSocket clients
+    await broadcast_snapshot(eva_snap, rover_snap, ltv_snap, ltv_errors_snap)
     # check telemetry values against ranges and broadcast warnings over websocket if needed
     await check_and_broadcast(eva_snap, rover_snap)
     # write latest telemetry snapshot to RAG context file

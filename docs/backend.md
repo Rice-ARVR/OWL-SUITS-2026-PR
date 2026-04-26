@@ -68,7 +68,7 @@ Creates the FastAPI app, registers middleware, wires up the database and polling
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     connect()
-    await start_polling()
+    await start_polling()   # starts polling TSS and broadcasting over WebSocket
     yield
     await stop_polling()
     disconnect()
@@ -78,11 +78,12 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "OPTIONS"],
 )
 
 # Include Routers Here:
-app.include_router(tss_example_router)
+app.include_router(warnings_router)      # ws://localhost:8000/ws/warnings
+app.include_router(telemetry_ws_router)  # ws://localhost:8000/ws/telemetry
 app.include_router(locations_router)
 ```
 
@@ -214,7 +215,7 @@ async def fetch_json(command: int) -> dict:
     return obj
 ```
 
-**`telemetry_service.py`** — Polling loop and global data objects:
+**`telemetry_service.py`** — Polling loop, global data objects, and WebSocket broadcast:
 
 ```python
 # app/services/telemetry/telemetry_service.py
@@ -239,12 +240,46 @@ async def _poll_once() -> None:
         await rover_data.update(rover_result)
     # ... same pattern for eva, ltv, ltv_errors
 
+    # Take one snapshot per cycle and reuse it for all downstream steps
+    eva_snap    = await eva_data.get_snapshot()
+    rover_snap  = await rover_data.get_snapshot()
+    ltv_snap    = await ltv_data.get_snapshot()
+    ltv_errors_snap = await ltv_errors_data.get_snapshot()
+
+    # Push the full snapshot to all connected /ws/telemetry clients
+    await broadcast_snapshot(eva_snap, rover_snap, ltv_snap, ltv_errors_snap)
+    # Check ranges and push any warnings to /ws/warnings clients
+    await check_and_broadcast(eva_snap, rover_snap)
+
 async def _polling_loop() -> None:
     while True:
         t0 = asyncio.get_event_loop().time()
         await _poll_once()
         elapsed = asyncio.get_event_loop().time() - t0
         await asyncio.sleep(max(0.0, settings.POLL_INTERVAL - elapsed))
+```
+
+**`telemetry_ws_service.py`** — WebSocket manager and broadcast helper for telemetry:
+
+```python
+# app/services/telemetry/telemetry_ws_service.py
+manager = WebSocketManager()
+
+async def broadcast_snapshot(
+    eva: EvaSchema | None,
+    rover: RoverSchema | None,
+    ltv: LtvSchema | None,
+    ltv_errors: LtvErrorsSchema | None,
+) -> None:
+    if eva is None or rover is None or ltv is None or ltv_errors is None:
+        return
+    payload = {
+        "eva": eva.model_dump(),
+        "rover": rover.model_dump(),
+        "ltv": ltv.model_dump(),
+        "ltv_errors": ltv_errors.model_dump(),
+    }
+    await manager.broadcast(json.dumps(payload))
 ```
 
 ---
@@ -275,15 +310,30 @@ def disconnect():
 ## Data Flow
 
 ```
-React Frontend
+TSS Telemetry Server (UDP, polled every 1s)
+      │
+      ▼
+services/telemetry/telemetry_service.py   polls TSS, updates in-memory data objects
+      │  _poll_once() completes
+      ├──► services/telemetry/telemetry_ws_service.py  broadcasts full snapshot
+      │          │  ws://localhost:8000/ws/telemetry
+      │          ▼
+      │    React Frontend (TelemetryManager singleton)   live push, no HTTP round-trip
+      │
+      ├──► services/telemetry/warning_service.py        checks ranges, broadcasts warnings
+      │          │  ws://localhost:8000/ws/warnings
+      │          ▼
+      │    React Frontend (warnings overlay in root.tsx)
+      │
+      └──► services/rag/context_builder.py              writes context file for RAG queries
+
+React Frontend (non-telemetry actions)
       │  HTTP request
       ▼
 routers/          receives request, calls service
       │
       ▼
-services/         reads from in-memory telemetry data objects
-      │
-      ├──────────────────────────────► TSS Telemetry Server (UDP, polled every 1s)
+services/         implements business logic
       │
       ▼
 models/           Pydantic schemas + async wrapper classes (thread-safe)
@@ -296,10 +346,16 @@ db/repositories/  reads and writes to MongoDB
 
 ## Adding a New Domain
 
-When adding a new feature (e.g. navigation), create a file in each relevant layer:
+### Reading telemetry values (most common case)
+
+No backend changes needed. The `/ws/telemetry` WebSocket already broadcasts the full snapshot of all EVA, rover, and LTV data every polling cycle. On the client, call a getter on `TelemetryManager` — or add one if the field is not yet exposed. See `docs/example.md` for the full walkthrough.
+
+### Adding a non-telemetry feature (write operations, DB, algorithms)
+
+When adding a new feature that is not a simple telemetry read (e.g. navigation, rover control, speech transcription), create a file in each relevant layer:
 
 1. `models/navigation.py` — define Pydantic schemas and a wrapper class with async getters
-2. `services/navigation_service.py` — implement the logic by reading from telemetry data objects
+2. `services/navigation_service.py` — implement the logic (reads telemetry via `telemetry_service.*_data.get_*()`, writes DB via repository)
 3. `routers/navigation.py` — define the endpoints and call the service
 4. `db/repositories/navigation_repo.py` — implement DB operations (if needed)
 5. Register the router in `main.py` with `app.include_router(...)`

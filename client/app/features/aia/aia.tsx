@@ -16,7 +16,7 @@ function TypingDots() {
 export function AiaChat() {
     const [input, setInput] = useState("");
     // Set AIA model here:
-    const { chat, messages, loading, error, connected, clearHistory } = useOllama("gemma4");
+    const { chat, messages, loading, error, connected, clearHistory } = useOllama("llama3.2");
     const { isRecording, transcribing, transcript, voiceError, startRecording, stopRecording } =
         useVoice();
     const [health, setHealth] = useState<
