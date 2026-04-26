@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import connect, disconnect
 from app.routers.locations import router as locations_router
+from app.routers.navigation import router as navigation_router
 from app.routers.ollama import router as ollama_router
 from app.routers.rover_control import router as rover_control_router
 from app.routers.speech import router as speech_router
