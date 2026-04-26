@@ -2,7 +2,6 @@ import asyncio
 
 from pydantic import BaseModel
 
-
 # --- Pydantic schema ---
 
 
@@ -17,15 +16,9 @@ class LtvSignal(BaseModel):
     ping_unlimited_requested: int
 
 
-class LtvConsumables(BaseModel):
-    fuel_level: float  # Percentage
-    battery_level: float  # Percentage
-
-
 class LtvSchema(BaseModel):
     location: LtvLocation
     signal: LtvSignal
-    consumables: LtvConsumables
 
 
 # --- Wrapper ---
