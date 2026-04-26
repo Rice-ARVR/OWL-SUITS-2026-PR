@@ -1,3 +1,4 @@
+import app.services.estimation_service as estimation_service
 import app.services.telemetry.telemetry_service as telemetry_service
 
 
@@ -14,6 +15,8 @@ async def get_vital_signs_rover() -> dict:
         "fan1_rpm": await telemetry_service.rover_data.get_pr_fan_pri_rpm(),
         "fan2_rpm": await telemetry_service.rover_data.get_pr_fan_sec_rpm(),
         "cabin_temperature_target": await telemetry_service.rover_data.get_pr_cabin_temperature_target(),
+        "battery_time_remaining_s": await estimation_service.current_rover_battery_time_remaining(),
+        "oxygen_time_remaining_s": await estimation_service.current_rover_oxygen_time_remaining(),
     }
 
 
@@ -36,5 +39,7 @@ async def get_vital_signs_eva() -> dict:
             "coolant_storage": await telemetry_service.eva_data.get_eva1_coolant_storage(),
             "liquid_pressure": await telemetry_service.eva_data.get_eva1_coolant_liquid_pressure(),
             "gas_pressure": await telemetry_service.eva_data.get_eva1_coolant_gas_pressure(),
+            "oxygen_time_remaining_s": await estimation_service.current_eva_oxygen_time_remaining(),
+            "battery_time_remaining_s": await estimation_service.current_eva_battery_time_remaining(),
         },
     }

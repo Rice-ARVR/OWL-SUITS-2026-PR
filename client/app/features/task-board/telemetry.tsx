@@ -59,6 +59,8 @@ interface RoverData {
     fan1_rpm: number | null;
     fan2_rpm: number | null;
     cabin_temperature_target: number | null;
+    battery_time_remaining_s: number | null;
+    oxygen_time_remaining_s: number | null;
 }
 
 interface Eva1Data {
@@ -78,10 +80,20 @@ interface Eva1Data {
     coolant_storage: number | null;
     liquid_pressure: number | null;
     gas_pressure: number | null;
+    oxygen_time_remaining_s: number | null;
+    battery_time_remaining_s: number | null;
 }
 
 interface EvaData {
     eva1: Eva1Data;
+}
+
+function formatRemaining(s: number | null): string {
+    if (s == null || s <= 0) return "00:00:00 Remaining";
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")} Remaining`;
 }
 
 export default function Telemetry() {
@@ -262,7 +274,11 @@ export default function Telemetry() {
                                     justifyContent: "center",
                                 }}
                             >
-                                <Oxygen level={rover.oxygen_storage ?? 0} tankLabel="Tank 1" />
+                                <Oxygen
+                                    level={rover.oxygen_storage ?? 0}
+                                    tankLabel="Tank 1"
+                                    remaining={formatRemaining(rover.oxygen_time_remaining_s)}
+                                />
                             </div>
                         </Card>
                         <Card
@@ -283,7 +299,11 @@ export default function Telemetry() {
                                     justifyContent: "center",
                                 }}
                             >
-                                <Battery level={rover.battery_level ?? 0} label="PR Battery" />
+                                <Battery
+                                    level={rover.battery_level ?? 0}
+                                    label="PR Battery"
+                                    remaining={formatRemaining(rover.battery_time_remaining_s)}
+                                />
                             </div>
                         </Card>
                     </div>
@@ -391,7 +411,11 @@ export default function Telemetry() {
                                     justifyContent: "center",
                                 }}
                             >
-                                <Oxygen level={eva.eva1.oxygen_storage ?? 0} tankLabel="Tank 1" />
+                                <Oxygen
+                                    level={eva.eva1.oxygen_storage ?? 0}
+                                    tankLabel="Tank 1"
+                                    remaining={formatRemaining(eva.eva1.oxygen_time_remaining_s)}
+                                />
                             </div>
                         </Card>
                         <Card
@@ -412,7 +436,11 @@ export default function Telemetry() {
                                     justifyContent: "center",
                                 }}
                             >
-                                <Battery level={eva.eva1.eva_battery ?? 0} label="EVA 1 Battery" />
+                                <Battery
+                                    level={eva.eva1.eva_battery ?? 0}
+                                    label="EVA 1 Battery"
+                                    remaining={formatRemaining(eva.eva1.battery_time_remaining_s)}
+                                />
                             </div>
                         </Card>
                     </div>
