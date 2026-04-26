@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -15,13 +15,6 @@ class SearchPhase(Enum):
     GRADIENT_ASCENT = "gradient_ascent"
     TIGHT_SPIRAL = "tight_spiral"
     FOUND = "found"
-
-
-class OccupancyState(Enum):
-    UNEXPLORED = "unexplored"
-    SEARCHED = "searched"
-    AVOID = "avoid"
-    HOT = "hot"
 
 
 class DistanceCategory(Enum):
@@ -53,8 +46,6 @@ class PingRecord(BaseModel):
     rssi: float
     rover_position: Position
     signal_category: DistanceCategory
-    sector_x: int
-    sector_y: int
 
 
 class LidarReading(BaseModel):
@@ -75,24 +66,11 @@ class NavigationTarget(BaseModel):
     arrival_threshold_m: float
 
 
-class OccupancyCell(BaseModel):
-    sector_x: int
-    sector_y: int
-    state: OccupancyState
-    last_rssi: Optional[float] = None
-    last_visit_time: Optional[datetime] = None
-
-
-class OccupancyGrid(BaseModel):
-    cells: Dict[str, OccupancyCell]  # key: f"{sector_x},{sector_y}"
-
-
 class SearchSession(BaseModel):
     session_id: str
-    lnp: Position  # Last Nominal Position (-6090.0, -10485.6)
+    lnp: Position  # Last Nominal Position
     search_center: Position  # Actual arrival position
     phase: SearchPhase
-    occupancy_grid: OccupancyGrid
     success_vector: float  # degrees, heading of last signal improvement
     ping_history: List[PingRecord]
     best_rssi: float

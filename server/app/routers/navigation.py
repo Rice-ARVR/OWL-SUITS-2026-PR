@@ -21,17 +21,10 @@ async def navigation_stream():
     async def event_generator():
         try:
             while True:
-                # Grab the latest snapshot of the state
                 state = await navigation_state.get_snapshot()
-
-                # SSE format strictly requires "data: <string>\n\n"
-                # Pydantic's model_dump_json() safely handles datetimes and enums
                 yield f"data: {state.model_dump_json()}\n\n"
-
-                # Stream at 10Hz (100ms) to match smooth UI telemetry
                 await asyncio.sleep(0.1)
         except asyncio.CancelledError:
-            # This cleanly handles the loop when the frontend disconnects
             pass
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -60,25 +53,6 @@ async def get_session_status():
     return state.session.model_dump()
 
 
-@router.get("/navigation/grid/status")
-async def get_grid_status():
-    """Get current occupancy grid status."""
-    state = await navigation_state.get_snapshot()
-    if not state.session:
-        return {"sectors": []}
-
-    sectors = [
-        {
-            "x": cell.sector_x,
-            "y": cell.sector_y,
-            "state": cell.state.value,
-            "last_rssi": cell.last_rssi,
-        }
-        for cell in state.session.occupancy_grid.cells.values()
-    ]
-    return {"sectors": sectors}
-
-
 @router.post("/navigation/ping/execute")
 async def execute_navigation_ping():
     """Execute a ping and update navigation state."""
@@ -88,7 +62,7 @@ async def execute_navigation_ping():
             "success": success,
             "rssi_value": rssi_value,
             "category": category.value,
-            "next_phase": None,  # TODO: Implement phase transitions
+            "next_phase": None,
             "waypoint_generated": False,
         }
     except Exception as e:
