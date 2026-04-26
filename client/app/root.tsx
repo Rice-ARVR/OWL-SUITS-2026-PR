@@ -24,6 +24,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
     const [warnings, setWarnings] = useState<Warning[]>([]);
+    const [dismissed, setDismissed] = useState(false);
 
     useEffect(() => {
         const ws = new WebSocket("ws://localhost:8000/ws/warnings");
@@ -32,6 +33,7 @@ export default function App() {
             const data = JSON.parse(event.data);
             console.log("warnings:", data);
             setWarnings(data);
+            // setDismissed(false);
         };
 
         return () => ws.close();
@@ -40,7 +42,7 @@ export default function App() {
     return (
         <>
             <Outlet />
-            {warnings.length > 0 && (
+            {warnings.length > 0 && !dismissed && (
                 <div
                     style={{
                         position: "fixed",
@@ -56,7 +58,28 @@ export default function App() {
                         zIndex: 9999,
                     }}
                 >
-                    <strong style={{ color: "#f00" }}>⚠ Warnings ({warnings.length})</strong>
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                        }}
+                    >
+                        <strong style={{ color: "#f00" }}>⚠ Warnings ({warnings.length})</strong>
+                        <button
+                            onClick={() => setDismissed(true)}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                color: "#aaa",
+                                cursor: "pointer",
+                                fontSize: 16,
+                                lineHeight: 1,
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
                     <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none" }}>
                         {warnings.map((w, i) => (
                             <li
