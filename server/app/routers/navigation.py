@@ -20,7 +20,7 @@ async def start_navigation_session():
         return {
             "session_id": session.session_id,
             "phase": session.phase.value,
-            "search_center": session.search_center.dict(),
+            "search_center": session.search_center.model_dump(),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -32,7 +32,7 @@ async def get_session_status():
     state = await navigation_state.get_snapshot()
     if not state.session:
         return {"error": "No active session"}
-    return state.session.dict()
+    return state.session.model_dump()
 
 
 @router.get("/navigation/grid/status")
@@ -90,11 +90,11 @@ async def get_current_target():
     state = await navigation_state.get_snapshot()
     if not state.session or not state.session.current_target:
         return {"error": "No current target"}
-    return state.session.current_target.dict()
+    return state.session.current_target.model_dump()
 
 
 @router.get("/navigation/state")
 async def get_navigation_state():
     """Get complete navigation state."""
     state = await navigation_state.get_snapshot()
-    return state.dict()
+    return state.model_dump()
