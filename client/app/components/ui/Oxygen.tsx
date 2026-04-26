@@ -28,7 +28,8 @@ export default function Oxygen({
 }: OxygenProps) {
     const clamped = Math.min(100, Math.max(0, level));
     const isLow = clamped < 50;
-    const fillColor = isLow ? "#A27077" : "#C3D2CE";
+    const fillColor = isLow ? "#F59095" : "#E9FFF6";
+    const fillOpacity = isLow ? 0.5 : 0.415;
     const pct = clamped / 100;
     const indicator = gaugePoint(pct);
 
@@ -58,9 +59,10 @@ export default function Oxygen({
                     <path
                         d={OUTER_PATH}
                         fill="none"
-                        stroke="#4F4F59"
+                        stroke={isLow ? "#9C8080" : "#4F4F59"}
                         strokeWidth="8"
                         strokeLinecap="round"
+                        opacity={isLow ? 0.35 : 1}
                     />
                 </svg>
 
@@ -96,7 +98,7 @@ export default function Oxygen({
                             pathLength="1"
                             strokeDasharray="1"
                             strokeDashoffset={1 - pct}
-                            opacity={0.4}
+                            opacity={fillOpacity}
                         />
                         {TICK_PATHS.map((d) => (
                             <path
@@ -208,12 +210,12 @@ export default function Oxygen({
                     </span>
                 </div>
                 {remaining && (
-                    <div style={{ background: "#333734", borderRadius: 8, padding: "5px 10px" }}>
+                    <div style={{ background: isLow ? "#4c424a" : "#333734", borderRadius: 8, padding: "5px 10px" }}>
                         <span
                             style={{
                                 fontFamily: '"Be Vietnam Pro", sans-serif',
                                 fontSize: 16,
-                                color: "#9de4ce",
+                                color: isLow ? "#F59095" : "#9de4ce",
                                 letterSpacing: "0.18px",
                             }}
                         >
