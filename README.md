@@ -26,6 +26,7 @@ Our design was selected as one of the top 5 PR designs in the nation, earning us
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [VS Code](https://code.visualstudio.com/) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+- [Ollama](https://ollama.com/) with the model ollama3.2 downloaded
 
 ### Setup
 
