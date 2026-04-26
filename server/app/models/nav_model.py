@@ -68,11 +68,16 @@ class NavigationTarget(BaseModel):
 
 class SearchSession(BaseModel):
     session_id: str
-    lnp: Position  # Last Nominal Position
-    search_center: Position  # Actual arrival position
+    lnp: Position
+    search_center: Position
     phase: SearchPhase
-    success_vector: float  # degrees, heading of last signal improvement
+    success_vector: float
     ping_history: List[PingRecord]
+
+    # NEW: Arrays for the frontend map UI
+    path_history: List[Position] = []
+    projected_path: List[Position] = []
+
     best_rssi: float
     current_target: Optional[NavigationTarget] = None
 

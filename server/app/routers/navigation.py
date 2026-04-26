@@ -1,14 +1,14 @@
 import asyncio
-from typing import List
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.services.navigation.navigation_service import (
-    execute_navigation_step,
     execute_ping,
     navigation_state,
+    start_autonomous_loop,
     start_search_session,
+    stop_autonomous_loop,
 )
 
 router = APIRouter()
@@ -44,6 +44,20 @@ async def start_navigation_session():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/navigation/autonomy/start")
+async def autonomy_start():
+    """Turn on autonomous driving (backend loop takes control)."""
+    await start_autonomous_loop()
+    return {"status": "Autonomous driving activated"}
+
+
+@router.post("/navigation/autonomy/stop")
+async def autonomy_stop():
+    """Turn off autonomous driving (returns control to WASD)."""
+    await stop_autonomous_loop()
+    return {"status": "Autonomous driving disabled, brakes applied"}
+
+
 @router.get("/navigation/session/status")
 async def get_session_status():
     """Get current search session status."""
@@ -55,30 +69,14 @@ async def get_session_status():
 
 @router.post("/navigation/ping/execute")
 async def execute_navigation_ping():
-    """Execute a ping and update navigation state."""
+    """Execute a manual ping."""
     try:
         success, rssi_value, category = await execute_ping()
         return {
             "success": success,
             "rssi_value": rssi_value,
             "category": category.value,
-            "next_phase": None,
-            "waypoint_generated": False,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/navigation/execute")
-async def execute_navigation(
-    rover_x: float, rover_y: float, rover_heading: float, lidar_array: List[float]
-):
-    """Execute navigation step with current rover state."""
-    try:
-        result = await execute_navigation_step(
-            rover_x, rover_y, rover_heading, lidar_array
-        )
-        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -90,10 +88,3 @@ async def get_current_target():
     if not state.session or not state.session.current_target:
         return {"error": "No current target"}
     return state.session.current_target.model_dump()
-
-
-@router.get("/navigation/state")
-async def get_navigation_state():
-    """Get complete navigation state."""
-    state = await navigation_state.get_snapshot()
-    return state.model_dump()

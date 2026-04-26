@@ -3,7 +3,7 @@ import logging
 import math
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import app.services.telemetry.telemetry_service as telemetry_service
 import app.services.telemetry.tss_client as tss_client
@@ -15,7 +15,6 @@ from app.models.nav_model import (
     NavigationTarget,
     PingRecord,
     Position,
-    RssiSignalStrength,
     SearchPhase,
     SearchSession,
 )
@@ -26,7 +25,6 @@ from app.services.navigation.spatial_math import (
 )
 from app.services.rover_control_service import send_rover_command
 
-# --- Setup Logger ---
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] NAV: %(message)s",
@@ -44,7 +42,6 @@ THROTTLE_NORMAL = 30
 THROTTLE_SLOW = 10
 STEERING_GAIN = 45.0
 GRADIENT_PROJECTION_M = 80.0
-MIN_WAYPOINT_SPACING_M = 40.0
 SPIRAL_ARM_SPACING_M = 25.0
 SPIRAL_MAX_RADIUS_M = 100.0
 
@@ -55,23 +52,67 @@ RSSI_THRESHOLDS = {
     DistanceCategory.VERY_WEAK: -90.0,
 }
 
-# LIDAR sensor tiers
-TIER_1_SENSORS = [0, 4, 9, 12]  # Emergency
-TIER_2_SENSORS = [1, 2, 3, 13, 14]  # Frontal obstacle avoidance
-TIER_3_SENSORS = [5, 6, 7]  # Visual ID
+TIER_1_SENSORS = [0, 4, 9, 12]
+TIER_2_SENSORS = [1, 2, 3, 13, 14]
+TIER_3_SENSORS = [5, 6, 7]
 
 # --- Global State ---
 navigation_state = NavigationStateData()
 last_ping_time: Optional[datetime] = None
 ring_waypoints: List[Tuple[float, float]] = []
 current_ring_index: int = 0
-current_spiral_index: int = 0
+current_spiral_index: int = 0  # FIX: Global tracker for Spiral
+_autonomous_task: Optional[asyncio.Task] = None
+
+
+# --- Autonomy Loop (Backend-Driven) ---
+
+
+async def start_autonomous_loop():
+    global _autonomous_task
+    await navigation_state.set_autonomous_driving(True)
+    if _autonomous_task is None or _autonomous_task.done():
+        _autonomous_task = asyncio.create_task(autonomous_driving_loop())
+    logger.info("Autonomous Loop Started.")
+
+
+async def stop_autonomous_loop():
+    global _autonomous_task
+    await navigation_state.set_autonomous_driving(False)
+    # Slam the brakes to release WASD controls safely
+    await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
+    if _autonomous_task and not _autonomous_task.done():
+        _autonomous_task.cancel()
+    logger.info("Autonomous Loop Stopped. User has control.")
+
+
+async def autonomous_driving_loop():
+    """Background task running at 10Hz to drive the rover independently."""
+    while True:
+        state = await navigation_state.get_snapshot()
+        if not state.autonomous_driving:
+            break
+
+        try:
+            # Fetch Rover telemetry directly from TSS (Adjust keys if TSS payload differs)
+            rover_data = await tss_client.fetch_json(tss_client.COMMAND_ROVER)
+            rover_x = rover_data.get("pos_x", 0.0)
+            rover_y = rover_data.get("pos_y", 0.0)
+            rover_heading = rover_data.get("heading", 0.0)
+
+            # Fetch LIDAR (Mocked safely if not available in COMMAND_ROVER)
+            lidar_array = rover_data.get("lidar", [1500.0] * 17)
+
+            await execute_navigation_step(rover_x, rover_y, rover_heading, lidar_array)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Telemetry Fetch Error in Autonomy Loop: {e}")
+
+        await asyncio.sleep(0.1)
+
 
 # --- Utility Functions ---
-
-
-def calculate_search_radius(max_speed_ms: float, time_elapsed_s: float) -> float:
-    return max_speed_ms * time_elapsed_s
 
 
 def categorize_rssi(rssi_value: float) -> DistanceCategory:
@@ -81,65 +122,38 @@ def categorize_rssi(rssi_value: float) -> DistanceCategory:
         return DistanceCategory.MODERATE
     elif rssi_value >= RSSI_THRESHOLDS[DistanceCategory.WEAK]:
         return DistanceCategory.WEAK
-    else:
-        return DistanceCategory.VERY_WEAK
-
-
-def get_rssi_distance_range(category: DistanceCategory) -> Tuple[float, float]:
-    ranges = {
-        DistanceCategory.STRONG: (0, 100),
-        DistanceCategory.MODERATE: (100, 462),
-        DistanceCategory.WEAK: (462, 1200),
-        DistanceCategory.VERY_WEAK: (1200, float("inf")),
-    }
-    return ranges[category]
-
-
-# --- Waypoint Generation ---
+    return DistanceCategory.VERY_WEAK
 
 
 def generate_initial_rings(
     center_x: float, center_y: float
 ) -> List[Tuple[float, float]]:
     rings = [
-        (150.0, [0, 90, 180, 270]),  # Ring 1
-        (350.0, [0, 60, 120, 180, 240, 300]),  # Ring 2
-        (550.0, [30, 90, 150, 210, 270, 330]),  # Ring 3
+        (150.0, [0, 90, 180, 270]),
+        (350.0, [0, 60, 120, 180, 240, 300]),
+        (550.0, [30, 90, 150, 210, 270, 330]),
     ]
     waypoints = []
     for radius, angles in rings:
         for angle_deg in angles:
             angle_rad = math.radians(angle_deg)
-            x = center_x + radius * math.cos(angle_rad)
-            y = center_y + radius * math.sin(angle_rad)
-            waypoints.append((x, y))
+            waypoints.append(
+                (
+                    center_x + radius * math.cos(angle_rad),
+                    center_y + radius * math.sin(angle_rad),
+                )
+            )
     return waypoints
 
 
 def generate_square_spiral(
     center_x: float, center_y: float
 ) -> List[Tuple[float, float]]:
-    waypoints = list(
+    return list(
         generate_square_spiral_waypoints(
             center_x, center_y, SPIRAL_ARM_SPACING_M, SPIRAL_MAX_RADIUS_M
         )
-    )
-    return waypoints[1:]  # Skip center
-
-
-# --- RSSI & LIDAR Processing ---
-
-
-def process_rssi_signal(rssi_value: float) -> RssiSignalStrength:
-    category = categorize_rssi(rssi_value)
-    dist_min, dist_max = get_rssi_distance_range(category)
-    return RssiSignalStrength(
-        value=rssi_value,
-        category=category,
-        distance_min=dist_min,
-        distance_max=dist_max,
-        timestamp=datetime.now(),
-    )
+    )[1:]
 
 
 def analyze_lidar_priority(
@@ -151,7 +165,6 @@ def analyze_lidar_priority(
     ]
     brake_required = False
     steering_adjustment = None
-    ltv_detected = False
 
     tier1_distances = [
         readings[i].distance_cm for i in TIER_1_SENSORS if i < len(readings)
@@ -163,20 +176,23 @@ def analyze_lidar_priority(
         tier2_distances = [
             readings[i].distance_cm for i in TIER_2_SENSORS if i < len(readings)
         ]
-        min_tier2 = min(tier2_distances) if tier2_distances else float("inf")
-        if min_tier2 < FRONTAL_LIDAR_THRESHOLD_CM:
+        if tier2_distances and min(tier2_distances) < FRONTAL_LIDAR_THRESHOLD_CM:
             clearest_idx = TIER_2_SENSORS[tier2_distances.index(max(tier2_distances))]
-            sensor_angle = (clearest_idx * 360.0) / 17.0
-            error = sensor_angle - 0
-            steering_adjustment = max(-1.0, min(1.0, error / STEERING_GAIN))
+            steering_adjustment = max(
+                -1.0, min(1.0, ((clearest_idx * 360.0) / 17.0) / STEERING_GAIN)
+            )
 
+    ltv_detected = False
     tier3_distances = [
         readings[i].distance_cm for i in TIER_3_SENSORS if i < len(readings)
     ]
-    if len(tier3_distances) >= 3:
-        left, middle, right = tier3_distances[0], tier3_distances[1], tier3_distances[2]
-        if middle < left * 0.7 and middle < right * 0.7 and middle < 200:
-            ltv_detected = True
+    if (
+        len(tier3_distances) >= 3
+        and tier3_distances[1] < tier3_distances[0] * 0.7
+        and tier3_distances[1] < tier3_distances[2] * 0.7
+        and tier3_distances[1] < 200
+    ):
+        ltv_detected = True
 
     return brake_required, steering_adjustment, ltv_detected
 
@@ -187,45 +203,45 @@ def check_for_ltv_proximity(
     if rssi_value > -20.0:
         tier3_readings = [r for r in lidar_scan.readings if r.index in TIER_3_SENSORS]
         if any(r.distance_cm < 200 for r in tier3_readings):
-            return (0, 0)  # Placeholder
+            return (0, 0)
     return None
-
-
-# --- Navigation Logic ---
 
 
 def get_gradient_waypoint(
     current_position: Position, success_vector: float, search_center: Position
 ) -> Position:
     angle_rad = math.radians(success_vector)
-    new_x = current_position.x + GRADIENT_PROJECTION_M * math.cos(angle_rad)
-    new_y = current_position.y + GRADIENT_PROJECTION_M * math.sin(angle_rad)
-
+    new_x, new_y = (
+        current_position.x + GRADIENT_PROJECTION_M * math.cos(angle_rad),
+        current_position.y + GRADIENT_PROJECTION_M * math.sin(angle_rad),
+    )
     center_dist = calculate_distance(search_center.x, search_center.y, new_x, new_y)
     if center_dist > SEARCH_RADIUS_M:
         scale = SEARCH_RADIUS_M / center_dist
         new_x = search_center.x + (new_x - search_center.x) * scale
         new_y = search_center.y + (new_y - search_center.y) * scale
-
     return Position(x=new_x, y=new_y)
 
 
 def update_success_vector(
     from_position: Position, to_position: Position, improved: bool
 ) -> float:
-    if improved:
-        return calculate_bearing(
+    return (
+        calculate_bearing(
             from_position.x, from_position.y, to_position.x, to_position.y
         )
-    else:
-        return (from_position.heading or 0) + 45.0
+        if improved
+        else (from_position.heading or 0) + 45.0
+    )
 
 
 def has_reached_target(
     rover_x: float, rover_y: float, target: NavigationTarget
 ) -> bool:
-    dist = calculate_distance(rover_x, rover_y, target.position.x, target.position.y)
-    return dist <= target.arrival_threshold_m
+    return (
+        calculate_distance(rover_x, rover_y, target.position.x, target.position.y)
+        <= target.arrival_threshold_m
+    )
 
 
 async def navigate_to_target(
@@ -237,9 +253,7 @@ async def navigate_to_target(
     bearing_to_target = calculate_bearing(
         rover_position.x, rover_position.y, target.position.x, target.position.y
     )
-    error = bearing_to_target - (rover_position.heading or 0)
-    error = (error + 180) % 360 - 180
-
+    error = (bearing_to_target - (rover_position.heading or 0) + 180) % 360 - 180
     steering = max(-1.0, min(1.0, error / STEERING_GAIN))
 
     brake_required, lidar_steering, _ = analyze_lidar_priority(
@@ -263,11 +277,11 @@ async def navigate_to_target(
     )
 
 
-# --- Session Management ---
+# --- Session & Operations ---
 
 
 async def start_search_session() -> SearchSession:
-    global ring_waypoints, current_ring_index
+    global ring_waypoints, current_ring_index, current_spiral_index
     session_id = str(uuid.uuid4())
 
     session = SearchSession(
@@ -277,6 +291,8 @@ async def start_search_session() -> SearchSession:
         phase=SearchPhase.TRANSIT_TO_LNP,
         success_vector=0.0,
         ping_history=[],
+        path_history=[],
+        projected_path=[],
         best_rssi=float("-inf"),
         current_target=NavigationTarget(
             position=LNP_POSITION,
@@ -287,6 +303,7 @@ async def start_search_session() -> SearchSession:
 
     ring_waypoints = generate_initial_rings(LNP_POSITION.x, LNP_POSITION.y)
     current_ring_index = 0
+    current_spiral_index = 0
 
     await navigation_state.update_session(session)
     logger.info("Search Session Started. Transit to LNP initiated.")
@@ -301,9 +318,6 @@ async def update_search_phase(new_phase: SearchPhase) -> None:
         )
         state.session.phase = new_phase
         await navigation_state.update_session(state.session)
-
-
-# --- Ping Operations ---
 
 
 async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
@@ -326,26 +340,26 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
 
         state = await navigation_state.get_snapshot()
         if state.session and state.rover_position:
-            ping_record = PingRecord(
-                timestamp=now,
-                rssi=rssi,
-                rover_position=state.rover_position,
-                signal_category=category,
+            state.session.ping_history.append(
+                PingRecord(
+                    timestamp=now,
+                    rssi=rssi,
+                    rover_position=state.rover_position,
+                    signal_category=category,
+                )
             )
-            state.session.ping_history.append(ping_record)
             await navigation_state.update_session(state.session)
-
         return True, rssi, category
 
     return False, 0.0, DistanceCategory.VERY_WEAK
 
 
-# --- Main Execution ---
+# --- Internal Loop Logic ---
 
 
 async def execute_navigation_step(
     rover_x: float, rover_y: float, rover_heading: float, lidar_array: List[float]
-) -> Dict:
+) -> None:
     global ring_waypoints, current_ring_index, current_spiral_index
 
     position = Position(x=rover_x, y=rover_y, heading=rover_heading)
@@ -368,31 +382,39 @@ async def execute_navigation_step(
 
     state = await navigation_state.get_snapshot()
     if not state.session or not state.autonomous_driving:
-        return {
-            "throttle": 0,
-            "steering": 0,
-            "brakes": 0,
-            "next_target": None,
-            "phase": SearchPhase.IDLE.value,
-        }
+        return
 
     session = state.session
     target = session.current_target
 
-    if target and has_reached_target(rover_x, rover_y, target):
-        logger.info(f"Waypoint Reached: {target.description}")
+    # --- BREADCRUMB LOGIC (Save path every 2 meters) ---
+    if not session.path_history:
+        session.path_history.append(position)
+    else:
+        if (
+            calculate_distance(
+                session.path_history[-1].x,
+                session.path_history[-1].y,
+                position.x,
+                position.y,
+            )
+            >= 2.0
+        ):
+            session.path_history.append(position)
 
+    # --- WAYPOINT EVALUATION ---
+    if target and has_reached_target(rover_x, rover_y, target):
         if session.phase == SearchPhase.TRANSIT_TO_LNP:
             session.search_center = position
             await update_search_phase(SearchPhase.CONCENTRIC_SEARCH)
-
             success, rssi, _ = await execute_ping()
             if success:
                 session.best_rssi = rssi
                 if ring_waypoints:
-                    wx, wy = ring_waypoints[0]
                     session.current_target = NavigationTarget(
-                        position=Position(x=wx, y=wy),
+                        position=Position(
+                            x=ring_waypoints[0][0], y=ring_waypoints[0][1]
+                        ),
                         description=f"Ring waypoint 1/{len(ring_waypoints)}",
                         arrival_threshold_m=10.0,
                     )
@@ -412,31 +434,31 @@ async def execute_navigation_step(
 
                 if rssi >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
                     await update_search_phase(SearchPhase.GRADIENT_ASCENT)
-                    new_target_pos = get_gradient_waypoint(
-                        position, session.success_vector, session.search_center
-                    )
                     session.current_target = NavigationTarget(
-                        position=new_target_pos,
+                        position=get_gradient_waypoint(
+                            position, session.success_vector, session.search_center
+                        ),
                         description="Gradient ascent waypoint",
                         arrival_threshold_m=10.0,
                     )
                 else:
                     current_ring_index += 1
                     if current_ring_index < len(ring_waypoints):
-                        wx, wy = ring_waypoints[current_ring_index]
                         session.current_target = NavigationTarget(
-                            position=Position(x=wx, y=wy),
+                            position=Position(
+                                x=ring_waypoints[current_ring_index][0],
+                                y=ring_waypoints[current_ring_index][1],
+                            ),
                             description=f"Ring waypoint {current_ring_index + 1}/{len(ring_waypoints)}",
                             arrival_threshold_m=10.0,
                         )
                     else:
                         await update_search_phase(SearchPhase.GRADIENT_ASCENT)
                         session.success_vector = 0.0
-                        new_target_pos = get_gradient_waypoint(
-                            position, session.success_vector, session.search_center
-                        )
                         session.current_target = NavigationTarget(
-                            position=new_target_pos,
+                            position=get_gradient_waypoint(
+                                position, session.success_vector, session.search_center
+                            ),
                             description="Gradient ascent waypoint",
                             arrival_threshold_m=10.0,
                         )
@@ -463,7 +485,7 @@ async def execute_navigation_step(
 
                 if rssi >= RSSI_THRESHOLDS[DistanceCategory.STRONG]:
                     await update_search_phase(SearchPhase.TIGHT_SPIRAL)
-                    current_spiral_index = 0  # <--- RESET INDEX HERE
+                    current_spiral_index = 0  # FIX: Reset tracker
                     spiral_points = generate_square_spiral(
                         session.search_center.x, session.search_center.y
                     )
@@ -479,11 +501,10 @@ async def execute_navigation_step(
                 else:
                     if not improved:
                         session.success_vector += 45.0
-                    new_target_pos = get_gradient_waypoint(
-                        position, session.success_vector, session.search_center
-                    )
                     session.current_target = NavigationTarget(
-                        position=new_target_pos,
+                        position=get_gradient_waypoint(
+                            position, session.success_vector, session.search_center
+                        ),
                         description="Gradient ascent waypoint",
                         arrival_threshold_m=10.0,
                     )
@@ -491,6 +512,7 @@ async def execute_navigation_step(
         elif session.phase == SearchPhase.TIGHT_SPIRAL:
             success, rssi, _ = await execute_ping()
 
+            # Allow proximity check to finalize search
             ltv_pos = check_for_ltv_proximity(session.best_rssi, lidar_scan)
             if ltv_pos or session.best_rssi > -10.0:
                 await update_search_phase(SearchPhase.FOUND)
@@ -500,28 +522,45 @@ async def execute_navigation_step(
                     session.search_center.x, session.search_center.y
                 )
                 if spiral_points:
-                    session.current_target = NavigationTarget(
-                        position=Position(x=spiral_points[0][0], y=spiral_points[0][1]),
-                        description="Spiral search waypoint",
-                        arrival_threshold_m=5.0,
-                    )
+                    current_spiral_index += 1  # FIX: Increment tracker
+                    if current_spiral_index < len(spiral_points):
+                        session.current_target = NavigationTarget(
+                            position=Position(
+                                x=spiral_points[current_spiral_index][0],
+                                y=spiral_points[current_spiral_index][1],
+                            ),
+                            description=f"Spiral waypoint {current_spiral_index}",
+                            arrival_threshold_m=5.0,
+                        )
 
-        await navigation_state.update_session(session)
+    # --- PROJECTED PATH LOGIC (For Frontend UI) ---
+    if session.phase == SearchPhase.CONCENTRIC_SEARCH:
+        session.projected_path = [
+            Position(x=w[0], y=w[1]) for w in ring_waypoints[current_ring_index:]
+        ]
+    elif session.phase == SearchPhase.GRADIENT_ASCENT and session.current_target:
+        session.projected_path = [session.current_target.position]
+    elif session.phase == SearchPhase.TIGHT_SPIRAL:
+        spiral_pts = generate_square_spiral(
+            session.search_center.x, session.search_center.y
+        )
+        # Limit to the next 5 spiral points so the UI doesn't look overly cluttered
+        session.projected_path = [
+            Position(x=p[0], y=p[1])
+            for p in spiral_pts[current_spiral_index : current_spiral_index + 5]
+        ]
+    else:
+        session.projected_path = []
 
-    if target:
-        # If we are within the threshold but still haven't acquired a new target
-        # (meaning we are waiting for the 20s ping cooldown), STOP the rover.
-        if has_reached_target(rover_x, rover_y, target):
+    await navigation_state.update_session(session)
+
+    # --- ROVER MOVEMENT COMMANDS ---
+    if session.current_target:
+        # FIX: The "Orbiting Wait" glitch
+        if has_reached_target(rover_x, rover_y, session.current_target):
+            # We are waiting for the 20s ping cooldown. Hold position.
             await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
         else:
-            await navigate_to_target(position, target, lidar_scan, session.phase)
-
-    return {
-        "throttle": THROTTLE_NORMAL
-        if session.phase != SearchPhase.TIGHT_SPIRAL
-        else THROTTLE_SLOW,
-        "steering": 0,
-        "brakes": 0,
-        "next_target": target.model_dump() if target else None,
-        "phase": session.phase.value,
-    }
+            await navigate_to_target(
+                position, session.current_target, lidar_scan, session.phase
+            )
