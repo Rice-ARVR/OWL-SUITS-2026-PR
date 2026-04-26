@@ -24,6 +24,8 @@ export default function Battery({
     const fillHeight = Math.max(0, clamped * 2.3);
     const isLow = clamped < 50;
     const fillColor = isLow ? "162, 112, 119" : "195, 210, 206";
+    // Cap subtracts text height (~32px) + gap (4px) so the text top never exceeds the 80% fill mark
+    const textBottom = Math.max(0, Math.min(fillHeight, 80 * 2.3 - 36));
 
     return (
         <div
@@ -63,19 +65,17 @@ export default function Battery({
                         overflow: "hidden",
                     }}
                 >
-                    {/* Battery percentage display */}
+                    {/* Battery percentage display — floats above the fill line */}
                     <div
                         style={{
                             position: "absolute",
-                            top: 0,
-                            bottom: 0,
+                            bottom: textBottom,
                             left: 0,
                             right: 0,
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
-                            justifyContent: "center",
-                            gap: "4px",
+                            transform: "translateY(-4px)",
                             zIndex: 10,
                         }}
                     >
@@ -138,13 +138,18 @@ export default function Battery({
                         <span className={typo.h5} style={{ color: "#F4F4F4" }}>
                             {label}
                         </span>
+                        {isLow && (
+                            <span className={typo.h5} style={{ color: "#F59095" }}>
+                                Critical
+                            </span>
+                        )}
                     </div>
                 </div>
 
                 {remaining && (
                     <div
                         style={{
-                            background: "#333734",
+                            background: isLow ? "#4c424a" : "#333734",
                             borderRadius: 8,
                             padding: "5px 10px",
                         }}
@@ -153,7 +158,7 @@ export default function Battery({
                             style={{
                                 fontFamily: '"Be Vietnam Pro", sans-serif',
                                 fontSize: 18,
-                                color: "#9de4ce",
+                                color: isLow ? "#F59095" : "#9de4ce",
                                 letterSpacing: "0.18px",
                             }}
                         >
