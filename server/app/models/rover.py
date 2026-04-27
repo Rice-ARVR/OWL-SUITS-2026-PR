@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from app.models.ranges import NominalRange
 
-
 # --- Pydantic schema ---
 
 
@@ -41,7 +40,7 @@ class PrTelemetry(BaseModel):
     dust_connected: bool
     distance_from_base: Annotated[float, NominalRange(min=0, max=2500)]
     oxygen_tank: Annotated[float, NominalRange(min=25, max=100)]
-    battery_level: Annotated[float, NominalRange(min=30, max=100)]
+    battery_level: Annotated[float, NominalRange(min=0, max=100)]
     fan_pri_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
     fan_sec_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
     scrubber_a_co2_storage: float
