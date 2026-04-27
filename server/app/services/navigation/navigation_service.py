@@ -545,21 +545,27 @@ async def execute_navigation_step(
                         )
 
     # --- PROJECTED PATH LOGIC (For Frontend UI) ---
-    if session.phase == SearchPhase.CONCENTRIC_SEARCH:
+    if session.phase == SearchPhase.TRANSIT_TO_LNP and session.current_target:
+        # NEW: Draw a straight line to the LNP right out of the gate!
+        session.projected_path = [session.current_target.position]
+
+    elif session.phase == SearchPhase.CONCENTRIC_SEARCH:
         session.projected_path = [
             Position(x=w[0], y=w[1]) for w in ring_waypoints[current_ring_index:]
         ]
+
     elif session.phase == SearchPhase.GRADIENT_ASCENT and session.current_target:
         session.projected_path = [session.current_target.position]
+
     elif session.phase == SearchPhase.TIGHT_SPIRAL:
         spiral_pts = generate_square_spiral(
             session.search_center.x, session.search_center.y
         )
-        # Limit to the next 5 spiral points so the UI doesn't look overly cluttered
         session.projected_path = [
             Position(x=p[0], y=p[1])
             for p in spiral_pts[current_spiral_index : current_spiral_index + 5]
         ]
+
     else:
         session.projected_path = []
 
