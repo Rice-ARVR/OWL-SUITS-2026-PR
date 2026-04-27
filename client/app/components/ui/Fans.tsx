@@ -57,7 +57,7 @@ function FanItem({ fan }: { fan: FanStatus }) {
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
-                    height: 47,
+                    height: 32,
                     marginTop: 3,
                 }}
             >
@@ -102,11 +102,11 @@ export default function Fans({
             style={{
                 background: "#2e2e32",
                 borderRadius: 12,
-                padding: 20,
                 display: "flex",
                 gap: 16,
                 alignItems: "flex-start",
                 width: "100%",
+                padding: "12px 20px",
             }}
         >
             <div

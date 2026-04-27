@@ -17,7 +17,7 @@ interface MetricProps {
 function Metric({ label, value, unit, min, max, safeMin, safeMax, trend, isWarning }: MetricProps) {
     const statusLabel = isWarning ? "Critical" : "Normal";
     const statusColor = isWarning ? "#F59095" : "#9DE4CE";
-
+    const safeBarColor = isWarning ? "rgba(245,144,149,0.5)" : "#758181";
     const pct = value !== null ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
     const safeMinPct = Math.min(1, Math.max(0, (safeMin - min) / (max - min)));
     const safeMaxPct = Math.min(1, Math.max(0, (safeMax - min) / (max - min)));
@@ -62,7 +62,7 @@ function Metric({ label, value, unit, min, max, safeMin, safeMax, trend, isWarni
                         left: `${safeMinPct * 100}%`,
                         width: `${(safeMaxPct - safeMinPct) * 100}%`,
                         height: 8,
-                        background: "rgba(255,255,255,0.3)",
+                        background: safeBarColor,
                         borderRadius: 99,
                     }}
                 />
