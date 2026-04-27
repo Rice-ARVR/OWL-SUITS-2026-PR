@@ -294,14 +294,7 @@ function Marker({
             <circle cx={point.x} cy={point.y - 26} r="5" fill="#1e1e22" />
 
             {/* Label */}
-            <text
-                x={point.x}
-                y={point.y + 14}
-                textAnchor="middle"
-                fill="#ccc"
-                fontSize="11"
-                fontFamily="monospace"
-            >
+            <text x={point.x} y={point.y + 14} textAnchor="middle" fill="#ccc" fontSize="11">
                 {point.label}: {distance}m
             </text>
 
@@ -383,7 +376,6 @@ function Marker({
                         <div
                             style={{
                                 color: "#ccc",
-                                fontFamily: "monospace",
                                 fontSize: "11px",
                                 lineHeight: "1.4",
                                 overflow: "hidden",
@@ -456,14 +448,7 @@ function HazardShape({ hazard, onDelete }: { hazard: Hazard; onDelete: (id: stri
 
                     {/* Hazard types label */}
                     {hazard.types.length > 0 && (
-                        <text
-                            x={cx}
-                            y={cy + 28}
-                            textAnchor="middle"
-                            fill="#ff8a75"
-                            fontSize="10"
-                            fontFamily="monospace"
-                        >
+                        <text x={cx} y={cy + 28} textAnchor="middle" fill="#ff8a75" fontSize="10">
                             {hazard.types.join(", ")}
                         </text>
                     )}
@@ -557,15 +542,7 @@ function RoverIcon({ position }: { position: RoverPosition }) {
             <polygon points="-4,-12 4,-12 0,-16" fill="#6ee7b7" opacity="0.8" />
 
             {/* Label */}
-            <text
-                x="0"
-                y="22"
-                textAnchor="middle"
-                fill="#6ee7b7"
-                fontSize="10"
-                fontFamily="monospace"
-                fontWeight="bold"
-            >
+            <text x="0" y="22" textAnchor="middle" fill="#6ee7b7" fontSize="10" fontWeight="bold">
                 ROVER
             </text>
         </g>
@@ -1826,7 +1803,6 @@ export default function InteractiveMap({}: InteractiveMapProps = {}) {
                                 textAnchor="middle"
                                 fill={color}
                                 fontSize="8"
-                                fontFamily="monospace"
                                 opacity="0.7"
                             >
                                 {Math.round(ping.rssi)}dBm
@@ -1872,7 +1848,6 @@ export default function InteractiveMap({}: InteractiveMapProps = {}) {
                             textAnchor="middle"
                             fill="#6ee7b7"
                             fontSize="9"
-                            fontFamily="monospace"
                             opacity="0.8"
                         >
                             {navState.session.current_target.description}
@@ -2016,7 +1991,6 @@ export default function InteractiveMap({}: InteractiveMapProps = {}) {
                             textAnchor="middle"
                             fill="#ccc"
                             fontSize="11"
-                            fontFamily="monospace"
                         >
                             {poiName || pendingPOI.label}:{" "}
                             {Math.round(

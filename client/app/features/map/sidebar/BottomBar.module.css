@@ -2,7 +2,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #2a2a2e;
+    background-color: #3a3a41;
     padding: 12px 20px;
     border-radius: 10px;
     width: 100%;
@@ -17,10 +17,8 @@
 }
 
 .modeText {
-    font-family: -apple-system, 'SF Pro Display', sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    color: #e0e0e0;
+    font-size: 1rem;
+    color: #f1f2f5;
     white-space: nowrap;
 }
 
@@ -30,7 +28,7 @@
 }
 
 .modeOn {
-    color: #e0e0e0;
+    color: #f1f2f5;
 }
 
 .modeOff {

@@ -10,7 +10,7 @@
 }
 .gearSelector {
     display: flex;
-    gap: 1rem;
+    gap: 0.3rem;
 }
 
 /* used for alignment */

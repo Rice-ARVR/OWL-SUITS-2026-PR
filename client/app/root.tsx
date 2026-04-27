@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import "@fontsource/be-vietnam-pro"; // Defaults to weight 400
+import "@fontsource/be-vietnam-pro/500.css"; // Weight 500
+import "@fontsource/be-vietnam-pro/700.css"; // Weight 700
 
 import "./app.css";
 import type { Warning } from "~/types/warning";
