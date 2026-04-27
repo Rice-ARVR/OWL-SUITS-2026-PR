@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- Constants ---
-LNP_POSITION = Position(x=-6090.0, y=-10485.6)
+LNP_POSITION = Position(x=-600.0, y=-1200.6)
 SEARCH_RADIUS_M = 548.7
 PING_COOLDOWN_S = 20
 EMERGENCY_LIDAR_THRESHOLD_CM = 100.0

@@ -43,7 +43,7 @@
 }
 
 .messageBubble.user {
-    background: #0078d4;
+    background: #4c7492;
     color: #fff;
 }
 
@@ -122,7 +122,7 @@
 }
 
 .sendButton {
-    background: #0078d4;
+    background: #578cb5;
     color: #fff;
     border: none;
     border-radius: 4px;
@@ -142,7 +142,7 @@
 }
 
 .micButtonActive {
-    background: #d32f2f;
+    background: #f59095;
     color: #fff;
     animation: pulse 1s ease-in-out infinite;
 }
@@ -159,7 +159,7 @@
 
 .clearButton {
     font-size: 10px;
-    background: #ff1717;
+    background: #f59095;
     color: #333;
     border: none;
     border-radius: 4px;

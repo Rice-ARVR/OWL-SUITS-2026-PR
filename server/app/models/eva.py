@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from app.models.ranges import NominalRange
 
-
 # --- Pydantic schema ---
 
 

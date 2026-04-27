@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import styles from "./TopBar.module.css";
+import { useTelemetry } from "~/hooks/useTelemetry";
 
 interface TopBarProps {
     resourceStatus?: "safe" | "warning" | "critical";
-    timeToPOI?: number;       // seconds
-    missionTime?: number;     // seconds
-    timeToHomebase?: number;  // seconds
-    roverDirection?: number;  // degrees 0-360
+    timeToPOI?: number; // seconds
+    missionTime?: number; // seconds
+    timeToHomebase?: number; // seconds
+    roverDirection?: number; // degrees 0-360
 }
 
 function formatTime(totalSeconds: number): string {
@@ -16,7 +17,10 @@ function formatTime(totalSeconds: number): string {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function degreesToCompass(deg: number): string {
+function degreesToCompass(deg: number | null): string {
+    if (deg == null) {
+        return "NW";
+    }
     const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
     const index = Math.round(deg / 45) % 8;
     return directions[index];
@@ -47,6 +51,8 @@ export default function TopBar({
         critical: "Return to base",
     };
 
+    const telemetry = useTelemetry();
+
     return (
         <div className={styles.topBar}>
             <div className={styles.item}>
@@ -74,7 +80,8 @@ export default function TopBar({
             <div className={styles.item}>
                 <span className={styles.label}>Rover Direction</span>
                 <span className={styles.value}>
-                    {roverDirection}° {degreesToCompass(roverDirection)}
+                    {telemetry.getRoverHeading()?.toFixed(2)}°{" "}
+                    {degreesToCompass(telemetry.getRoverHeading())}
                 </span>
             </div>
         </div>

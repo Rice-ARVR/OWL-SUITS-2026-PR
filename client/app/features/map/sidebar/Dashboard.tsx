@@ -1,6 +1,8 @@
 import { useState } from "react";
 import styles from "./Dashboard.module.css";
 
+import { useTelemetry } from "~/hooks/useTelemetry";
+
 export default function Dashboard() {
     const [speed, setSpeed] = useState(0.0);
     const [throttle, setThrottle] = useState(-30);
@@ -13,9 +15,11 @@ export default function Dashboard() {
             ? { left: "50%", width: `${fillWidth}%`, borderRadius: "0 1rem 1rem 0" }
             : { left: `${50 - fillWidth}%`, width: `${fillWidth}%`, borderRadius: "1rem 0 0 1rem" };
 
+    const telemetry = useTelemetry();
+
     return (
         <div className={styles.container}>
-            <h1 className="xlarge">{speed}</h1>
+            <h1 className="xlarge">{telemetry.getRoverSpeed()?.toFixed(2)}</h1>
             <div className={styles.dashboardInfo}>
                 <div className={styles.gearSelector}>
                     <h5 className="medium">P</h5>
@@ -25,7 +29,9 @@ export default function Dashboard() {
                 </div>
                 <h5 className="medium">Kph</h5>
                 <div className={styles.distanceContainer}>
-                    <h5 className="medium">{distanceTravelled} mi</h5>
+                    <h5 className="medium">
+                        {telemetry.getRoverDistanceTraveled()?.toFixed(0)} mi
+                    </h5>
                     <div className={styles.progressBar}>
                         <div
                             className={styles.progressFill}
@@ -43,7 +49,7 @@ export default function Dashboard() {
                     ))}
                 </div>
             </div>
-            <h5 className="medium">Throttle: {throttle}%</h5>
+            <h5 className="medium">Throttle: {telemetry.getRoverThrottle()?.toFixed(2)}%</h5>
         </div>
     );
 }

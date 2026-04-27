@@ -554,8 +554,12 @@ function RoverIcon({ position }: { position: RoverPosition }) {
 export default function InteractiveMap({}: InteractiveMapProps = {}) {
     const svgRef = useRef<SVGSVGElement>(null);
 
+    // Only connect to the navigation/stream SSE once the user starts autonomy
+    const [autonomyRequested, setAutonomyRequested] = useState(false);
+
     // ── Navigation SSE hook ──
-    const { navState, connected, startAutonomy, stopAutonomy, executePing } = useNavigationState();
+    const { navState, connected, startAutonomy, stopAutonomy, executePing } =
+        useNavigationState(autonomyRequested);
 
     // Derive rover position from SSE — handle null heading
     const roverPosition: RoverPosition = navState?.rover_position
@@ -749,6 +753,37 @@ export default function InteractiveMap({}: InteractiveMapProps = {}) {
         setIsPanning(false);
     };
 
+    // ── Zoom helpers ──
+
+    const ZOOM_FACTOR = 0.25;
+    const MIN_VIEW = 200;
+    const MAX_VIEW = 8000;
+
+    const zoomBy = useCallback((direction: 1 | -1) => {
+        setViewBox((prev) => {
+            const factor = direction === 1 ? 1 - ZOOM_FACTOR : 1 + ZOOM_FACTOR;
+            const newW = Math.min(MAX_VIEW, Math.max(MIN_VIEW, prev.w * factor));
+            const newH = Math.min(MAX_VIEW, Math.max(MIN_VIEW, prev.h * factor));
+            return {
+                x: prev.x + (prev.w - newW) / 2,
+                y: prev.y + (prev.h - newH) / 2,
+                w: newW,
+                h: newH,
+            };
+        });
+    }, []);
+
+    // Block trackpad/scroll zoom — only allow zoom via buttons
+    useEffect(() => {
+        const svg = svgRef.current;
+        if (!svg) return;
+        const onWheel = (e: WheelEvent) => {
+            e.preventDefault();
+        };
+        svg.addEventListener("wheel", onWheel, { passive: false });
+        return () => svg.removeEventListener("wheel", onWheel);
+    }, []);
+
     // ── Hazard flow ──
 
     const finishPlotting = () => {
@@ -803,6 +838,7 @@ export default function InteractiveMap({}: InteractiveMapProps = {}) {
         const x = parseFloat(ltvX);
         const y = parseFloat(ltvY);
         if (isNaN(x) || isNaN(y)) return;
+        setAutonomyRequested(true);
         await startAutonomy();
         setMode("navigate");
     };
@@ -821,6 +857,7 @@ export default function InteractiveMap({}: InteractiveMapProps = {}) {
 
     const confirmStopAutonomy = async () => {
         await stopAutonomy();
+        setAutonomyRequested(false);
         setShowManualConfirm(false);
     };
 
@@ -1713,6 +1750,77 @@ export default function InteractiveMap({}: InteractiveMapProps = {}) {
                             d="M11 8a3 3 0 0 1 3 3"
                             stroke="currentColor"
                             strokeWidth="1.5"
+                            strokeLinecap="round"
+                        />
+                    </svg>
+                </button>
+
+                {/* Zoom in / out buttons */}
+                <button className={styles.fabSecondary} onClick={() => zoomBy(1)} title="Zoom in">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle
+                            cx="11"
+                            cy="11"
+                            r="7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                        />
+                        <line
+                            x1="16.5"
+                            y1="16.5"
+                            x2="21"
+                            y2="21"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="8"
+                            y1="11"
+                            x2="14"
+                            y2="11"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="11"
+                            y1="8"
+                            x2="11"
+                            y2="14"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                    </svg>
+                </button>
+                <button className={styles.fabSecondary} onClick={() => zoomBy(-1)} title="Zoom out">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle
+                            cx="11"
+                            cy="11"
+                            r="7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                        />
+                        <line
+                            x1="16.5"
+                            y1="16.5"
+                            x2="21"
+                            y2="21"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="8"
+                            y1="11"
+                            x2="14"
+                            y2="11"
+                            stroke="currentColor"
+                            strokeWidth="2"
                             strokeLinecap="round"
                         />
                     </svg>

@@ -34,7 +34,7 @@ export interface NavState {
 
 const API_BASE = "";
 
-export function useNavigationState() {
+export function useNavigationState(enabled: boolean = false) {
     const [navState, setNavState] = useState<NavState | null>(null);
     const [connected, setConnected] = useState(false);
     const sourceRef = useRef<EventSource | null>(null);
@@ -46,6 +46,10 @@ export function useNavigationState() {
 
         const connect = () => {
             if (cancelled) return;
+            if (!enabled) {
+                setConnected(false);
+                return;
+            }
 
             const source = new EventSource(`${API_BASE}/navigation/stream`);
             sourceRef.current = source;
@@ -82,8 +86,10 @@ export function useNavigationState() {
             cancelled = true;
             if (timeoutId) clearTimeout(timeoutId);
             sourceRef.current?.close();
+            setNavState(null);
+            setConnected(false);
         };
-    }, []);
+    }, [enabled]);
 
     const startAutonomy = useCallback(async (forceReset = false) => {
         const res = await fetch(`${API_BASE}/navigation/autonomy/start?force_reset=${forceReset}`, {

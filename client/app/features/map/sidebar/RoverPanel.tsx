@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import styles from "./RoverPanel.module.css";
 import RoverSvg from "../../../assets/rover.svg?react";
 
+import { useTelemetry } from "~/hooks/useTelemetry";
+
 interface RoverPanelProps {
     pitch?: number;
     roll?: number;
@@ -21,6 +23,7 @@ export default function RoverPanel({
     useEffect(() => setPitch(pitchProp), [pitchProp]);
     useEffect(() => setRoll(rollProp), [rollProp]);
     useEffect(() => setSurfaceIncline(surfaceInclineProp), [surfaceInclineProp]);
+    const telemetry = useTelemetry();
     return (
         <div className={styles.container}>
             <div className={styles.roverContainer}>
@@ -56,7 +59,9 @@ export default function RoverPanel({
                         <polygon points="4,19 10,19 7,25" fill="#6ee7b7" />
                     </svg>
                     <div className={styles.indicatorBox}>
-                        <span className={styles.indicatorValue}>{pitch}°</span>
+                        <span className={styles.indicatorValue}>
+                            {telemetry.getRoverPitch()?.toFixed(2)}°
+                        </span>
                     </div>
                 </div>
 
@@ -73,7 +78,9 @@ export default function RoverPanel({
                         <polygon points="22,19 28,19 25,25" fill="#6ee7b7" />
                     </svg>
                     <div className={styles.indicatorBox}>
-                        <span className={styles.indicatorValue}>{roll}°</span>
+                        <span className={styles.indicatorValue}>
+                            {telemetry.getRoverRoll()?.toFixed(2)}°
+                        </span>
                     </div>
                 </div>
             </div>
