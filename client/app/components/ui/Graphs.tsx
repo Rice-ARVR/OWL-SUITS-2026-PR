@@ -119,6 +119,12 @@ export default function Graph({
             }}
         >
             <svg width={W} height={H} style={{ overflow: "visible", flexShrink: 0 }}>
+                <defs>
+                    <clipPath id="plot-area">
+                        <rect x={PAD.left} y={PAD.top} width={plotW} height={plotH} />
+                    </clipPath>
+                </defs>
+
                 <rect x={PAD.left} y={PAD.top} width={plotW} height={plotH} fill="#3A3A41" rx={4} />
                 {yTicks.map((tick, i) => (
                     <line
@@ -163,43 +169,44 @@ export default function Graph({
                         </text>
                     );
                 })}
+                <g clipPath="url(#plot-area)">
+                    {fills.map((d, i) => (
+                        <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
+                    ))}
 
-                {fills.map((d, i) => (
-                    <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
-                ))}
-
-                {segments.map((d, i) => (
-                    <path
-                        key={i}
-                        d={d}
-                        fill="none"
-                        stroke={LINE_COLOR}
-                        strokeWidth={1.5}
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                    />
-                ))}
-
-                {currentVal !== null && (
-                    <>
-                        <line
-                            x1={xOf(currentIdx)}
-                            y1={PAD.top}
-                            x2={xOf(currentIdx)}
-                            y2={PAD.top + plotH}
+                    {segments.map((d, i) => (
+                        <path
+                            key={i}
+                            d={d}
+                            fill="none"
                             stroke={LINE_COLOR}
-                            strokeWidth={1}
-                            strokeDasharray="3 3"
-                            opacity={0.4}
+                            strokeWidth={1.5}
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
                         />
-                        <circle
-                            cx={xOf(currentIdx)}
-                            cy={yOf(currentVal)}
-                            r={3.5}
-                            fill={LINE_COLOR}
-                        />
-                    </>
-                )}
+                    ))}
+
+                    {currentVal !== null && (
+                        <>
+                            <line
+                                x1={xOf(currentIdx)}
+                                y1={PAD.top}
+                                x2={xOf(currentIdx)}
+                                y2={PAD.top + plotH}
+                                stroke={LINE_COLOR}
+                                strokeWidth={1}
+                                strokeDasharray="3 3"
+                                opacity={0.4}
+                            />
+                            <circle
+                                cx={xOf(currentIdx)}
+                                cy={yOf(currentVal)}
+                                r={3.5}
+                                fill={LINE_COLOR}
+                            />
+                        </>
+                    )}
+                </g>
             </svg>
 
             {label && (
