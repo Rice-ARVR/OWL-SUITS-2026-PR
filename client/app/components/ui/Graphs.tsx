@@ -21,8 +21,17 @@ const PAD = { top: 10, right: 12, bottom: 28, left: 44 };
 const plotW = W - PAD.left - PAD.right;
 const plotH = H - PAD.top - PAD.bottom;
 
-export default function Graph({ value, label, unit = "", min, max, borderTop = true, borderBottom = true, isWarning }: GraphProps) {
-    const statusLabel = isWarning !== undefined ? (isWarning ? "Critical" : "Normal") : null;
+export default function Graph({
+    value,
+    label,
+    unit = "",
+    min,
+    max,
+    borderTop = true,
+    borderBottom = true,
+    isWarning,
+}: GraphProps) {
+    const statusLabel = isWarning !== undefined ? (isWarning ? "Unsafe" : "Safe") : null;
     const statusColor = isWarning ? "#F59095" : "#9DE4CE";
     const fillColor = isWarning ? "#5C5357" : "#6F7674";
 

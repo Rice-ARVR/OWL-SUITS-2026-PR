@@ -28,13 +28,28 @@ function valueToPct(value: number, min: number, max: number) {
     return Math.min(1, Math.max(0, (value - min) / (max - min)));
 }
 
-export default function Pressure({ value, min, max, safeMin, safeMax, label, unit = "psi" }: PressureProps) {
+export default function Pressure({
+    value,
+    min,
+    max,
+    safeMin,
+    safeMax,
+    label,
+    unit = "psi",
+}: PressureProps) {
     const pct = value !== null && Number.isFinite(value) ? valueToPct(value, min, max) : null;
     const safeMinPct = safeMin !== undefined ? valueToPct(safeMin, min, max) : 0.25;
     const safeMaxPct = safeMax !== undefined ? valueToPct(safeMax, min, max) : 0.75;
 
     const indicator = pct !== null ? arcPoint(RADIUS, pct) : null;
 
+    const isSafe =
+        value != null &&
+        Number.isFinite(value) &&
+        safeMin !== undefined &&
+        safeMax !== undefined &&
+        (value as number) >= safeMin &&
+        (value as number) <= safeMax;
     return (
         <div
             style={{
@@ -61,10 +76,10 @@ export default function Pressure({ value, min, max, safeMin, safeMax, label, uni
                     <path
                         d={arcPath(RADIUS, safeMinPct, safeMaxPct)}
                         fill="none"
-                        stroke="#E9FFF6"
+                        stroke={isSafe ? "#74857F" : "#F59095"}
+                        strokeOpacity={0.5}
                         strokeWidth={12}
                         strokeLinecap="round"
-                        strokeOpacity={0.415}
                     />
 
                     {/* Tick marks */}
@@ -104,7 +119,7 @@ export default function Pressure({ value, min, max, safeMin, safeMax, label, uni
                 }}
             >
                 <span className={typo.h3} style={{ color: "#F1F2F5", lineHeight: 1 }}>
-                    {value !== null && Number.isFinite(value) ? (value as number).toFixed(0) : "--"}
+                    {value !== null && Number.isFinite(value) ? (value as number).toFixed(1) : "--"}
                     <span className={typo.h5} style={{ color: "#F1F2F5", marginLeft: 6 }}>
                         {unit}
                     </span>

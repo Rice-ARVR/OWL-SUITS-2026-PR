@@ -33,8 +33,8 @@ class PrTelemetry(BaseModel):
     external_temp: float
     coolant_pressure: Annotated[float, NominalRange(min=495, max=501, nominal=500)]
     coolant_storage: Annotated[float, NominalRange(min=80, max=100, nominal=100)]
-    primary_battery_level: float
-    secondary_battery_level: float
+    primary_battery_level: Annotated[float, NominalRange(min=30, max=100)]
+    secondary_battery_level: Annotated[float, NominalRange(min=30, max=100)]
     rover_elapsed_time: float
     sim_running: bool
     dust_connected: bool
@@ -43,8 +43,8 @@ class PrTelemetry(BaseModel):
     battery_level: Annotated[float, NominalRange(min=0, max=100)]
     fan_pri_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
     fan_sec_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
-    scrubber_a_co2_storage: float
-    scrubber_b_co2_storage: float
+    scrubber_a_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
+    scrubber_b_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
     cabin_temperature_target: float
 
 
