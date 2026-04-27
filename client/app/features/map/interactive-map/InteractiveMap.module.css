@@ -576,3 +576,155 @@
         transform: rotate(360deg);
     }
 }
+
+/* ── Confirmation overlay ───────────────── */
+
+.confirmOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.confirmBox {
+    background: #1e1e22;
+    border-radius: 12px;
+    padding: 20px 24px;
+    max-width: 320px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.confirmText {
+    font-family: monospace;
+    font-size: 14px;
+    color: #e0e0e0;
+    margin: 0;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.confirmActions {
+    display: flex;
+    gap: 8px;
+}
+
+.confirmCancelBtn {
+    background: #333;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    color: #aaa;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+    flex: 1;
+    transition: all 0.15s;
+}
+
+.confirmCancelBtn:hover {
+    background: #444;
+    color: #ddd;
+}
+
+.confirmStopBtn {
+    background: #e74c3c;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 1;
+    transition: background 0.15s;
+}
+
+.confirmStopBtn:hover {
+    background: #c0392b;
+}
+
+/* ── Autonomous status panel ────────────── */
+
+.autoStatusBody {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.autoPhaseRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.autoLabel {
+    font-family: monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
+.autoPhaseBadge {
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6ee7b7;
+    background: rgba(110, 231, 183, 0.1);
+    border: 1px solid rgba(110, 231, 183, 0.25);
+    border-radius: 999px;
+    padding: 3px 10px;
+    text-transform: capitalize;
+}
+
+.autoValue {
+    font-family: monospace;
+    font-size: 12px;
+    color: #e0e0e0;
+}
+
+.autoTargetBox {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #2a2a2e;
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.autoTargetDesc {
+    font-family: monospace;
+    font-size: 12px;
+    color: #ccc;
+    line-height: 1.4;
+}
+
+.stopAutonomyBtn {
+    background: #e74c3c;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    width: 100%;
+}
+
+.stopAutonomyBtn:hover {
+    background: #c0392b;
+}

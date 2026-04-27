@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import styles from "./InteractiveMap.module.css";
+import { useNavigationState } from "./useNavigationState";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ export interface Hazard {
     types: HazardType[];
 }
 
-type Mode = "navigate" | "addPOI" | "plotHazard" | "hazardDetails" | "directions";
+type Mode = "navigate" | "addPOI" | "plotHazard" | "hazardDetails" | "directions" | "autonomousLTV";
 type POIStep = "placing" | "naming" | "describing";
 type DirectionsStep = "selectDestination" | "review" | "computing" | "active";
 
@@ -37,7 +38,7 @@ export interface RoverPosition {
 }
 
 interface InteractiveMapProps {
-    roverPosition?: RoverPosition;
+    // extensibility - add any external props here
 }
 
 interface ViewBox {
@@ -573,16 +574,52 @@ function RoverIcon({ position }: { position: RoverPosition }) {
 
 // ── Main map component ─────────────────────────────────
 
-export default function InteractiveMap({
-    roverPosition = { x: 0, y: 0, heading: 0 },
-}: InteractiveMapProps) {
+export default function InteractiveMap({}: InteractiveMapProps = {}) {
     const svgRef = useRef<SVGSVGElement>(null);
+
+    // ── Navigation SSE hook ──
+    const { navState, connected, startAutonomy, stopAutonomy, executePing } = useNavigationState();
+
+    // Derive rover position from SSE — handle null heading
+    const roverPosition: RoverPosition = navState?.rover_position
+        ? {
+              x: navState.rover_position.x ?? 0,
+              y: navState.rover_position.y ?? 0,
+              heading: navState.rover_position.heading ?? 0,
+          }
+        : { x: 0, y: 0, heading: 0 };
+
+    const isAutonomous = navState?.autonomous_driving ?? false;
+
+    // Auto-center map on rover when position changes significantly
+    const lastCenteredRef = useRef<{ x: number; y: number } | null>(null);
+    useEffect(() => {
+        if (roverPosition.x === 0 && roverPosition.y === 0) return;
+        const last = lastCenteredRef.current;
+        if (
+            !last ||
+            Math.abs(roverPosition.x - last.x) > 500 ||
+            Math.abs(roverPosition.y - last.y) > 500
+        ) {
+            setViewBox((prev) => ({
+                ...prev,
+                x: roverPosition.x - prev.w / 2,
+                y: roverPosition.y - prev.h / 2,
+            }));
+            lastCenteredRef.current = { x: roverPosition.x, y: roverPosition.y };
+        }
+    }, [roverPosition.x, roverPosition.y]);
 
     const [points, setPoints] = useState<MapPoint[]>([]);
     const [hazards, setHazards] = useState<Hazard[]>([]);
     const [activeHazard, setActiveHazard] = useState<Hazard | null>(null);
     const [mousePos, setMousePos] = useState<Point | null>(null);
     const [mode, setMode] = useState<Mode>("navigate");
+
+    // Autonomous LTV
+    const [ltvX, setLtvX] = useState("");
+    const [ltvY, setLtvY] = useState("");
+    const [showManualConfirm, setShowManualConfirm] = useState(false);
 
     // FAB menu
     const [showAddMenu, setShowAddMenu] = useState(false);
@@ -770,8 +807,44 @@ export default function InteractiveMap({
         setRoutePath([]);
         setSegmentDistances([]);
         setDirectionsStep("selectDestination");
+        setLtvX("");
+        setLtvY("");
         setMode("navigate");
         setShowAddMenu(false);
+    };
+
+    // ── Autonomous LTV workflow ──
+
+    const handleStartAutonomousLTV = () => {
+        setShowAddMenu(false);
+        setLtvX("");
+        setLtvY("");
+        setMode("autonomousLTV");
+    };
+
+    const handleLaunchAutonomy = async () => {
+        const x = parseFloat(ltvX);
+        const y = parseFloat(ltvY);
+        if (isNaN(x) || isNaN(y)) return;
+        await startAutonomy();
+        setMode("navigate");
+    };
+
+    const cancelAutonomousLTV = () => {
+        setLtvX("");
+        setLtvY("");
+        setMode("navigate");
+    };
+
+    const handleManualModeRequest = () => {
+        if (isAutonomous) {
+            setShowManualConfirm(true);
+        }
+    };
+
+    const confirmStopAutonomy = async () => {
+        await stopAutonomy();
+        setShowManualConfirm(false);
     };
 
     // ── Directions workflow ──
@@ -1298,11 +1371,186 @@ export default function InteractiveMap({
                 </div>
             )}
 
+            {/* ── Autonomous LTV Panel (top-left) ── */}
+            {mode === "autonomousLTV" && (
+                <div className={styles.panel}>
+                    <div className={styles.panelHeader}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <circle
+                                cx="11"
+                                cy="11"
+                                r="7"
+                                stroke="#6ee7b7"
+                                strokeWidth="2"
+                                fill="none"
+                            />
+                            <line
+                                x1="16.5"
+                                y1="16.5"
+                                x2="21"
+                                y2="21"
+                                stroke="#6ee7b7"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M11 8a3 3 0 0 1 3 3"
+                                stroke="#6ee7b7"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                            />
+                        </svg>
+                        <span className={styles.panelTitle}>Autonomous LTV Search</span>
+                        <button className={styles.panelClose} onClick={cancelAutonomousLTV}>
+                            ×
+                        </button>
+                    </div>
+
+                    <p className={styles.panelHint}>Enter last known coordinates of the LTV</p>
+
+                    <div className={styles.poiForm}>
+                        <label className={styles.poiLabel}>X Coordinate</label>
+                        <input
+                            type="number"
+                            className={styles.poiInput}
+                            value={ltvX}
+                            onChange={(e) => setLtvX(e.target.value)}
+                            placeholder="e.g. -6090.0"
+                            autoFocus
+                        />
+                        <label className={styles.poiLabel}>Y Coordinate</label>
+                        <input
+                            type="number"
+                            className={styles.poiInput}
+                            value={ltvY}
+                            onChange={(e) => setLtvY(e.target.value)}
+                            placeholder="e.g. -10485.6"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleLaunchAutonomy();
+                                }
+                            }}
+                        />
+                        <button
+                            className={styles.finishBtn}
+                            onClick={handleLaunchAutonomy}
+                            disabled={!ltvX || !ltvY}
+                            style={{ opacity: !ltvX || !ltvY ? 0.4 : 1 }}
+                        >
+                            Start Autonomous Navigation
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Manual mode confirmation overlay ── */}
+            {showManualConfirm && (
+                <div className={styles.confirmOverlay}>
+                    <div className={styles.confirmBox}>
+                        <p className={styles.confirmText}>
+                            Are you sure? This will stop autonomous navigation.
+                        </p>
+                        <div className={styles.confirmActions}>
+                            <button
+                                className={styles.confirmCancelBtn}
+                                onClick={() => setShowManualConfirm(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button className={styles.confirmStopBtn} onClick={confirmStopAutonomy}>
+                                Stop Autonomy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Autonomous Navigation Status Panel (top-left) ── */}
+            {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
+                <div className={styles.panel}>
+                    <div className={styles.panelHeader}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <circle
+                                cx="11"
+                                cy="11"
+                                r="7"
+                                stroke="#6ee7b7"
+                                strokeWidth="2"
+                                fill="none"
+                            />
+                            <line
+                                x1="16.5"
+                                y1="16.5"
+                                x2="21"
+                                y2="21"
+                                stroke="#6ee7b7"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                            />
+                        </svg>
+                        <span className={styles.panelTitle}>Autonomous Navigation</span>
+                        <button className={styles.panelClose} onClick={handleManualModeRequest}>
+                            ×
+                        </button>
+                    </div>
+
+                    <div className={styles.autoStatusBody}>
+                        <div className={styles.autoPhaseRow}>
+                            <span className={styles.autoLabel}>Phase</span>
+                            <span className={styles.autoPhaseBadge}>
+                                {navState.session.phase.replace(/_/g, " ")}
+                            </span>
+                        </div>
+
+                        {navState.session.best_rssi > -Infinity && (
+                            <div className={styles.autoPhaseRow}>
+                                <span className={styles.autoLabel}>Best RSSI</span>
+                                <span className={styles.autoValue}>
+                                    {Math.round(navState.session.best_rssi)} dBm
+                                </span>
+                            </div>
+                        )}
+
+                        <div className={styles.autoPhaseRow}>
+                            <span className={styles.autoLabel}>Pings</span>
+                            <span className={styles.autoValue}>
+                                {navState.session.ping_history.length}
+                            </span>
+                        </div>
+
+                        {navState.session.current_target && (
+                            <div className={styles.autoTargetBox}>
+                                <span className={styles.autoLabel}>Current Target</span>
+                                <span className={styles.autoTargetDesc}>
+                                    {navState.session.current_target.description}
+                                </span>
+                            </div>
+                        )}
+
+                        {navState.session.projected_path.length > 0 && (
+                            <div className={styles.autoPhaseRow}>
+                                <span className={styles.autoLabel}>Planned Path</span>
+                                <span className={styles.autoValue}>
+                                    {navState.session.projected_path.length} waypoint
+                                    {navState.session.projected_path.length !== 1 ? "s" : ""} ahead
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    <button className={styles.stopAutonomyBtn} onClick={handleManualModeRequest}>
+                        Stop Autonomous Navigation
+                    </button>
+                </div>
+            )}
+
             {/* ── Info bar (bottom-left) ── */}
             <div className={styles.infoBar}>
                 <span>
                     {points.length} point{points.length !== 1 ? "s" : ""} · {hazards.length} hazard
                     {hazards.length !== 1 ? "s" : ""}
+                    {isAutonomous ? " · 🟢 Autonomous" : ""}
                 </span>
             </div>
 
@@ -1343,7 +1591,9 @@ export default function InteractiveMap({
                         mode === "addPOI" ? styles.fabActivePOI : ""
                     } ${
                         mode === "plotHazard" || mode === "hazardDetails" ? styles.fabActive : ""
-                    } ${mode === "directions" ? styles.fabActiveDirections : ""}`}
+                    } ${mode === "directions" ? styles.fabActiveDirections : ""} ${
+                        mode === "autonomousLTV" ? styles.fabActiveDirections : ""
+                    }`}
                     onClick={() => {
                         if (mode === "navigate") {
                             setShowAddMenu(!showAddMenu);
@@ -1408,6 +1658,33 @@ export default function InteractiveMap({
                             />
                         </svg>
                     )}
+                    {mode === "autonomousLTV" && (
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                            <circle
+                                cx="11"
+                                cy="11"
+                                r="7"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                            />
+                            <line
+                                x1="16.5"
+                                y1="16.5"
+                                x2="21"
+                                y2="21"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M11 8a3 3 0 0 1 3 3"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                            />
+                        </svg>
+                    )}
                 </button>
 
                 {/* Directions button */}
@@ -1421,6 +1698,46 @@ export default function InteractiveMap({
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                         <path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z" fill="currentColor" />
+                    </svg>
+                </button>
+
+                {/* Autonomous LTV button */}
+                <button
+                    className={`${styles.fabSecondary} ${
+                        mode === "autonomousLTV" || isAutonomous ? styles.fabSecondaryActive : ""
+                    }`}
+                    onClick={() => {
+                        if (isAutonomous) {
+                            handleManualModeRequest();
+                        } else if (mode !== "autonomousLTV") {
+                            handleStartAutonomousLTV();
+                        }
+                    }}
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle
+                            cx="11"
+                            cy="11"
+                            r="7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                        />
+                        <line
+                            x1="16.5"
+                            y1="16.5"
+                            x2="21"
+                            y2="21"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                        />
+                        <path
+                            d="M11 8a3 3 0 0 1 3 3"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                        />
                     </svg>
                 </button>
             </div>
@@ -1445,6 +1762,123 @@ export default function InteractiveMap({
                 {hazards.map((h) => (
                     <HazardShape key={h.id} hazard={h} onDelete={deleteHazard} />
                 ))}
+
+                {/* ── Autonomous Nav Overlays ── */}
+
+                {/* Breadcrumb trail */}
+                {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
+                    <polyline
+                        points={navState.session.path_history.map((p) => `${p.x},${p.y}`).join(" ")}
+                        fill="none"
+                        stroke="#6ee7b7"
+                        strokeWidth="1.5"
+                        opacity="0.35"
+                    />
+                )}
+
+                {/* Projected path */}
+                {navState?.session?.projected_path &&
+                    navState.session.projected_path.length >= 1 && (
+                        <polyline
+                            points={[
+                                `${roverPosition.x},${roverPosition.y}`,
+                                ...navState.session.projected_path.map((p) => `${p.x},${p.y}`),
+                            ].join(" ")}
+                            fill="none"
+                            stroke="#6ee7b7"
+                            strokeWidth="2"
+                            strokeDasharray="8 4"
+                            opacity="0.6"
+                        />
+                    )}
+
+                {/* Ping history markers */}
+                {navState?.session?.ping_history?.map((ping, i) => {
+                    const color =
+                        ping.signal_category === "strong"
+                            ? "#6ee7b7"
+                            : ping.signal_category === "moderate"
+                              ? "#fbbf24"
+                              : ping.signal_category === "weak"
+                                ? "#f97316"
+                                : "#ef4444";
+                    return (
+                        <g key={`ping-${i}`}>
+                            <circle
+                                cx={ping.rover_position.x}
+                                cy={ping.rover_position.y}
+                                r="8"
+                                fill="none"
+                                stroke={color}
+                                strokeWidth="2"
+                                opacity="0.6"
+                            />
+                            <circle
+                                cx={ping.rover_position.x}
+                                cy={ping.rover_position.y}
+                                r="3"
+                                fill={color}
+                                opacity="0.8"
+                            />
+                            <text
+                                x={ping.rover_position.x}
+                                y={ping.rover_position.y - 14}
+                                textAnchor="middle"
+                                fill={color}
+                                fontSize="8"
+                                fontFamily="monospace"
+                                opacity="0.7"
+                            >
+                                {Math.round(ping.rssi)}dBm
+                            </text>
+                        </g>
+                    );
+                })}
+
+                {/* Current autonomous target */}
+                {navState?.session?.current_target && (
+                    <g>
+                        <circle
+                            cx={navState.session.current_target.position.x}
+                            cy={navState.session.current_target.position.y}
+                            r="10"
+                            fill="none"
+                            stroke="#6ee7b7"
+                            strokeWidth="2"
+                            strokeDasharray="4 2"
+                        >
+                            <animate
+                                attributeName="r"
+                                values="8;12;8"
+                                dur="2s"
+                                repeatCount="indefinite"
+                            />
+                            <animate
+                                attributeName="opacity"
+                                values="1;0.4;1"
+                                dur="2s"
+                                repeatCount="indefinite"
+                            />
+                        </circle>
+                        <circle
+                            cx={navState.session.current_target.position.x}
+                            cy={navState.session.current_target.position.y}
+                            r="3"
+                            fill="#6ee7b7"
+                        />
+                        <text
+                            x={navState.session.current_target.position.x}
+                            y={navState.session.current_target.position.y + 20}
+                            textAnchor="middle"
+                            fill="#6ee7b7"
+                            fontSize="9"
+                            fontFamily="monospace"
+                            opacity="0.8"
+                        >
+                            {navState.session.current_target.description}
+                        </text>
+                    </g>
+                )}
 
                 {/* Route path */}
                 {routePath.length >= 2 && (
