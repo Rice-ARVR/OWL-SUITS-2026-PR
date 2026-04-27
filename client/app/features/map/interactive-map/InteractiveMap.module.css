@@ -4,6 +4,7 @@
     height: 100%;
     background-color: #1e1e22;
     overflow: hidden;
+    border-radius: 12px;
 }
 
 /* ── Canvas ─────────────────────────────── */
