@@ -4,9 +4,8 @@ export default [
     index("routes/home.tsx"),
     route("ollama", "routes/ollama.tsx"),
     route("tss_example", "routes/tss_example.tsx"),
-    route("map", "routes/map.tsx"),
     route("wasd_controls", "routes/wasd_controls.tsx"),
     route("gamepad_controls", "routes/gamepad_controls.tsx"),
     route("ui", "routes/ui.tsx"),
-    route("map2", "routes/map2.tsx"),
+    route("map", "routes/map.tsx"),
 ] satisfies RouteConfig;
