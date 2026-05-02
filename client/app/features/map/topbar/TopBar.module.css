@@ -1,0 +1,57 @@
+.topBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #2a2a2e;
+    padding: 10px 24px;
+    border-radius: 10px;
+    gap: 16px;
+    width: 100%;
+}
+
+.item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+.label {
+    font-size: 1.125rem;
+    color: #c5c9d2; /* medium text */
+    white-space: nowrap;
+}
+
+.value {
+    font-size: 1.875rem;
+    color: #f1f2f5;
+    white-space: nowrap;
+}
+
+/* ── Status badge ───────────────────────── */
+
+.statusBadge {
+    font-size: 1.375rem;
+    padding: 4px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.safe {
+    background-color: rgba(110, 231, 183, 0.12);
+    color: #9de4ce;
+    border: 1px solid rgba(110, 231, 183, 0.25);
+}
+
+.warning {
+    background-color: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.critical {
+    background-color: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
