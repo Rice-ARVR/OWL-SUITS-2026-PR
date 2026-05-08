@@ -34,9 +34,10 @@ async def lifespan(app: FastAPI):
             methods = sorted(getattr(route, "methods", []) or [])
             logger.info("Route registered: %s methods=%s", path, methods)
     connect()
-    await start_polling()
+
     await ingest_documents()
     await warmup_model(settings.AIA_MODEL)
+    await start_polling()
     yield
     await stop_polling()
     disconnect()
