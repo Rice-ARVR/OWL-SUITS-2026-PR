@@ -14,7 +14,7 @@ class PrTelemetry(BaseModel):
     cabin_cooling: bool
     lights_on: bool
     brakes: bool
-    throttle: Annotated[float, NominalRange(min=0, max=100)]
+    throttle: Annotated[float, NominalRange(min=-100, max=100)]
     steering: Annotated[float, NominalRange(min=-1, max=1)]
     rover_pos_x: float  # TODO: get min/max from DUST
     rover_pos_y: float  # TODO: get min/max from DUST

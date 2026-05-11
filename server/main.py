@@ -12,7 +12,6 @@ from app.routers.telemetry_ws import router as telemetry_ws_router
 from app.routers.tss_example import router as tss_example_router
 from app.routers.warnings import router as warnings_router
 from app.services.rag.document_service import ingest_documents
-from app.services.rag.ollama_service import warmup_model
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,7 +35,7 @@ async def lifespan(app: FastAPI):
     connect()
 
     await ingest_documents()
-    await warmup_model(settings.AIA_MODEL)
+    # await warmup_model(settings.AIA_MODEL)
     await start_polling()
     yield
     await stop_polling()
