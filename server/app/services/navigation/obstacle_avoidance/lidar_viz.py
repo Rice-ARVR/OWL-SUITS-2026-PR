@@ -339,8 +339,17 @@ if __name__ == "__main__":
         action="store_true",
         help="Only show the 11 forward-facing sensors (indices 0-6, 13-16)",
     )
+    parser.add_argument(
+        "--viz",
+        action="store_true",
+        help="Render matplotlib animations (default: print sensor values to terminal only)",
+    )
     args = parser.parse_args()
 
     mask = FRONT_SENSORS if args.front else frozenset(range(17))
-    _start_ws_thread()
-    visualize(mask)
+
+    if args.viz:
+        _start_ws_thread()
+        visualize(mask)
+    else:
+        asyncio.run(_ws_listener())
