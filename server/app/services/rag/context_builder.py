@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from collections import deque
@@ -8,6 +7,7 @@ from app.models.eva import EvaSchema
 from app.models.ltv import LtvSchema
 from app.models.ltv_errors import LtvErrorsSchema
 from app.models.rover import RoverSchema
+from app.services.telemetry.telemetry_formatter import flatten_telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +85,14 @@ async def build_and_save_context(
         text = "(No telemetry data available yet.)"
     else:
         text = "=== CURRENT TSS TELEMETRY SNAPSHOT ===\n"
+
         for name, data in sections.items():
-            text += f"\n[{name}]\n{json.dumps(data, indent=2)}\n"
+            text += f"\n[{name}]\n"
+
+            formatted_lines = flatten_telemetry(data)
+
+            for line in formatted_lines:
+                text += f"- {line}\n"
 
     if eva_dump:
         eva1 = eva_dump.get("telemetry", {}).get("eva1", {})

@@ -7,6 +7,15 @@ export interface Message {
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
+function cleanAssistantText(text: string) {
+    return text
+        .replace(/\[(EVA|ROVER|LTV|LTV_ERRORS)\]\s*/gi, "")
+        .replace(/^EVA section:\s*/gi, "")
+        .replace(/^ROVER section:\s*/gi, "")
+        .replace(/^LTV section:\s*/gi, "")
+        .trim();
+}
+
 export function useOllama(model = "llama3.2") {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
@@ -90,7 +99,7 @@ export function useOllama(model = "llama3.2") {
                                 const updated = [...prev];
                                 updated[updated.length - 1] = {
                                     role: "assistant",
-                                    content: fullResponse,
+                                    content: cleanAssistantText(fullResponse),
                                 };
                                 return updated;
                             });
