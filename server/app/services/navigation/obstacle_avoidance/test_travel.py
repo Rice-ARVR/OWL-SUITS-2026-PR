@@ -19,6 +19,10 @@ import argparse
 import asyncio
 import logging
 import math
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import app.services.telemetry.telemetry_service as telemetry_service
 from app.services.navigation.obstacle_avoidance.auto_drive import travel
