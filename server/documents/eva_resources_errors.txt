@@ -1,76 +1,71 @@
-Suit Resources:
-These values are filled up while using the UIA in the Egress procedures of the EVA. The
-Battery is filled up when the DCU is connected to the UIA, and the Oxygen Tanks are filled
-up during the procedure. These values have no nominal values and are dropping throughout
-the extent of the EVA.
-The coolant is filled up on egress and internally recycled, it should not drop below 100 unless
-there is a leak within the coolant system.
-Suit Atmosphere:
-The atmosphere of the suit is an extremely safety critical system. The partial pressures of
-each gas in the atmosphere must be kept at the appropriate values. Too much of any one
-thing can be detrimental. The goal of this system is to keep the partial pressure of oxygen at
-4.0 psi, and the partial pressures of everything else at 0.0 psi. There are a lot of factors that
-can push things out of these bounds.
-Once the EVA begins, the astronaut is constantly consuming oxygen and producing carbon
-dioxide. Oxygen is being supplied from the oxygen tanks that are filled during egress.
-Carbon dioxide is collected by the carbon dioxide scrubbers and released into space. One of
-the main issues that early suits found is that the carbon dioxide likes to pool in the helmet
-and has trouble distributing throughout the suits where it can be more easily collected. To
-assist with this, fans were added in the helmet to help push the carbon dioxide towards the
-carbon dioxide scrubbers.
-Suit Fans:
-The fans distribute carbon dioxide from the helmet to the rest of the space suit. Each suit
-has two fans, a primary and secondary fan. Only one fan is on at a time. Each fan should be
-spinning at 30,000 rpm. The speed of the fan determines how much carbon dioxide is moved
-from the helmet to the rest of the suit. If the fan speed is too low, not enough carbon
-dioxide will be pushed into the scrubbers and the helmet bubble will fill with carbon dioxide.
-Too much carbon dioxide in the helmet bubble can impair the astronaut so it must be kept
-below 0.15 psi.
-Suit CO2 Scrubbers:
-The suit has two alternating carbon dioxide scrubbers. One scrubber is collecting carbon
-dioxide from the suit while the other is ejecting it’s collected carbon dioxide into space.
-There is a switch on the DCU to alternate the scrubbers. This is necessary because as the
-EVA goes on, one of the scrubbers will fill up and become less efficient. If this goes
-unnoticed for too long, the suit will start to fill with carbon dioxide. The astronaut must be
-told that their scrubber is almost full and that they need to alternate the scrubbers, to start
-filling up the empty scrubber and ejecting the contents of the full scrubber.
-These do not have a nominal value since they are constantly filling and emptying.
-Suit Temperature:
-Because of how well the space suit is insulated, the temperature inside the suit fluctuates
-drastically based on physical activity. There is a record of an astronaut on a lunar EVA being
-told to slow down because his suit was getting too hot. Our suits will have a simulated
-temperature value. As the suit gets hot, the coolant will heat up and can turn gaseous while
-the radiator cools it off. The coolant is filled during the egress process and self manages the
-temperature throughout the rest of the EVA.
-Handling Error Scenarios
-heart_rate
-Alert that the detected heart rate is too high and that the astronaut will need to slow down
-for a second.
-suit_pressure_oxy
-The primary oxygen tank is not suppling enough (or too much) oxygen, and we must swap
-to the secondary oxygen tank. This is done using the oxygen switch on the DCU. Alert the
-user to return to PR as soon as possible.
-suit_pressure_co2
-The scrubber has filled up and must be vented. This is done using the carbon dioxide switch
-on the DCU.
-suit_pressure_other
-The partial pressure of all other gases should be zero in the suit after the decompress
-sequence. Alert the user if this value is too high only after that step. Alert the user to return
-to PR as soon as possible.
-suit_pressure_total
-The suit total pressure being too low/high alludes to a problem with either the oxygen tank
-or the scrubber. Review those values and perform their procedures.
-helmet_pressure_co2
-The helmet carbon dioxide partial pressure builds up on a fan failure. Swap to the
-secondary fan. This is done using the fan switch on the DCU. Alert the user to return to PR
-as soon as possible.
-fan_pri_rpm and fan_sec_rpm
-If either of the fans are on and not spinning at the expected 30,000 rpm, then there is a fan
-error. Swap to the secondary fan. This is done using the Fan Switch on the DCU. Alert the
-user to return to PR as soon as possible.
-scrubber_a_co2_storage and scrubber_a_co2_storage
-If either scrubber filled beyond 60% capacity, it must be vented. This will likely happen a
-few times during the EVA, and the astronaut should be alerted that they need to vent their
-collected carbon dioxide. This is done by flipping the Carbon Dioxide Switch on the DCU.
-temperature
-Alert that the detected temperature is too high and that the astronaut needs to slow dow
+SUIT OXYGEN SYSTEM
+
+The oxygen tanks are filled during the UIA egress procedure before the EVA begins. Oxygen is consumed continuously by the astronaut throughout the EVA. The primary oxygen tank feeds the suit atmosphere and is expected to deplete gradually over the mission duration. The secondary oxygen tank is a backup and should remain full unless the primary has failed or been exhausted.
+
+A declining suit_pressure_oxy reading means the primary oxygen supply is not maintaining the target partial pressure of 4.0 psi. This can happen because the primary tank is running low, the regulator is malfunctioning, or there is a supply line issue. The suit atmosphere partial pressure of oxygen must be kept near 4.0 psi — too low causes hypoxia, too high increases flammability risk.
+
+A declining oxy_pri_storage percentage confirms the primary tank is depleting. If the rate of depletion is faster than expected given the astronaut's oxy_consumption rate, this suggests a leak rather than normal use.
+
+---
+
+SUIT CO2 SCRUBBER SYSTEM
+
+The astronaut continuously produces carbon dioxide as a metabolic byproduct. CO2 is collected by chemical scrubbers inside the suit. Each suit has two scrubbers — scrubber A and scrubber B. Only one is active at a time; the other is being vented to space. The active scrubber fills over the course of the EVA, which is expected and normal. When a scrubber approaches full capacity (60%), the astronaut must switch to the empty scrubber so the full one can vent.
+
+A rising suit_pressure_co2 reading means CO2 is accumulating in the suit atmosphere. This happens when the active scrubber is too full to collect CO2 efficiently. If suit_pressure_co2 exceeds 0.1 psi, the scrubber is the cause.
+
+A rising scrubber_a_co2_storage or scrubber_b_co2_storage percentage is normal during EVA. It becomes a problem at 60%, at which point efficiency drops rapidly and CO2 will begin passing through into the suit atmosphere.
+
+---
+
+HELMET CO2 POOLING AND FANS
+
+Carbon dioxide is denser than oxygen and tends to pool in low-lying areas of the suit, particularly the helmet bubble, due to the astronaut's breathing pattern. Fans inside the helmet push CO2 away from the breathing zone toward the scrubbers in the rest of the suit.
+
+Each suit has a primary and secondary fan. Only one fan runs at a time. Both fans should spin at 30,000 RPM when active. A fan running below this speed moves less air, which reduces CO2 circulation efficiency.
+
+A rising helmet_pressure_co2 reading is the direct result of insufficient CO2 circulation — almost always caused by a fan running too slowly or having failed entirely. If helmet_pressure_co2 is rising while suit_pressure_co2 is stable or low, the scrubber itself is not the problem — the CO2 is pooling in the helmet before reaching the scrubber. Helmet CO2 above 0.15 psi can impair cognitive function and must be treated immediately.
+
+A low fan_pri_rpm or fan_sec_rpm reading (below 30,000 RPM while that fan is active) confirms mechanical fan degradation or failure. Trends showing a gradual RPM decline suggest a fan bearing or motor issue developing over time.
+
+---
+
+SUIT ATMOSPHERE — OTHER GASES
+
+After the suit decompression sequence during egress, all gases other than oxygen should be purged from the suit atmosphere. The suit_pressure_other field reflects the partial pressure of all non-oxygen, non-CO2 gases remaining in the suit. This value should be 0.0 psi once decompression is complete.
+
+A non-zero suit_pressure_other reading after egress indicates incomplete decompression or atmospheric contamination. This is not a routine occurrence and represents a suit integrity or procedure concern.
+
+---
+
+SUIT TOTAL PRESSURE
+
+The suit_pressure_total value is the sum of all partial pressures inside the suit: oxygen, CO2, and other gases. The target is approximately 4.0 psi, matching the oxygen partial pressure target since CO2 and other gases should be near zero.
+
+A declining suit_pressure_total that is not explained by suit_pressure_co2 or suit_pressure_other changes points to an oxygen supply problem — the total pressure is falling because less oxygen is entering the suit than is being consumed. A rising suit_pressure_total means either CO2 is accumulating (scrubber issue) or other gases are present (contamination or incomplete depress).
+
+---
+
+SUIT TEMPERATURE AND THERMAL CONTROL
+
+The lunar environment creates extreme thermal conditions — direct sunlight surfaces can exceed 120°C while shadowed surfaces drop to -170°C. The suit is well insulated, which means the astronaut's own metabolic heat can accumulate inside the suit during physical exertion.
+
+A rising temperature reading during high physical activity is expected. It becomes a concern above 32°C. The suit uses a coolant loop to manage internal temperature — coolant absorbs body heat and a radiator dissipates it. The coolant is filled during egress and is a self-contained closed system.
+
+A declining coolant_storage value is abnormal. Since the coolant loop is sealed and self-recycling, any loss of coolant indicates a breach in the loop. This would reduce the suit's ability to shed heat, causing temperature to rise faster than normal during activity.
+
+---
+
+HEART RATE
+
+The astronaut's heart rate reflects physical exertion and physiological stress. On the lunar surface, reduced gravity (1/6 of Earth's) can make movement feel easy while still requiring significant muscular effort, particularly in a pressurized suit. Heat buildup inside the suit, dehydration, and high workload all contribute to elevated heart rate.
+
+A sustained rising trend in heart_rate, especially when paired with a rising temperature, indicates the astronaut is exerting heavily or the suit's thermal management is struggling. A sudden spike in heart rate without a change in activity may reflect stress or a suit comfort issue.
+
+---
+
+BATTERY SYSTEM
+
+The suit battery powers all electronic systems including fans, sensors, and communications. The primary battery level depletes throughout the EVA. The secondary battery is a backup. Battery depletion follows a predictable curve based on suit system load.
+
+An unusually fast battery drain rate may indicate a system drawing more power than expected, such as a fan running at high load. Battery levels below 20% are outside the nominal range and require attention.
