@@ -1,8 +1,9 @@
 services:
   dev:
     build:
-      context: .devcontainer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: dev
     ports:
       - "8000:8000"
       - "5173:5173"
@@ -13,3 +14,25 @@ services:
       - VITE_API_URL=http://localhost:8000
       - UVICORN_HOST=0.0.0.0
     command: sleep infinity
+
+  server:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: server
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+
+  frontend:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      target: frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - server

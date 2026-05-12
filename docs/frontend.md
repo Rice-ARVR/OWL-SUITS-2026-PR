@@ -44,12 +44,15 @@ client/
 │   ├── components/                     # Shared UI — only used across 2+ features
 │   │   └── ui/                         # Primitive components (Button, Badge, Modal)
 │   │
+│   ├── hooks/                          # Shared React hooks (used across 2+ features)
+│   │   └── useTelemetry.ts             # Subscribes to TelemetryManager, triggers re-renders
+│   │
 │   ├── lib/                            # Pure TypeScript — no JSX, no hooks
-│   │   ├── api.ts                      # API client / fetch wrappers
-│   │   └── utils.ts                    # Formatters, constants, helpers
+│   │   └── telemetryManager.ts         # Singleton: WebSocket connection, data cache, getters
 │   │
 │   └── types/                          # Shared TypeScript interfaces
-│       └── index.ts
+│       ├── telemetry.ts                # Full snapshot shape — mirrors backend Pydantic schemas
+│       └── warning.ts                  # Warning type for /ws/warnings messages
 │
 ├── react-router.config.ts
 ├── vite.config.ts
@@ -103,7 +106,7 @@ Only types shared across multiple features belong in `types/index.ts`. Types lik
 
 ### `lib/` is framework-free
 
-No JSX, no React hooks. Pure TypeScript utilities only — API clients, date formatters, the `cn()` Tailwind helper, etc.
+No JSX, no React hooks. Pure TypeScript utilities only — the `TelemetryManager` singleton, date formatters, the `cn()` Tailwind helper, etc.
 
 ## Styling
 

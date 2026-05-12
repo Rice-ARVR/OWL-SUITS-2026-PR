@@ -2,8 +2,8 @@
 
 @theme {
     --font-sans:
-        "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-        "Segoe UI Symbol", "Noto Color Emoji";
+        "Be Vietnam Pro", "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+        "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 html,
@@ -20,57 +20,55 @@ body {
 /* #C5C9D2 medium text */
 /* #A1A4AF small body */
 
-h1{
-    font-size: 60px;
-    color:#E8EBF2;
+h1 {
+    font-size: 3.75rem;
+    color: #e8ebf2;
 }
-h1.large{
-    font-size: 60px;
-    color:#E8EBF2;
-}
-
-h2{
-    font-size: 40px;
-    color:#F1F2F5;
-}
-h2.xlarge{
-    font-size: 40px;
-    color:#F1F2F5;
+h1.large {
+    font-size: 3.75rem;
+    color: #e8ebf2;
 }
 
-h3{
-    font-size: 30px;
-    color: #F1F2F5;
+h2 {
+    font-size: 2.5rem;
+    color: #f1f2f5;
 }
-h3.xlarge{
-    font-size: 30px;
-    color: #F1F2F5;
+h2.xlarge {
+    font-size: 2.5rem;
+    color: #f1f2f5;
 }
 
+h3 {
+    font-size: 1.875rem;
+    color: #f1f2f5;
+}
+h3.xlarge {
+    font-size: 1.875rem;
+    color: #f1f2f5;
+}
 
 h4.xlarge {
-    font-size: 22px;
-    color: #F1F2F5; /* prominent */
-
+    font-size: 1.375rem;
+    color: #f1f2f5; /* prominent */
 }
 
 h4.large {
-    font-size: 22px;
-    color: #E8EBF2; /* kind of promiment */
-    
+    font-size: 1.375rem;
+    color: #e8ebf2; /* kind of promiment */
 }
 
 h5.medium {
-    font-size: 18px;
-    color: #C5C9D2; /* medium text */
+    font-size: 1.125rem;
+    color: #c5c9d2; /* medium text */
 }
 
-h5.small{
-    font-size: 18px;
-    color: #A1A4AF; /* small body */
+h5.small {
+    font-size: 1.125rem;
+    color: #a1a4af; /* small body */
 }
 
-p { /* small text */
-    font-size: 16px;
-    color: #A1A4AF;
+p {
+    /* small text */
+    font-size: 1rem;
+    color: #a1a4af;
 }
