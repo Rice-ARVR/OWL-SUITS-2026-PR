@@ -1,4 +1,12 @@
-"""Simple autonomous drive: travel(goalX, goalY) -> int (0 = success)."""
+"""Simple autonomous drive: travel(goalX, goalY) -> int (0 = success).
+
+Conventions:
+- Steering: positive = right (CW), negative = left (CCW); magnitude in [-1, 1].
+- Heading: 0° = +Y, 90° = +X (CW from +Y). `_bearing_to` returns this frame.
+- Pacing: throttle is kept low and every command is followed by a pause and a
+  brake-pulse so the TSS state catches up — necessary to mask the round-trip
+  latency between commands and telemetry.
+"""
 
 import asyncio
 import logging
@@ -11,138 +19,201 @@ import app.services.telemetry.tss_client as tss_client
 
 logger = logging.getLogger(__name__)
 
+# Set False to silence per-loop INFO chatter; WARNING/ERROR still go through.
+VERBOSE_LOGGING = True
+
 
 # ─── Tunables ─────────────────────────────────────────────────────────────────
 
-# Goal / completion
-ARRIVAL_THRESHOLD_M = 5.0  # within this distance => success
-TRAVEL_TIMEOUT_S = 600.0  # absolute time bail-out
+#####################
+## System Settings ##
+#####################
 
-# Speed / throttle (throttle range ±100, speed in m/s)
-MAX_SPEED = 5.0  # hard cap; brake if exceeded
-THROTTLE_NORMAL = 30  # straight-line cruise
-THROTTLE_SLOW = 30  # tight turns / near obstacles
-THROTTLE_BOOST = 45  # used when stuck — crater climb-out
-THROTTLE_REVERSE = -30  # back-out throttle
+# Goal / Completition Thresholds
+ARRIVAL_THRESHOLD_M = 5.0
+TRAVEL_TIMEOUT_S = 600.0
 
-# Steering (range ±1; sign flips left/right if convention is reversed)
-STEERING_GAIN_DEG = (
-    40.0  # heading-error (deg) that maps to full lock (lower = more aggressive)
-)
-STEERING_SIGN = 1.0  # set to -1.0 if turn direction is inverted
-AVOID_STEER = 0.8  # lateral push when boulder blocks the front
-SIDE_BIAS_MARGIN_CM = 50.0  # clearance delta needed to pick a side
-CRATER_BIAS_WEIGHT = 0.3  # how strongly a detected crater nudges steering (0..1)
-# priority: boulders override, heading dominates, craters nudge
+# Pacing — pause + brake-pulse after every command so TSS state catches up.
+COMMAND_PAUSE_S = 0.5
+BRAKE_PULSE_S = 0.5
+TELEMETRY_FRESH_WAIT_S = 0.5
 
-# Forced reorient — kicks in when heading is wildly off so we don't just
-# crawl in the wrong direction with a small steering value.
-REORIENT_ERROR_DEG = 60.0  # |heading error| above this -> full-lock hold
-REORIENT_HOLD_S = 2.0  # sustain full-lock steering for this long
-REORIENT_THROTTLE = 20  # forward throttle during the hold (low = tight arc)
+# Speed / throttle (throttle ±100, speed m/s)
+MAX_SPEED = 6.0
+THROTTLE_NORMAL = 35
+THROTTLE_SLOW = 30
+THROTTLE_BOOST = 60  
+THROTTLE_REVERSE = -30
 
-# Lidar preprocessing
-LIDAR_NO_HIT = 9999.0  # value used in place of raw -1 (no detection)
+# Steering
+STEERING_GAIN_DEG = 60.0  # Higher = aggressive reorientation to target
+STEERING_SIGN = 1.0  # set to -1.0 if the platform inverts turn direction
+AVOID_STEER = 0.8
+SIDE_BIAS_MARGIN_CM = 50.0  # min clearance delta to commit to a side
+CRATER_BIAS_WEIGHT = 0.3
+
+# Priority order in _drive_step: boulders override, heading dominates, craters nudge.
+
+# Forced reorientation
+REORIENT_ERROR_DEG = 60.0
+REORIENT_HOLD_S = 2.0
+REORIENT_THROTTLE = 20
+
+
+########################################
+## Obstacle Classification Thresholds ##
+########################################
 
 # Front-blockage thresholds
-FRONT_OBSTACLE_CM = 900.0  # sensor 2 reading below this = blocked (tall obstacle)
-TALL_OBSTACLE_BRAKE_CM = 600.0  # sensor 2 below this = brake + reverse out
-GROUND_OBSTACLE_MAX_CM = 300.0  # sensors 5/6 below this = obstacle ahead
-GROUND_CRATER_MIN_CM = 600.0  # sensors 5/6 above this (and < NO_HIT) = crater
+FRONT_OBSTACLE_CM = 900.0  # s2 below this = tall obstacle ahead
+TALL_OBSTACLE_BRAKE_CM = 600.0  # s2 below this = brake + reverse out
+GROUND_OBSTACLE_MAX_CM = 300.0  # s5/s6 below this = ground obstacle
+GROUND_CRATER_MIN_CM = 600.0  # s5/s6 above this (and < NO_HIT) = crater
 
-# Predictive turning — angled forward sensors (0/15 right, 4/16 left).
-# Only activates if at least one of these reads below the limit, so it doesn't
-# fight heading-to-goal in open terrain.
+# Direct-ahead small-obstacle handling (s5/s6 pitched down see immediate path).
+DIRECT_AHEAD_OBSTACLE_CM = 300.0
+DIRECT_AHEAD_CRITICAL_CM = 150.0
+DIRECT_AHEAD_STEER = 0.9
+DIRECT_REVERSE_DURATION_S = 3.0
+
+# Predictive turning from angled forward sensors (0/15 right, 4/16 left).
 PREDICTIVE_AVOID_CM = 900.0
-PREDICTIVE_NUDGE_WEIGHT = 0.8  # 0..1; how strongly an angled return pushes steer
+PREDICTIVE_NUDGE_WEIGHT = 0.8
 
 # Tall-obstacle reverse maneuver
 TALL_REVERSE_DURATION_S = 5.0
-TALL_REVERSE_STEER = 1.0  # magnitude of steering during the reverse-out
 
-# Wall following — kicks in for large/persistent obstacles that simple avoidance
-# can't get around in one or two steering steps. We pick the clearer side, keep
-# the obstacle as a "wall" on the opposite flank, and skim along it until we
-# can safely cut back toward the goal.
-WALL_FOLLOW_TIMEOUT_S = 120.0  # absolute cap on a single wall-follow episode
-WALL_FOLLOW_PERSIST_STEPS = 2  # consecutive boulder-blocked steps before entry
-WALL_TRIGGER_WIDE_CM = 800.0  # both side predictive sensors below this => wide wall
+####################
+## Wall Following ##
+####################
+
+WALL_FOLLOW_TIMEOUT_S = 120.0
+WALL_FOLLOW_PERSIST_STEPS = 2
+WALL_TRIGGER_WIDE_CM = 800.0
 WALL_TARGET_CM = 450.0  # desired standoff from the wall
-WALL_DEADBAND_CM = 80.0  # |distance error| under this => no correction
-WALL_GAIN = 1.0 / 350.0  # steering per cm of distance error (clipped to ±1)
-WALL_FRONT_CLEAR_CM = 900.0  # front sensor must read above this to exit
-WALL_SIDE_CLEAR_CM = 800.0  # goal-side predictive sensors clear above this to exit
-WALL_EXIT_HEADING_DEG = 20.0  # heading error toward goal must be at least this on
-#                              the away-from-wall side before we can exit
-WALL_FRONT_BLOCKED_STEER = 0.9  # turn hard away when the wall closes in front
-WALL_LOST_SIDE_STEER = 0.4  # gentle bend back toward wall when it disappears
-WALL_GONE_CM = 950.0  # wall-side lateral + forward both above this => obstacle passed
-#                       (max real return is ~1000; above this == effectively no-hit)
+WALL_DEADBAND_CM = 80.0
+WALL_GAIN = 1.0 / 350.0  # steering per cm of standoff error (clipped to ±1)
+WALL_FRONT_CLEAR_CM = 900.0
+WALL_SIDE_CLEAR_CM = 800.0
+WALL_EXIT_HEADING_DEG = 20.0
+WALL_FRONT_BLOCKED_STEER = 0.9
+WALL_LOST_SIDE_STEER = 0.4
+WALL_GONE_CM = 950.0  # lateral + forward both above this on wall side = passed
 WALL_THROTTLE = 30
 
-# Sensor used to *measure* lateral wall distance on each side (most lateral).
+# Most-lateral wall-side sensors used to measure standoff.
 WALL_RIGHT_SIDE_SENSOR = 0  # 30°R at right wheel hub
 WALL_LEFT_SIDE_SENSOR = 4  # 30°L at left wheel hub
 
-# Loop pacing — pause + brake-pulse after every command so TSS state catches up
-COMMAND_PAUSE_S = 0.6
-BRAKE_PULSE_S = 0.4
-TELEMETRY_FRESH_WAIT_S = 0.4
+######################
+## Escape Protocols ##
+######################
 
 # Stuck detection / recovery
 STUCK_DIST_M = 1.0
-STUCK_WINDOW_S = 8.0
+STUCK_WINDOW_S = 5.0
 MAX_RECOVERY_ATTEMPTS = 4
 REVERSE_DURATION_S = 5.0
 REORIENT_DURATION_S = 2.5
 
-# Crater escape — boosted-throttle climb-out when we're stuck inside a pit.
-# Bypasses the MAX_SPEED cap (this routine talks to the tss_client directly
-# instead of going through _drive_step, so the cap never applies here).
-CRATER_ESCAPE_THROTTLE = THROTTLE_BOOST  # full power past the normal cap
-CRATER_ESCAPE_DURATION_S = 3.0  # how long to hold the boost
-CRATER_ESCAPE_COOLDOWN_S = 15.0  # min time between back-to-back escapes
+# Crater escape 
+CRATER_ESCAPE_DURATION_S = 5.0
+CRATER_ESCAPE_COOLDOWN_S = 15.0
+CRATER_PITCH_DEG = -10.0  # nose-down beyond this => sitting in a pit
 
-# Sensor groupings
+######################
+## Sensor groupings ##
+######################
+
+# Lidar
+LIDAR_NO_HIT = 9999.0 
+
+# General Categories
 FRONT_SENSORS = (2, 5, 6)
 LEFT_SENSORS = (3, 4, 14, 16)
 RIGHT_SENSORS = (0, 1, 13, 15)
-# Angled forward pairs used for predictive turning while still moving forward.
+
+# Angled forward pairs for predictive turning.
 FRONT_RIGHT_PREDICT = (0, 15)  # 30°R, 15°R
 FRONT_LEFT_PREDICT = (4, 16)  # 30°L, 15°L
 
+# Primary forward groups for direct-ahead side selection — wider than just
+# s5/s6 so we pick a flank that actually has room to swing into.
+DIRECT_LEFT_PRIMARY = (3, 6, 14)
+DIRECT_RIGHT_PRIMARY = (1, 5, 13)
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+# ─── Logging helper ───────────────────────────────────────────────────────────
+
+
+def _log_info(msg: str, *args) -> None:
+    """Gated INFO log — silenced when VERBOSE_LOGGING is False."""
+    if VERBOSE_LOGGING:
+        logger.info(msg, *args)
+
+
+# ─── Pure helpers: geometry, lidar, side selection ───────────────────────────
 
 
 def _clean(value: float) -> float:
+    """Map raw lidar -1/None (no detection) to LIDAR_NO_HIT; pass others through."""
     return LIDAR_NO_HIT if value is None or value < 0 else value
 
 
 def _preprocess_lidar(lidar: List[float]) -> List[float]:
+    """Apply `_clean` to every return."""
     return [_clean(v) for v in lidar]
 
 
 def _bound(x: float, lo: float, hi: float) -> float:
+    """Clamp x to [lo, hi]."""
     return max(lo, min(hi, x))
 
 
 def _bearing_to(goalX: float, goalY: float, posX: float, posY: float) -> float:
-    # Heading convention: 0° = +Y, 90° = +X (CW from +Y).
-    # atan2(dx, dy) returns the bearing in that frame, range [-180, 180].
+    """Bearing from (posX,posY) to (goalX,goalY) in degrees; 0°=+Y, 90°=+X."""
     return math.degrees(math.atan2(goalX - posX, goalY - posY))
 
 
 def _distance_to(goalX: float, goalY: float, posX: float, posY: float) -> float:
+    """Euclidean distance between (posX,posY) and (goalX,goalY) in meters."""
     return math.hypot(goalX - posX, goalY - posY)
 
 
 def _heading_error(target_deg: float, current_deg: float) -> float:
+    """Signed angle from current to target, normalized to (-180, 180]."""
     return (target_deg - current_deg + 180.0) % 360.0 - 180.0
 
 
+def _goal_steering(tel, goalX: float, goalY: float) -> Tuple[float, float]:
+    """Return (steering, heading_error_deg) for pointing at the goal."""
+    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
+    err = _heading_error(bearing, tel.heading)
+    steer = _bound(STEERING_SIGN * err / STEERING_GAIN_DEG, -1.0, 1.0)
+    return steer, err
+
+
+def _side_clearance(lidar: List[float], indices: Tuple[int, ...]) -> float:
+    """Minimum lidar return across `indices`."""
+    return min(lidar[i] for i in indices)
+
+
+def _pick_clearer_side(
+    left: float, right: float, margin: float, tie: str = "left"
+) -> str:
+    """Return 'left' or 'right' — the side with more clearance, with `margin` deadband."""
+    if left > right + margin:
+        return "left"
+    if right > left + margin:
+        return "right"
+    return tie
+
+
+# ─── Obstacle classification ─────────────────────────────────────────────────
+
+
 def _boulder_blocked(lidar: List[float]) -> Tuple[bool, str]:
-    """Hard obstacles directly in the rover's path — must override heading."""
+    """Hard obstacle directly in the rover's path — must override heading-to-goal."""
     s2, s5, s6 = lidar[2], lidar[5], lidar[6]
     if s2 < FRONT_OBSTACLE_CM:
         return True, f"obstacle ahead (s2={s2:.0f})"
@@ -152,7 +223,7 @@ def _boulder_blocked(lidar: List[float]) -> Tuple[bool, str]:
 
 
 def _crater_ahead(lidar: List[float]) -> Tuple[bool, str]:
-    """Drop-offs in front — soft hazard, only nudges heading."""
+    """Drop-off in front — soft hazard, only nudges heading."""
     s5, s6 = lidar[5], lidar[6]
     if GROUND_CRATER_MIN_CM < s5 < LIDAR_NO_HIT:
         return True, f"crater (s5={s5:.0f})"
@@ -161,38 +232,77 @@ def _crater_ahead(lidar: List[float]) -> Tuple[bool, str]:
     return False, ""
 
 
-def _side_clearance(lidar: List[float], indices: Tuple[int, ...]) -> float:
-    return min(lidar[i] for i in indices)
+def _direct_ahead_state(lidar: List[float]) -> Tuple[str, str]:
+    """Classify direct-ahead small-obstacle from s5/s6: 'critical' | 'avoid' | 'clear'."""
+    s5, s6 = lidar[5], lidar[6]
+    if s5 < DIRECT_AHEAD_CRITICAL_CM or s6 < DIRECT_AHEAD_CRITICAL_CM:
+        return "critical", f"direct critical s5={s5:.0f} s6={s6:.0f}"
+    if s5 < DIRECT_AHEAD_OBSTACLE_CM or s6 < DIRECT_AHEAD_OBSTACLE_CM:
+        return "avoid", f"direct ahead s5={s5:.0f} s6={s6:.0f}"
+    return "clear", ""
+
+
+# ─── Side-selection steering ─────────────────────────────────────────────────
 
 
 def _choose_avoidance_steering(lidar: List[float]) -> float:
-    """Steer toward the clearer flank. Positive = right turn, so the clearer
-    side maps to: left => negative, right => positive."""
+    """Steer toward the clearer broad flank for boulder dodge."""
     left = _side_clearance(lidar, LEFT_SENSORS)
     right = _side_clearance(lidar, RIGHT_SENSORS)
-    if left > right + SIDE_BIAS_MARGIN_CM:
-        return -AVOID_STEER * STEERING_SIGN
-    if right > left + SIDE_BIAS_MARGIN_CM:
-        return AVOID_STEER * STEERING_SIGN
-    return -AVOID_STEER * STEERING_SIGN  # tie-break: prefer left
+    side = _pick_clearer_side(left, right, SIDE_BIAS_MARGIN_CM, tie="left")
+    sign = -1.0 if side == "left" else 1.0
+    return sign * AVOID_STEER * STEERING_SIGN
+
+
+def _direct_ahead_steering(lidar: List[float]) -> Tuple[float, str]:
+    """Sharp dodge toward the clearer primary forward group.
+
+    Ties on the primary groups break on s5 vs s6: whichever pitched-down sensor
+    reads closer indicates the obstacle's lean, so steer the opposite way.
+    """
+    left = _side_clearance(lidar, DIRECT_LEFT_PRIMARY)
+    right = _side_clearance(lidar, DIRECT_RIGHT_PRIMARY)
+    tie = "left" if lidar[5] < lidar[6] else "right"
+    side = _pick_clearer_side(left, right, SIDE_BIAS_MARGIN_CM, tie=tie)
+    sign = -1.0 if side == "left" else 1.0
+    steer = sign * DIRECT_AHEAD_STEER * STEERING_SIGN
+    why = f"L={left:.0f} R={right:.0f}"
+    if abs(left - right) <= SIDE_BIAS_MARGIN_CM:
+        marker = "s5<s6" if lidar[5] < lidar[6] else "s6<=s5"
+        why = f"tie {why} ({marker})"
+    return steer, why
 
 
 def _predictive_steer_bias(lidar: List[float]) -> Tuple[float, str]:
-    """Nudge steering toward the clearer angled-front side (right: 0/15,
-    left: 4/16). If both sides are clear of the limit, returns 0 so
-    heading-to-goal stays in charge. Positive = right turn, so the clearer
-    side maps to: left => negative, right => positive.
-    """
-    right = min(lidar[i] for i in FRONT_RIGHT_PREDICT)
-    left = min(lidar[i] for i in FRONT_LEFT_PREDICT)
+    """Nudge toward the clearer angled-front side; 0 in fully open terrain."""
+    right = _side_clearance(lidar, FRONT_RIGHT_PREDICT)
+    left = _side_clearance(lidar, FRONT_LEFT_PREDICT)
     if right >= PREDICTIVE_AVOID_CM and left >= PREDICTIVE_AVOID_CM:
         return 0.0, ""
+    side = _pick_clearer_side(left, right, SIDE_BIAS_MARGIN_CM, tie="left")
+    sign = -1.0 if side == "left" else 1.0
+    bias = sign * PREDICTIVE_NUDGE_WEIGHT * STEERING_SIGN
     why = f"predict L={left:.0f} R={right:.0f}"
-    if left > right + SIDE_BIAS_MARGIN_CM:
-        return -PREDICTIVE_NUDGE_WEIGHT * STEERING_SIGN, why
-    if right > left + SIDE_BIAS_MARGIN_CM:
-        return PREDICTIVE_NUDGE_WEIGHT * STEERING_SIGN, why
-    return -PREDICTIVE_NUDGE_WEIGHT * STEERING_SIGN, why + " (tie-left)"
+    if abs(left - right) <= SIDE_BIAS_MARGIN_CM:
+        why += " (tie-left)"
+    return bias, why
+
+
+def _choose_reverse_steering(lidar: List[float]) -> Tuple[float, str]:
+    """Pick reverse-steer so the body rotates toward the clearer side.
+
+    Bicycle-model kinematics: reversing + positive steering rotates the body
+    CCW (front swings left). So reverse_steer = -(forward intent toward clearer side).
+    """
+    left = _side_clearance(lidar, LEFT_SENSORS)
+    right = _side_clearance(lidar, RIGHT_SENSORS)
+    side = _pick_clearer_side(left, right, SIDE_BIAS_MARGIN_CM, tie="left")
+    forward_sign = -1.0 if side == "left" else 1.0
+    reverse_steer = -forward_sign * STEERING_SIGN  # full lock (magnitude 1.0)
+    return reverse_steer, f"clear-{side} L={left:.0f} R={right:.0f}"
+
+
+# ─── Wall-following helpers + state ──────────────────────────────────────────
 
 
 @dataclass
@@ -204,101 +314,84 @@ class _WallFollow:
 
 
 def _wide_obstacle(lidar: List[float]) -> bool:
-    """True when both forward-angled sides see something close — a wide wall,
-    not a single boulder that simple steer-around handles fine."""
-    right = min(lidar[i] for i in FRONT_RIGHT_PREDICT)
-    left = min(lidar[i] for i in FRONT_LEFT_PREDICT)
+    """True when both forward-angled sides see something close — a wide wall."""
+    right = _side_clearance(lidar, FRONT_RIGHT_PREDICT)
+    left = _side_clearance(lidar, FRONT_LEFT_PREDICT)
     return right < WALL_TRIGGER_WIDE_CM and left < WALL_TRIGGER_WIDE_CM
 
 
 def _pick_wall_side(lidar: List[float]) -> str:
-    """Put the wall on the *less clear* side so the rover skims along it
-    while the open side stays available for the eventual escape turn."""
+    """Put the wall on the *tighter* side so the open side stays free for the escape turn."""
     left = _side_clearance(lidar, LEFT_SENSORS)
     right = _side_clearance(lidar, RIGHT_SENSORS)
-    # If left is tighter, the wall is on the left; we follow it on our left.
     return "left" if left <= right else "right"
 
 
 def _wall_distance(lidar: List[float], side: str) -> float:
+    """Lateral standoff sensor reading on the wall side."""
     return lidar[WALL_LEFT_SIDE_SENSOR if side == "left" else WALL_RIGHT_SIDE_SENSOR]
 
 
 def _wall_front_predict(lidar: List[float], side: str) -> float:
-    """Forward-side return on the wall side — flags an inside corner closing in."""
+    """Forward-angled return on the wall side — flags an inside corner closing in."""
     indices = FRONT_LEFT_PREDICT if side == "left" else FRONT_RIGHT_PREDICT
-    return min(lidar[i] for i in indices)
+    return _side_clearance(lidar, indices)
 
 
 def _wall_is_gone(lidar: List[float], side: str) -> bool:
-    """True when the wall-side sensors no longer see the obstacle — the rover
-    has skimmed past it and there's nothing left to follow."""
-    lateral = _wall_distance(lidar, side)
-    forward = _wall_front_predict(lidar, side)
-    return lateral >= WALL_GONE_CM and forward >= WALL_GONE_CM
+    """True when both lateral and forward-side returns indicate the wall has ended."""
+    return (
+        _wall_distance(lidar, side) >= WALL_GONE_CM
+        and _wall_front_predict(lidar, side) >= WALL_GONE_CM
+    )
 
 
 def _can_exit_wall(
     lidar: List[float], tel, goalX: float, goalY: float, side: str
 ) -> bool:
-    """Exit when either: (a) the obstacle is no longer on our wall side at all,
-    or (b) the goal bearing already points to the away-from-wall side and that
-    flank is clear (we can peel off cleanly).
+    """Exit when either the wall has ended, or the goal lies on the open flank.
 
-    Heading convention: positive heading_error => goal is clockwise (right) of
-    current heading. With wall on the left we want err > +threshold; with wall
-    on the right we want err < -threshold.
+    With wall on left we need err > +threshold (goal CW of heading); with wall
+    on right we need err < -threshold (goal CCW).
     """
     if lidar[2] < WALL_FRONT_CLEAR_CM:
         return False
 
-    # (a) Obstacle gone — we passed it, exit immediately regardless of heading.
     if _wall_is_gone(lidar, side):
         return True
 
-    # (b) Goal already lies on the open flank.
-    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-    err = _heading_error(bearing, tel.heading)
+    _, err = _goal_steering(tel, goalX, goalY)
     if side == "left":
         if err < WALL_EXIT_HEADING_DEG:
             return False
-        away_clear = min(lidar[i] for i in FRONT_RIGHT_PREDICT) > WALL_SIDE_CLEAR_CM
+        away_clear = _side_clearance(lidar, FRONT_RIGHT_PREDICT) > WALL_SIDE_CLEAR_CM
     else:
         if err > -WALL_EXIT_HEADING_DEG:
             return False
-        away_clear = min(lidar[i] for i in FRONT_LEFT_PREDICT) > WALL_SIDE_CLEAR_CM
+        away_clear = _side_clearance(lidar, FRONT_LEFT_PREDICT) > WALL_SIDE_CLEAR_CM
     return away_clear
 
 
 def _wall_follow_steering(lidar: List[float], side: str) -> Tuple[float, str]:
-    """Proportional control on wall standoff with overrides for blocked front
-    and lost wall (gap/corner).
+    """Proportional standoff control with overrides for closed front and lost wall.
 
-    Sign convention (matches heading_steer): positive = right turn (CW),
-    negative = left turn (CCW). So:
-      - "Toward the wall on the LEFT"  => steer left  => negative
-      - "Toward the wall on the RIGHT" => steer right => positive
-      - "Away from" each is the opposite.
+    `toward_sign` points toward the wall: -1 (left wall) / +1 (right wall).
     """
     front_side = _wall_front_predict(lidar, side)
     side_dist = _wall_distance(lidar, side)
-    toward_sign = -1.0 if side == "left" else 1.0  # sign that steers TOWARD the wall
+    toward_sign = -1.0 if side == "left" else 1.0
 
-    # Inside corner: the wall is closing in front on the wall side. Turn hard
-    # AWAY from the wall (opposite of toward_sign).
+    # Inside corner: turn hard AWAY from the wall.
     if front_side < WALL_TRIGGER_WIDE_CM * 0.6 or lidar[2] < FRONT_OBSTACLE_CM:
         steer = -toward_sign * WALL_FRONT_BLOCKED_STEER * STEERING_SIGN
         return steer, f"corner-in front_side={front_side:.0f} s2={lidar[2]:.0f}"
 
-    # Lost the wall (open gap or convex corner) — bend gently TOWARD it so we
-    # don't fly off into open space and lose the obstacle reference.
+    # Lost the wall — bend gently TOWARD it so we don't lose the reference.
     if side_dist >= LIDAR_NO_HIT - 1:
         steer = toward_sign * WALL_LOST_SIDE_STEER * STEERING_SIGN
         return steer, f"wall lost (side={side_dist:.0f})"
 
-    # Proportional standoff control. err > 0 => too far from wall => steer
-    # TOWARD wall; err < 0 => too close => steer AWAY (same formula, sign of
-    # err handles it).
+    # Proportional standoff. err > 0 => too far => steer toward wall.
     err = side_dist - WALL_TARGET_CM
     if abs(err) < WALL_DEADBAND_CM:
         return 0.0, f"on-line side={side_dist:.0f}"
@@ -306,78 +399,74 @@ def _wall_follow_steering(lidar: List[float], side: str) -> Tuple[float, str]:
     return steer, f"track side={side_dist:.0f} err={err:+.0f}"
 
 
-async def _wall_follow_step(tel, state: _WallFollow) -> None:
-    """One iteration of wall following. Slow throttle + braked pacing comes
-    from the main loop, same as the normal drive step."""
-    lidar = _preprocess_lidar(tel.lidar)
-
-    # Tall-obstacle override still applies — back out before we ram the wall.
-    if lidar[2] < TALL_OBSTACLE_BRAKE_CM:
-        await _tall_obstacle_evade(lidar)
-        return
-
-    steering, why = _wall_follow_steering(lidar, state.side)
-    logger.info("WALL(%s): %s -> steer=%+.2f", state.side, why, steering)
-
-    if tel.speed >= MAX_SPEED:
-        await _send_steering(steering)
-        await _send_throttle(0.0)
-        await _send_brakes(1.0)
-        return
-
-    await _send_brakes(0.0)
-    await _send_steering(steering)
-    await _send_throttle(WALL_THROTTLE)
+def _in_crater(lidar: List[float], pitch: Optional[float]) -> bool:
+    """True when any of three signals say the rover is sitting in a pit:
+    front pitched-down sensors overshoot the rim, side pitched-down sensors
+    lose ground return, or body pitch is well nose-down."""
+    s5, s6, s7, s8 = lidar[5], lidar[6], lidar[7], lidar[8]
+    front_overshoot = (
+        GROUND_CRATER_MIN_CM < s5 < LIDAR_NO_HIT
+        or GROUND_CRATER_MIN_CM < s6 < LIDAR_NO_HIT
+    )
+    # 7/8 pitched 20° down sideways always see something on flat ground; a
+    # NO_HIT return means the ground dropped away on that side.
+    side_overshoot = s7 >= LIDAR_NO_HIT - 1 or s8 >= LIDAR_NO_HIT - 1
+    nose_down = pitch is not None and pitch < CRATER_PITCH_DEG
+    return front_overshoot or side_overshoot or nose_down
 
 
-def _choose_reverse_steering(lidar: List[float]) -> Tuple[float, str]:
-    """Pick reverse-steer so the body rotates toward the clearer side.
-
-    Bicycle-model kinematics: reversing + positive steering rotates the body
-    CCW (front swings left). So to swing the front toward the clearer side we
-    set reverse_steer = -(forward intent toward clearer side).
-    """
-    left = _side_clearance(lidar, LEFT_SENSORS)
-    right = _side_clearance(lidar, RIGHT_SENSORS)
-    if right > left + SIDE_BIAS_MARGIN_CM:
-        # clearer on right -> want front to swing right -> reverse steer left
-        return (
-            -TALL_REVERSE_STEER * STEERING_SIGN,
-            f"clear-right L={left:.0f} R={right:.0f}",
-        )
-    # clearer on left, or tie (tie-break left): want front to swing left -> reverse steer right
-    return TALL_REVERSE_STEER * STEERING_SIGN, f"clear-left L={left:.0f} R={right:.0f}"
-
-
-# ─── Low-level command primitives ─────────────────────────────────────────────
+# ─── Low-level command primitives ────────────────────────────────────────────
 
 
 async def _send_throttle(v: float) -> None:
+    """Forward throttle command through tss_client."""
     await asyncio.to_thread(tss_client.send_throttle, float(v))
 
 
 async def _send_steering(v: float) -> None:
+    """Forward steering command through tss_client."""
     await asyncio.to_thread(tss_client.send_steering, float(v))
 
 
 async def _send_brakes(v: float) -> None:
+    """Forward brake command through tss_client."""
     await asyncio.to_thread(tss_client.send_brakes, float(v))
 
 
+async def _send_drive(throttle: float, steering: float) -> None:
+    """Brake off, then apply steering and throttle."""
+    await _send_brakes(0.0)
+    await _send_steering(steering)
+    await _send_throttle(throttle)
+
+
 async def _full_stop() -> None:
+    """Throttle 0, steering centered, full brake."""
     await _send_throttle(0.0)
     await _send_steering(0.0)
     await _send_brakes(1.0)
 
 
 async def _brake_pulse() -> None:
+    """Briefly engage and release brakes so TSS state catches up to the last command."""
     await _send_brakes(1.0)
     await asyncio.sleep(BRAKE_PULSE_S)
     await _send_brakes(0.0)
     await asyncio.sleep(TELEMETRY_FRESH_WAIT_S)
 
 
+async def _apply_speed_cap(tel, steering: float) -> bool:
+    """If over MAX_SPEED, brake while holding steering. Returns True if applied."""
+    if tel.speed < MAX_SPEED:
+        return False
+    await _send_steering(steering)
+    await _send_throttle(0.0)
+    await _send_brakes(1.0)
+    return True
+
+
 async def _read_telemetry():
+    """Latest rover snapshot's pr_telemetry, or None if unavailable."""
     rover = telemetry_service.rover_data
     if rover is None:
         return None
@@ -385,63 +474,128 @@ async def _read_telemetry():
     return snap.pr_telemetry if snap else None
 
 
-# ─── Drive + recovery steps ───────────────────────────────────────────────────
+# ─── Mid-level maneuvers ─────────────────────────────────────────────────────
 
 
-async def _tall_obstacle_evade(lidar: List[float]) -> None:
-    """Brake hard, then reverse briefly with steering picked from clearance."""
-    reverse_steer, why = _choose_reverse_steering(lidar)
+async def _reverse_and_clear(lidar: List[float], duration: float, why: str) -> None:
+    """Brake, then reverse with steering that swings the front toward the clearer flank."""
+    reverse_steer, side_why = _choose_reverse_steering(lidar)
     logger.warning(
-        "TALL OBSTACLE: s2=%.0f -> brake+reverse %s steer=%+.2f",
-        lidar[2],
+        "REVERSE+CLEAR (%s): %s steer=%+.2f dur=%.1fs",
         why,
+        side_why,
         reverse_steer,
+        duration,
     )
 
     await _full_stop()
     await asyncio.sleep(COMMAND_PAUSE_S)
 
-    await _send_brakes(0.0)
-    await _send_steering(reverse_steer)
-    await _send_throttle(THROTTLE_REVERSE)
-    await asyncio.sleep(TALL_REVERSE_DURATION_S)
+    await _send_drive(THROTTLE_REVERSE, reverse_steer)
+    await asyncio.sleep(duration)
 
     await _full_stop()
     await asyncio.sleep(COMMAND_PAUSE_S)
 
 
+async def _tall_obstacle_evade(lidar: List[float]) -> None:
+    """Reverse out of a too-close tall obstacle (s2 < TALL_OBSTACLE_BRAKE_CM)."""
+    await _reverse_and_clear(
+        lidar, TALL_REVERSE_DURATION_S, f"tall obstacle s2={lidar[2]:.0f}"
+    )
+
+
+async def _crater_escape(tel, goalX: float, goalY: float) -> None:
+    """Boosted-throttle climb-out from a pit, aimed at the goal.
+
+    Drives the rover directly (not via _drive_step) so the MAX_SPEED clamp is
+    skipped — the burst would otherwise be braked back to walking pace.
+    """
+    steer, err = _goal_steering(tel, goalX, goalY)
+    logger.warning(
+        "CRATER ESCAPE: boost throttle=%d for %.1fs steer=%+.2f (err=%+.1f°)",
+        THROTTLE_BOOST,
+        CRATER_ESCAPE_DURATION_S,
+        steer,
+        err,
+    )
+
+    await _full_stop()
+    await asyncio.sleep(COMMAND_PAUSE_S)
+
+    await _send_drive(THROTTLE_BOOST, steer)
+    await asyncio.sleep(CRATER_ESCAPE_DURATION_S)
+
+    await _full_stop()
+    await asyncio.sleep(COMMAND_PAUSE_S)
+
+
+async def _recover(tel, goalX: float, goalY: float) -> None:
+    """Three-point-turn recovery: reverse with opposite steer to swing the body
+    toward the goal heading, then arc forward."""
+    logger.warning("recovery: reverse + reorient")
+
+    await _full_stop()
+    await asyncio.sleep(COMMAND_PAUSE_S)
+
+    forward_steer, _ = _goal_steering(tel, goalX, goalY)
+    reverse_steer = -forward_steer
+
+    await _send_drive(THROTTLE_REVERSE, reverse_steer)
+    await asyncio.sleep(REVERSE_DURATION_S)
+
+    await _full_stop()
+    await asyncio.sleep(COMMAND_PAUSE_S)
+
+    await _send_drive(THROTTLE_SLOW, forward_steer)
+    await asyncio.sleep(REORIENT_DURATION_S)
+
+    await _full_stop()
+    await asyncio.sleep(COMMAND_PAUSE_S)
+
+
+# ─── Step functions ──────────────────────────────────────────────────────────
+
+
 async def _drive_step(tel, goalX: float, goalY: float) -> None:
+    """One driving iteration: pick steering+throttle from sensors and goal."""
     lidar = _preprocess_lidar(tel.lidar)
 
-    # Priority 0: very close tall obstacle — brake, then reverse out before
-    # any further forward command. Returns immediately; main loop iterates
-    # with fresh telemetry.
+    # P0: very close tall obstacle — brake + reverse out before any forward command.
     if lidar[2] < TALL_OBSTACLE_BRAKE_CM:
         await _tall_obstacle_evade(lidar)
         return
 
-    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-    err = _heading_error(bearing, tel.heading)
+    # P1: critically close direct-ahead rock — too tight to swing past.
+    direct_state, direct_why = _direct_ahead_state(lidar)
+    if direct_state == "critical":
+        await _reverse_and_clear(lidar, DIRECT_REVERSE_DURATION_S, direct_why)
+        return
 
+    heading_steer, err = _goal_steering(tel, goalX, goalY)
     boulder, boulder_why = _boulder_blocked(lidar)
-    heading_steer = _bound(STEERING_SIGN * err / STEERING_GAIN_DEG, -1.0, 1.0)
 
-    if boulder:
-        # Priority 1: hard obstacle — override heading entirely.
+    if direct_state == "avoid":
+        # P2: small obstacle directly in front — sharp dodge via primary forward groups.
+        steering, side_why = _direct_ahead_steering(lidar)
+        throttle = THROTTLE_SLOW
+        _log_info(
+            "DIRECT avoid: %s (%s) -> steer=%+.2f", direct_why, side_why, steering
+        )
+    elif boulder:
+        # P3: tall/wide hard obstacle on s2 — override heading.
         steering = _choose_avoidance_steering(lidar)
         throttle = THROTTLE_SLOW
-        logger.info("BOULDER avoid: %s -> steer=%+.2f", boulder_why, steering)
+        _log_info("BOULDER avoid: %s -> steer=%+.2f", boulder_why, steering)
     else:
         crater, crater_why = _crater_ahead(lidar)
         predict_bias, predict_why = _predictive_steer_bias(lidar)
         if crater:
-            # Priority 2: crater — heading still leads, small nudge toward
-            # the clearer side. Slow down for caution. Predictive bias still
-            # applies so we can dodge a side-leaning tall obstacle too.
+            # P4: crater — heading still leads, small nudge toward clearer side.
             bias = _choose_avoidance_steering(lidar) * CRATER_BIAS_WEIGHT
             steering = _bound(heading_steer + bias + predict_bias, -1.0, 1.0)
             throttle = THROTTLE_SLOW
-            logger.info(
+            _log_info(
                 "crater nudge: %s -> steer=%+.2f (hdg=%+.2f, crater=%+.2f, %s=%+.2f)",
                 crater_why,
                 steering,
@@ -451,11 +605,10 @@ async def _drive_step(tel, goalX: float, goalY: float) -> None:
                 predict_bias,
             )
         elif predict_bias != 0.0:
-            # Priority 3: predictive turn — angled front sensors see something
-            # close enough to be worth dodging while still rolling forward.
+            # P5: predictive turn — angled front sensors see something dodge-worthy.
             steering = _bound(heading_steer + predict_bias, -1.0, 1.0)
             throttle = THROTTLE_SLOW
-            logger.info(
+            _log_info(
                 "predictive nudge: %s -> steer=%+.2f (hdg=%+.2f, bias=%+.2f)",
                 predict_why,
                 steering,
@@ -463,103 +616,37 @@ async def _drive_step(tel, goalX: float, goalY: float) -> None:
                 predict_bias,
             )
         else:
-            # Priority 4: pure heading-to-goal.
+            # P6: pure heading-to-goal.
             steering = heading_steer
             throttle = THROTTLE_SLOW if abs(err) > 30 else THROTTLE_NORMAL
 
-    # Speed cap: keep steering, drop throttle, ride the brake.
-    if tel.speed >= MAX_SPEED:
-        await _send_steering(steering)
-        await _send_throttle(0.0)
-        await _send_brakes(1.0)
+    if await _apply_speed_cap(tel, steering):
+        return
+    await _send_drive(throttle, steering)
+
+
+async def _wall_follow_step(tel, state: _WallFollow) -> None:
+    """One wall-following iteration."""
+    lidar = _preprocess_lidar(tel.lidar)
+
+    # Tall-obstacle override still applies — back out before we ram the wall.
+    if lidar[2] < TALL_OBSTACLE_BRAKE_CM:
+        await _tall_obstacle_evade(lidar)
         return
 
-    await _send_brakes(0.0)
-    await _send_steering(steering)
-    await _send_throttle(throttle)
+    steering, why = _wall_follow_steering(lidar, state.side)
+    _log_info("WALL(%s): %s -> steer=%+.2f", state.side, why, steering)
+
+    if await _apply_speed_cap(tel, steering):
+        return
+    await _send_drive(WALL_THROTTLE, steering)
 
 
-def _in_crater(lidar: List[float]) -> bool:
-    """True when the rover looks like it's sitting inside a pit. The front
-    pitched-down sensors (5/6) over-shoot the rim, and/or the side pitched-
-    down sensors (7/8) lose their ground return. Either signal alone is enough
-    given we already know the rover is stuck."""
-    s5, s6, s7, s8 = lidar[5], lidar[6], lidar[7], lidar[8]
-    front_overshoot = (
-        GROUND_CRATER_MIN_CM < s5 < LIDAR_NO_HIT
-        or GROUND_CRATER_MIN_CM < s6 < LIDAR_NO_HIT
-    )
-    # 7/8 are pitched 20° down to the sides — on flat ground they always see
-    # something. A NO_HIT return means the ground dropped away on that side.
-    side_overshoot = s7 >= LIDAR_NO_HIT - 1 or s8 >= LIDAR_NO_HIT - 1
-    return front_overshoot or side_overshoot
-
-
-async def _crater_escape(tel, goalX: float, goalY: float) -> None:
-    """Power out of a crater with boosted throttle. Skips the MAX_SPEED clamp
-    by driving the rover directly (not via _drive_step) for a short burst,
-    aimed at the goal so we don't climb out into open terrain pointed the
-    wrong way."""
-    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-    err = _heading_error(bearing, tel.heading)
-    steer = _bound(STEERING_SIGN * err / STEERING_GAIN_DEG, -1.0, 1.0)
-
-    logger.warning(
-        "CRATER ESCAPE: boost throttle=%d for %.1fs steer=%+.2f (err=%+.1f°)",
-        CRATER_ESCAPE_THROTTLE,
-        CRATER_ESCAPE_DURATION_S,
-        steer,
-        err,
-    )
-
-    await _full_stop()
-    await asyncio.sleep(COMMAND_PAUSE_S)
-
-    await _send_brakes(0.0)
-    await _send_steering(steer)
-    await _send_throttle(CRATER_ESCAPE_THROTTLE)
-    await asyncio.sleep(CRATER_ESCAPE_DURATION_S)
-
-    await _full_stop()
-    await asyncio.sleep(COMMAND_PAUSE_S)
-
-
-async def _recover(tel, goalX: float, goalY: float) -> None:
-    """Reverse, then arc forward, like a 3-point turn."""
-    logger.warning("recovery: reverse + reorient")
-
-    await _full_stop()
-    await asyncio.sleep(COMMAND_PAUSE_S)
-
-    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-    err = _heading_error(bearing, tel.heading)
-    forward_steer = _bound(STEERING_SIGN * err / STEERING_GAIN_DEG, -1.0, 1.0)
-    # In a car-like vehicle reversing with steering swings the rear opposite,
-    # which rotates the body toward the desired forward heading.
-    reverse_steer = -forward_steer
-
-    await _send_brakes(0.0)
-    await _send_steering(reverse_steer)
-    await _send_throttle(THROTTLE_REVERSE)
-    await asyncio.sleep(REVERSE_DURATION_S)
-
-    await _full_stop()
-    await asyncio.sleep(COMMAND_PAUSE_S)
-
-    await _send_brakes(0.0)
-    await _send_steering(forward_steer)
-    await _send_throttle(THROTTLE_SLOW)
-    await asyncio.sleep(REORIENT_DURATION_S)
-
-    await _full_stop()
-    await asyncio.sleep(COMMAND_PAUSE_S)
-
-
-# ─── Public entry point ───────────────────────────────────────────────────────
+# ─── Public entry point ──────────────────────────────────────────────────────
 
 
 async def travel(goalX: float, goalY: float) -> int:
-    """Drive the rover within ARRIVAL_THRESHOLD_M of (goalX, goalY).
+    """Drive within ARRIVAL_THRESHOLD_M of (goalX, goalY).
 
     Returns 0 on success, 1 on failure (timeout / stuck-out).
     """
@@ -587,7 +674,7 @@ async def travel(goalX: float, goalY: float) -> int:
                 continue
 
             dist = _distance_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-            logger.info(
+            _log_info(
                 "pos=(%.1f,%.1f) hdg=%.1f spd=%.2f dist=%.1f mode=%s",
                 tel.rover_pos_x,
                 tel.rover_pos_y,
@@ -628,27 +715,21 @@ async def travel(goalX: float, goalY: float) -> int:
                         await _full_stop()
                         logger.error("travel: recovery attempts exhausted")
                         return 1
-                    # Crater stuck => boosted throttle climb-out (skips cap).
-                    # Otherwise => standard reverse+reorient.
                     if (
-                        _in_crater(lidar_pre)
+                        _in_crater(lidar_pre, getattr(tel, "pitch", None))
                         and now - last_crater_escape_t >= CRATER_ESCAPE_COOLDOWN_S
                     ):
                         await _crater_escape(tel, goalX, goalY)
                         last_crater_escape_t = now
                     else:
                         await _recover(tel, goalX, goalY)
-                    # Recovery yanks the rover around; drop any wall-follow
-                    # episode so we re-evaluate from the new pose.
+                    # Recovery yanks the rover around; re-evaluate from the new pose.
                     wall = None
                     boulder_streak = 0
                 stuck_anchor = (tel.rover_pos_x, tel.rover_pos_y)
                 stuck_anchor_t = now
 
             if wall is None:
-                # Track persistence of front-blockage to decide if simple
-                # boulder-avoidance is failing; combine with width to enter
-                # wall-follow promptly when the obstacle is clearly wide.
                 if blocked:
                     boulder_streak += 1
                 else:
@@ -656,14 +737,14 @@ async def travel(goalX: float, goalY: float) -> int:
                 wide = _wide_obstacle(lidar_pre)
                 if blocked and (wide or boulder_streak >= WALL_FOLLOW_PERSIST_STEPS):
                     side = _pick_wall_side(lidar_pre)
-                    wall = _WallFollow(side=side, start_t=now)
-                    boulder_streak = 0
                     logger.warning(
                         "entering wall-follow (side=%s, wide=%s, streak=%d)",
                         side,
                         wide,
                         boulder_streak,
                     )
+                    wall = _WallFollow(side=side, start_t=now)
+                    boulder_streak = 0
 
             if wall is not None:
                 elapsed = now - wall.start_t
@@ -673,7 +754,7 @@ async def travel(goalX: float, goalY: float) -> int:
                     )
                     wall = None
                 elif _can_exit_wall(lidar_pre, tel, goalX, goalY, wall.side):
-                    logger.info(
+                    _log_info(
                         "wall-follow exit (side=%s, elapsed=%.1fs)", wall.side, elapsed
                     )
                     wall = None

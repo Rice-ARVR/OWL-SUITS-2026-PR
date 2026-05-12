@@ -20,15 +20,15 @@ import asyncio
 import logging
 import math
 
+import app.services.telemetry.telemetry_service as telemetry_service
+from app.services.navigation.obstacle_avoidance.auto_drive import travel
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("test_travel")
-
-import app.services.telemetry.telemetry_service as telemetry_service
-from app.services.navigation.obstacle_avoidance.auto_drive import travel
 
 
 async def _monitor(targetX: float, targetY: float) -> None:
