@@ -1,0 +1,23 @@
+Value Name,Units,Min,Nominal,Max
+primary_battery_level,%,20.0,-,100.0
+secondary_battery_level,%,20.0,-,100.0
+oxy_pri_storage,%,20.0,-,100.0
+oxy_sec_storage,%,20.0,-,100.0
+oxy_pri_pressure,psi,600.0,-,3000.0
+oxy_sec_pressure,psi,600.0,-,3000.0
+coolant_storage,%,80.0,100,100.0
+heart_rate,bmp,50.0,-,160.0
+oxy_consumption,psi/min,0.05,0.1,0.15
+co2_production,psi/min,0.05,0.1,0.15
+suit_pressure_oxy,psi,3.5,4.0,4.1
+suit_pressure_co2,psi,0.0,0.0,0.1
+suit_pressure_other,psi,0.0,0.0,0.5
+suit_pressure_total,psi,3.5,4.0,4.5
+helmet_pressure_co2,psi,0.0,0.0,0.15
+fan_pri_rpm,rpm,20000.0,30000,30000.0
+fan_sec_rpm,rpm,20000.0,30000,30000.0
+scrubber_a_co2_storage,%,0.0,-,60.0
+scrubber_b_co2_storage,%,0.0,-,60.0
+temperature,°C,10.0,21,32.0
+coolant_liquid_pressure,psi,100.0,500,700.0
+coolant_gas_pressure,psi,0.0,0,700.0

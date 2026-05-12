@@ -32,7 +32,7 @@ export function useOllama(model = "llama3.2") {
                     question: prompt,
                     stream: true,
                     chat_history: historyToSend,
-                    use_rag: false,
+                    use_rag: true,
                 }),
             });
 
