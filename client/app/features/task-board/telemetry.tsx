@@ -21,37 +21,6 @@ import Temperature from "~/components/ui/Temperature";
 import type { Warning } from "~/types/warning";
 import styles from "./telemetry.module.css";
 
-const FIELD_LABELS: Record<string, string> = {
-    // Rover (PrTelemetry field names)
-    cabin_temperature: "Cabin Temperature is critical.",
-    oxygen_storage: "Oxygen Storage is low.",
-    oxygen_pressure: "O2 Pressure is unsafe.",
-    battery_level: "Battery is low.",
-    cabin_pressure: "Cabin Pressure is unsafe.",
-    coolant_storage: "Coolant Storage is low.",
-    coolant_pressure: "Coolant Pressure is unsafe.",
-    fan_pri_rpm: "Fan 1 is critical.",
-    fan_sec_rpm: "Fan 2 is critical.",
-    // EVA1 (Eva1Telemetry field names)
-    primary_battery_level: "Battery is low.",
-    oxy_pri_storage: "Oxygen Storage is low.",
-    suit_pressure_total: "Suit Pressure is unsafe.",
-    suit_pressure_oxy: "O2 Suit Pressure is unsafe.",
-    suit_pressure_co2: "CO2 Suit Pressure is unsafe.",
-    suit_pressure_other: "Other Pressure is unsafe.",
-    helmet_pressure_co2: "Helmet CO2 Pressure is critical.",
-    scrubber_a_co2_storage: "CO2 Scrubber is critical.",
-    temperature: "Body Temperature is critical.",
-    heart_rate: "Heart Rate is critical.",
-    co2_production: "CO2 Production is critical.",
-    coolant_liquid_pressure: "Liquid Pressure is critical.",
-    coolant_gas_pressure: "Gas Pressure is unsafe.",
-};
-
-function warningMessage(w: Warning): string {
-    return FIELD_LABELS[w.field] ?? `${getTelemetryLabel(w.field)} is out of range.`;
-}
-
 function formatRemaining(s: number | null): string {
     if (s == null || s <= 0) return "00:00:00 Remaining";
     const h = Math.floor(s / 3600);
@@ -102,13 +71,8 @@ export default function Telemetry() {
     const eva1 = snapshot.eva.telemetry.eva1;
     const rover = snapshot.rover.pr_telemetry;
 
-    const roverWarnings = telemetryWarnings
-        .filter((w) => w.source === "rover")
-        .map((w) => ({ message: warningMessage(w) }));
-
-    const evaWarnings = telemetryWarnings
-        .filter((w) => w.source === "eva1")
-        .map((w) => ({ message: warningMessage(w) }));
+    const roverWarnings = telemetryWarnings.filter((w) => w.source === "rover");
+    const evaWarnings = telemetryWarnings.filter((w) => w.source === "eva1");
 
     const w = (source: "rover" | "eva1", field: string) =>
         telemetryWarnings.some(

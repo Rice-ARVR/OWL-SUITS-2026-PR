@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import Warnings, { type Warning } from "~/components/ui/Warnings";
+import type { Warning } from "~/types/warning";
+import Warnings from "~/components/ui/Warnings";
 
 function useCSTClock() {
     const [time, setTime] = useState("");
@@ -66,6 +67,7 @@ export default function Summary({
                     width: 272,
                     height: 226,
                     transform: "translateX(-50%)",
+                    pointerEvents: "none",
                 }}
             >
                 <img
@@ -88,6 +90,7 @@ export default function Summary({
                         width: 263,
                         height: 184,
                         transform: "translateX(-50%) scaleY(-1)",
+                        pointerEvents: "none",
                     }}
                 >
                     <img
@@ -106,12 +109,13 @@ export default function Summary({
                 style={{
                     position: "absolute",
                     left: "50%",
-                    top: "50%",
-                    transform: "translate(-50%, -50%)",
+                    top: 50,
+                    transform: "translateX(-50%)",
                     width: 260,
+                    zIndex: 1,
                 }}
             >
-                <Warnings warnings={warnings.slice(0, 2)} />
+                <Warnings warnings={warnings} />
             </div>
 
             {/* Text content */}
