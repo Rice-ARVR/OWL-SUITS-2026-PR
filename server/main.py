@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.db.database import connect, disconnect
+from app.routers.estimation import router as estimation_router
 from app.routers.locations import router as locations_router
 from app.routers.navigation import router as navigation_router
 from app.routers.ollama import router as ollama_router
@@ -52,6 +53,7 @@ app.add_middleware(
 )
 
 # Include Routers Here:
+app.include_router(estimation_router)
 app.include_router(ollama_router)
 app.include_router(speech_router)
 app.include_router(tss_example_router)

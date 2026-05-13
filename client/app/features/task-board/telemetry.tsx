@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useTelemetry } from "~/hooks/useTelemetry";
+import { useEstimates } from "./hooks/useEstimates";
 
 import { EVA_LIMITS, ROVER_LIMITS } from "~/constants/telemetryLimits";
 import Battery from "~/components/ui/Battery";
@@ -48,47 +50,6 @@ function warningMessage(w: Warning): string {
     return FIELD_LABELS[w.field] ?? `${w.field.replace(/_/g, " ")} is out of range.`;
 }
 
-interface RoverData {
-    cabin_temperature: number | null;
-    outside_temperature: number | null;
-    oxygen_storage: number | null;
-    battery_level: number | null;
-    cabin_pressure: number | null;
-    o2_pressure: number | null;
-    coolant_storage: number | null;
-    coolant_pressure: number | null;
-    fan1_rpm: number | null;
-    fan2_rpm: number | null;
-    cabin_temperature_target: number | null;
-    battery_time_remaining_s: number | null;
-    oxygen_time_remaining_s: number | null;
-}
-
-interface Eva1Data {
-    oxygen_storage: number | null;
-    eva_battery: number | null;
-    total_suit_pressure: number | null;
-    o2_suit_pressure: number | null;
-    co2_suit_pressure: number | null;
-    co2_scrubber: number | null;
-    other_pressure: number | null;
-    body_temperature: number | null;
-    heart_rate: number | null;
-    co2_production: number | null;
-    helmet_co2_pressure: number | null;
-    fan1_rpm: number | null;
-    fan2_rpm: number | null;
-    coolant_storage: number | null;
-    liquid_pressure: number | null;
-    gas_pressure: number | null;
-    oxygen_time_remaining_s: number | null;
-    battery_time_remaining_s: number | null;
-}
-
-interface EvaData {
-    eva1: Eva1Data;
-}
-
 function formatRemaining(s: number | null): string {
     if (s == null || s <= 0) return "00:00:00 Remaining";
     const h = Math.floor(s / 3600);
@@ -98,30 +59,9 @@ function formatRemaining(s: number | null): string {
 }
 
 export default function Telemetry() {
-    const [rover, setRover] = useState<RoverData | null>(null);
-    const [eva, setEva] = useState<EvaData | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const telemetry = useTelemetry();
+    const estimates = useEstimates();
     const [telemetryWarnings, setTelemetryWarnings] = useState<Warning[]>([]);
-
-    useEffect(() => {
-        const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
-        const fetchData = () => {
-            Promise.all([
-                fetch(`${apiUrl}/vital_signs/rover`).then((res) => res.json()),
-                fetch(`${apiUrl}/vital_signs/eva`).then((res) => res.json()),
-            ])
-                .then(([roverData, evaData]) => {
-                    setRover(roverData);
-                    setEva(evaData);
-                })
-                .catch((err: Error) => setError(err.message));
-        };
-
-        fetchData();
-        const interval = setInterval(fetchData, 1000);
-        return () => clearInterval(interval);
-    }, []);
 
     useEffect(() => {
         let ws: WebSocket | null = null;
@@ -153,8 +93,12 @@ export default function Telemetry() {
         };
     }, []);
 
-    if (error) return <p className={styles.error}>{error}</p>;
-    if (!rover || !eva) return <p className={styles.loading}>Loading...</p>;
+    const snapshot = telemetry.getSnapshot();
+
+    if (!snapshot) return <p className={styles.loading}>Loading...</p>;
+
+    const eva1 = snapshot.eva.telemetry.eva1;
+    const rover = snapshot.rover.pr_telemetry;
 
     const roverWarnings = telemetryWarnings
         .filter((w) => w.source === "rover")
@@ -199,7 +143,7 @@ export default function Telemetry() {
                         >
                             <Temperature
                                 temperature={rover.cabin_temperature}
-                                outsideTemperature={rover.outside_temperature}
+                                outsideTemperature={rover.external_temp}
                                 target={rover.cabin_temperature_target}
                             />
                         </div>
@@ -278,7 +222,9 @@ export default function Telemetry() {
                                 <Oxygen
                                     level={rover.oxygen_storage ?? 0}
                                     tankLabel="Tank 1"
-                                    remaining={formatRemaining(rover.oxygen_time_remaining_s)}
+                                    remaining={formatRemaining(
+                                        estimates.rover_oxygen_time_remaining_s,
+                                    )}
                                 />
                             </div>
                         </Card>
@@ -301,9 +247,11 @@ export default function Telemetry() {
                                 }}
                             >
                                 <Battery
-                                    level={rover.battery_level ?? 0}
+                                    level={rover.primary_battery_level ?? 0}
                                     label="PR Battery"
-                                    remaining={formatRemaining(rover.battery_time_remaining_s)}
+                                    remaining={formatRemaining(
+                                        estimates.rover_battery_time_remaining_s,
+                                    )}
                                 />
                             </div>
                         </Card>
@@ -336,7 +284,7 @@ export default function Telemetry() {
                                     label="Cabin Pressure"
                                 />
                                 <Graph
-                                    value={rover.o2_pressure}
+                                    value={rover.oxygen_pressure}
                                     label="O2 Pressure"
                                     unit=" psi"
                                     min={ROVER_LIMITS.oxygen_pressure.min}
@@ -372,8 +320,8 @@ export default function Telemetry() {
                                 />
                                 <Fans
                                     fans={[
-                                        { label: "Fan 1", rpm: rover.fan1_rpm ?? 0 },
-                                        { label: "Fan 2", rpm: rover.fan2_rpm ?? 0 },
+                                        { label: "Fan 1", rpm: rover.fan_pri_rpm ?? 0 },
+                                        { label: "Fan 2", rpm: rover.fan_sec_rpm ?? 0 },
                                     ]}
                                     fanWarnings={[
                                         w("rover", "fan_pri_rpm"),
@@ -412,9 +360,11 @@ export default function Telemetry() {
                                 }}
                             >
                                 <Oxygen
-                                    level={eva.eva1.oxygen_storage ?? 0}
+                                    level={eva1.oxy_pri_storage ?? 0}
                                     tankLabel="Tank 1"
-                                    remaining={formatRemaining(eva.eva1.oxygen_time_remaining_s)}
+                                    remaining={formatRemaining(
+                                        estimates.eva_oxygen_time_remaining_s,
+                                    )}
                                 />
                             </div>
                         </Card>
@@ -437,9 +387,11 @@ export default function Telemetry() {
                                 }}
                             >
                                 <Battery
-                                    level={eva.eva1.eva_battery ?? 0}
+                                    level={eva1.primary_battery_level ?? 0}
                                     label="EVA 1 Battery"
-                                    remaining={formatRemaining(eva.eva1.battery_time_remaining_s)}
+                                    remaining={formatRemaining(
+                                        estimates.eva_battery_time_remaining_s,
+                                    )}
                                 />
                             </div>
                         </Card>
@@ -465,13 +417,13 @@ export default function Telemetry() {
                             }}
                         >
                             <Pressure
-                                value={eva.eva1.total_suit_pressure}
+                                value={eva1.suit_pressure_total}
                                 {...EVA_LIMITS.suit_pressure_total}
                                 label="Total Suit Pressure"
                             />
                             <div style={{ height: "34px" }} />
                             <Graph
-                                value={eva.eva1.o2_suit_pressure}
+                                value={eva1.suit_pressure_oxy}
                                 label="O2 Pressure"
                                 unit=" psi"
                                 min={EVA_LIMITS.suit_pressure_oxy.min}
@@ -480,7 +432,7 @@ export default function Telemetry() {
                                 isWarning={w("eva1", "suit_pressure_oxy")}
                             />
                             <Graph
-                                value={eva.eva1.co2_suit_pressure}
+                                value={eva1.suit_pressure_co2}
                                 label="CO2 Pressure"
                                 unit=" psi"
                                 min={EVA_LIMITS.suit_pressure_co2.min}
@@ -490,7 +442,7 @@ export default function Telemetry() {
                                 isWarning={w("eva1", "suit_pressure_co2")}
                             />
                             <Graph
-                                value={eva.eva1.co2_scrubber}
+                                value={eva1.scrubber_a_co2_storage}
                                 label="CO2 Scrubber"
                                 unit="% full"
                                 min={EVA_LIMITS.scrubber_a_co2_storage.min}
@@ -499,7 +451,7 @@ export default function Telemetry() {
                                 isWarning={w("eva1", "scrubber_a_co2_storage")}
                             />
                             <OtherPressure
-                                value={eva.eva1.other_pressure}
+                                value={eva1.suit_pressure_other}
                                 isWarning={w("eva1", "suit_pressure_other")}
                             />
                         </div>
@@ -528,8 +480,8 @@ export default function Telemetry() {
                                 }}
                             >
                                 <Health
-                                    bodyTemp={eva.eva1.body_temperature}
-                                    heartRate={eva.eva1.heart_rate}
+                                    bodyTemp={eva1.temperature}
+                                    heartRate={eva1.heart_rate}
                                     bodyTempWarning={w("eva1", "temperature")}
                                     heartRateWarning={w("eva1", "heart_rate")}
                                 />
@@ -555,15 +507,15 @@ export default function Telemetry() {
                                 }}
                             >
                                 <CO2
-                                    co2Production={eva.eva1.co2_production}
-                                    helmetCo2Pressure={eva.eva1.helmet_co2_pressure}
+                                    co2Production={eva1.co2_production}
+                                    helmetCo2Pressure={eva1.helmet_pressure_co2}
                                     co2ProductionWarning={w("eva1", "co2_production")}
                                     helmetCo2Warning={w("eva1", "helmet_pressure_co2")}
                                 />
                                 <Fans
                                     fans={[
-                                        { label: "Fan 1", rpm: eva.eva1.fan1_rpm ?? 0 },
-                                        { label: "Fan 2", rpm: eva.eva1.fan2_rpm ?? 0 },
+                                        { label: "Fan 1", rpm: eva1.fan_pri_rpm ?? 0 },
+                                        { label: "Fan 2", rpm: eva1.fan_sec_rpm ?? 0 },
                                     ]}
                                     fanWarnings={[
                                         w("eva1", "fan_pri_rpm"),
@@ -591,9 +543,9 @@ export default function Telemetry() {
                                 }}
                             >
                                 <EVACoolant
-                                    coolantStorage={eva.eva1.coolant_storage}
-                                    liquidPressure={eva.eva1.liquid_pressure}
-                                    gasPressure={eva.eva1.gas_pressure}
+                                    coolantStorage={eva1.coolant_storage}
+                                    liquidPressure={eva1.coolant_liquid_pressure}
+                                    gasPressure={eva1.coolant_gas_pressure}
                                     liquidWarning={w("eva1", "coolant_liquid_pressure")}
                                     gasWarning={w("eva1", "coolant_gas_pressure")}
                                 />
