@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 from app.models.ranges import NominalRange
 
-
 # --- Pydantic schema ---
+
 
 class Eva1Telemetry(BaseModel):
     primary_battery_level: Annotated[float, NominalRange(min=20, max=100)]
@@ -27,7 +27,9 @@ class Eva1Telemetry(BaseModel):
     temperature: Annotated[float, NominalRange(min=10, max=32, nominal=21)]
     coolant_storage: Annotated[float, NominalRange(min=80, max=100, nominal=100)]
     coolant_gas_pressure: Annotated[float, NominalRange(min=0, max=700, nominal=0)]
-    coolant_liquid_pressure: Annotated[float, NominalRange(min=100, max=700, nominal=500)]
+    coolant_liquid_pressure: Annotated[
+        float, NominalRange(min=100, max=700, nominal=500)
+    ]
     heart_rate: Annotated[float, NominalRange(min=50, max=160)]
     oxy_consumption: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
     co2_production: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
@@ -52,7 +54,9 @@ class Eva2Telemetry(BaseModel):
     temperature: Annotated[float, NominalRange(min=10, max=32, nominal=21)]
     coolant_storage: Annotated[float, NominalRange(min=80, max=100, nominal=100)]
     coolant_gas_pressure: Annotated[float, NominalRange(min=0, max=700, nominal=0)]
-    coolant_liquid_pressure: Annotated[float, NominalRange(min=100, max=700, nominal=500)]
+    coolant_liquid_pressure: Annotated[
+        float, NominalRange(min=100, max=700, nominal=500)
+    ]
     heart_rate: Annotated[float, NominalRange(min=50, max=160)]
     oxy_consumption: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
     co2_production: Annotated[float, NominalRange(min=0.05, max=0.15, nominal=0.1)]
@@ -137,6 +141,7 @@ class EvaSchema(BaseModel):
 
 # --- Wrapper ---
 
+
 class EvaData:
     def __init__(self) -> None:
         self._data: EvaSchema | None = None
@@ -155,11 +160,17 @@ class EvaData:
 
     async def get_eva1_primary_battery_level(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva1.primary_battery_level if self._data else None
+            return (
+                self._data.telemetry.eva1.primary_battery_level if self._data else None
+            )
 
     async def get_eva1_secondary_battery_level(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva1.secondary_battery_level if self._data else None
+            return (
+                self._data.telemetry.eva1.secondary_battery_level
+                if self._data
+                else None
+            )
 
     async def get_eva1_oxy_pri_storage(self) -> float | None:
         async with self._lock:
@@ -207,11 +218,15 @@ class EvaData:
 
     async def get_eva1_scrubber_a_co2_storage(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva1.scrubber_a_co2_storage if self._data else None
+            return (
+                self._data.telemetry.eva1.scrubber_a_co2_storage if self._data else None
+            )
 
     async def get_eva1_scrubber_b_co2_storage(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva1.scrubber_b_co2_storage if self._data else None
+            return (
+                self._data.telemetry.eva1.scrubber_b_co2_storage if self._data else None
+            )
 
     async def get_eva1_temperature(self) -> float | None:
         async with self._lock:
@@ -223,11 +238,17 @@ class EvaData:
 
     async def get_eva1_coolant_gas_pressure(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva1.coolant_gas_pressure if self._data else None
+            return (
+                self._data.telemetry.eva1.coolant_gas_pressure if self._data else None
+            )
 
     async def get_eva1_coolant_liquid_pressure(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva1.coolant_liquid_pressure if self._data else None
+            return (
+                self._data.telemetry.eva1.coolant_liquid_pressure
+                if self._data
+                else None
+            )
 
     async def get_eva1_heart_rate(self) -> float | None:
         async with self._lock:
@@ -297,11 +318,15 @@ class EvaData:
 
     async def get_eva2_scrubber_a_co2_storage(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva2.scrubber_a_co2_storage if self._data else None
+            return (
+                self._data.telemetry.eva2.scrubber_a_co2_storage if self._data else None
+            )
 
     async def get_eva2_scrubber_b_co2_storage(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva2.scrubber_b_co2_storage if self._data else None
+            return (
+                self._data.telemetry.eva2.scrubber_b_co2_storage if self._data else None
+            )
 
     async def get_eva2_temperature(self) -> float | None:
         async with self._lock:
@@ -313,11 +338,17 @@ class EvaData:
 
     async def get_eva2_coolant_gas_pressure(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva2.coolant_gas_pressure if self._data else None
+            return (
+                self._data.telemetry.eva2.coolant_gas_pressure if self._data else None
+            )
 
     async def get_eva2_coolant_liquid_pressure(self) -> float | None:
         async with self._lock:
-            return self._data.telemetry.eva2.coolant_liquid_pressure if self._data else None
+            return (
+                self._data.telemetry.eva2.coolant_liquid_pressure
+                if self._data
+                else None
+            )
 
     async def get_eva2_heart_rate(self) -> float | None:
         async with self._lock:

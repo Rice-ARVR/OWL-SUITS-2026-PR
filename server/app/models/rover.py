@@ -5,19 +5,19 @@ from pydantic import BaseModel
 
 from app.models.ranges import NominalRange
 
-
 # --- Pydantic schema ---
+
 
 class PrTelemetry(BaseModel):
     cabin_heating: bool
     cabin_cooling: bool
     lights_on: bool
     brakes: bool
-    throttle: Annotated[float, NominalRange(min=0, max=100)]
+    throttle: Annotated[float, NominalRange(min=-100, max=100)]
     steering: Annotated[float, NominalRange(min=-1, max=1)]
-    rover_pos_x: float # TODO: get min/max from DUST
-    rover_pos_y: float # TODO: get min/max from DUST
-    rover_pos_z: float # TODO: get min/max from DUST
+    rover_pos_x: float  # TODO: get min/max from DUST
+    rover_pos_y: float  # TODO: get min/max from DUST
+    rover_pos_z: float  # TODO: get min/max from DUST
     heading: float
     pitch: Annotated[float, NominalRange(min=-50, max=50)]
     roll: Annotated[float, NominalRange(min=0, max=50)]
@@ -26,25 +26,25 @@ class PrTelemetry(BaseModel):
     sunlight: float
     surface_incline: Annotated[float, NominalRange(min=-50, max=50)]
     lidar: list[float]
-    oxygen_storage: Annotated[float, NominalRange(min=25, max=100)] 
+    oxygen_storage: Annotated[float, NominalRange(min=25, max=100)]
     oxygen_pressure: Annotated[float, NominalRange(min=2997, max=3000)]
     cabin_pressure: Annotated[float, NominalRange(min=3.5, max=4.1, nominal=4.0)]
     cabin_temperature: Annotated[float, NominalRange(min=10, max=21)]
     external_temp: float
     coolant_pressure: Annotated[float, NominalRange(min=495, max=501, nominal=500)]
     coolant_storage: Annotated[float, NominalRange(min=80, max=100, nominal=100)]
-    primary_battery_level: float
-    secondary_battery_level: float
+    primary_battery_level: Annotated[float, NominalRange(min=30, max=100)]
+    secondary_battery_level: Annotated[float, NominalRange(min=30, max=100)]
     rover_elapsed_time: float
     sim_running: bool
     dust_connected: bool
     distance_from_base: Annotated[float, NominalRange(min=0, max=2500)]
     oxygen_tank: Annotated[float, NominalRange(min=25, max=100)]
-    battery_level: Annotated[float, NominalRange(min=30, max=100)]
+    battery_level: Annotated[float, NominalRange(min=0, max=100)]
     fan_pri_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
     fan_sec_rpm: Annotated[float, NominalRange(min=29999, max=30005)]
-    scrubber_a_co2_storage: float
-    scrubber_b_co2_storage: float
+    scrubber_a_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
+    scrubber_b_co2_storage: Annotated[float, NominalRange(min=0, max=60)]
     cabin_temperature_target: float
 
 
@@ -53,6 +53,7 @@ class RoverSchema(BaseModel):
 
 
 # --- Wrapper ---
+
 
 class RoverData:
     def __init__(self) -> None:
@@ -210,16 +211,24 @@ class RoverData:
 
     async def get_pr_secondary_battery_level(self) -> float | None:
         async with self._lock:
-            return self._data.pr_telemetry.secondary_battery_level if self._data else None
+            return (
+                self._data.pr_telemetry.secondary_battery_level if self._data else None
+            )
 
     async def get_pr_scrubber_a_co2_storage(self) -> float | None:
         async with self._lock:
-            return self._data.pr_telemetry.scrubber_a_co2_storage if self._data else None
+            return (
+                self._data.pr_telemetry.scrubber_a_co2_storage if self._data else None
+            )
 
     async def get_pr_scrubber_b_co2_storage(self) -> float | None:
         async with self._lock:
-            return self._data.pr_telemetry.scrubber_b_co2_storage if self._data else None
+            return (
+                self._data.pr_telemetry.scrubber_b_co2_storage if self._data else None
+            )
 
     async def get_pr_cabin_temperature_target(self) -> float | None:
         async with self._lock:
-            return self._data.pr_telemetry.cabin_temperature_target if self._data else None
+            return (
+                self._data.pr_telemetry.cabin_temperature_target if self._data else None
+            )

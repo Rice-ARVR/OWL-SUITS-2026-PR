@@ -1,1 +1,7 @@
-.venv
+.venvnode_modules/
+node_modules/
+package.json
+.claude/settings.local.json
+.serena/project.local.yml
+.serena/cache/typescript/document_symbols.pkl
+.serena/cache/typescript/raw_document_symbols.pkl

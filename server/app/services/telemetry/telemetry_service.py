@@ -6,7 +6,8 @@ from app.models.eva import EvaData
 from app.models.ltv import LtvData
 from app.models.ltv_errors import LtvErrorsData
 from app.models.rover import RoverData
-from app.services.telemetry.warning_service import check_and_broadcast
+from app.services.rag.context_builder import build_and_save_context
+from app.services.telemetry.telemetry_ws_service import broadcast_snapshot
 from app.services.telemetry.tss_client import (
     COMMAND_EVA,
     COMMAND_LTV,
@@ -14,6 +15,7 @@ from app.services.telemetry.tss_client import (
     COMMAND_ROVER,
     fetch_json,
 )
+from app.services.telemetry.warning_service import check_and_broadcast
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,10 @@ _polling_task: asyncio.Task | None = None
 
 async def _poll_once() -> None:
     """Pulls Rover, EVA, and LTV Data from TSS once"""
+    assert rover_data is not None
+    assert eva_data is not None
+    assert ltv_data is not None
+    assert ltv_errors_data is not None
 
     # Fetch Rover, EVA, LTV, and LTV Errors data at once
     results = await asyncio.gather(
@@ -39,29 +45,41 @@ async def _poll_once() -> None:
     rover_result, eva_result, ltv_result, ltv_errors_result = results
 
     # Error checking on fetch request
-    if isinstance(rover_result, Exception):
+    if isinstance(rover_result, BaseException):
         logger.error("Failed to fetch ROVER data: %s", rover_result)
     else:
         await rover_data.update(rover_result)
 
-    if isinstance(eva_result, Exception):
+    if isinstance(eva_result, BaseException):
         logger.error("Failed to fetch EVA data: %s", eva_result)
     else:
         await eva_data.update(eva_result)
 
-    if isinstance(ltv_result, Exception):
+    if isinstance(ltv_result, BaseException):
         logger.error("Failed to fetch LTV data: %s", ltv_result)
     else:
         await ltv_data.update(ltv_result)
 
-    if isinstance(ltv_errors_result, Exception):
+    if isinstance(ltv_errors_result, BaseException):
         logger.error("Failed to fetch LTV ERRORS data: %s", ltv_errors_result)
     else:
         await ltv_errors_data.update(ltv_errors_result)
+    # take snapshots once, reuse for both warning check and RAG context
+    eva_snap = await eva_data.get_snapshot()
+    rover_snap = await rover_data.get_snapshot()
+    ltv_snap = await ltv_data.get_snapshot()
+    ltv_errors_snap = await ltv_errors_data.get_snapshot()
+
+    # push full snapshot to connected telemetry WebSocket clients
+    await broadcast_snapshot(eva_snap, rover_snap, ltv_snap, ltv_errors_snap)
     # check telemetry values against ranges and broadcast warnings over websocket if needed
-    await check_and_broadcast(
-        await eva_data.get_snapshot(),
-        await rover_data.get_snapshot(),
+    await check_and_broadcast(eva_snap, rover_snap)
+    # write latest telemetry snapshot to RAG context file
+    await build_and_save_context(
+        eva=eva_snap,
+        rover=rover_snap,
+        ltv=ltv_snap,
+        ltv_errors=ltv_errors_snap,
     )
 
 
