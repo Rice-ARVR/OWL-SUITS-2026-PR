@@ -10,6 +10,9 @@ COMMAND_ROVER = 0
 COMMAND_EVA = 1
 COMMAND_LTV = 2
 COMMAND_LTV_ERRORS = 3
+COMMAND_CABIN_HEATING = 1103
+COMMAND_CABIN_COOLING = 1104
+COMMAND_HEADLIGHTS = 1106
 COMMAND_BRAKES = 1107
 COMMAND_THROTTLE = 1109
 COMMAND_STEERING = 1110
@@ -35,6 +38,24 @@ def _send_command(host: str, port: int, packet: bytes, timeout: float) -> None:
             sock.sendto(packet, (host, port))
         except OSError:
             pass
+
+
+def send_cabin_heating(value: float) -> None:
+    """Send cabin heating control to TSS server."""
+    packet = _build_control_packet(COMMAND_CABIN_HEATING, value)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
+
+
+def send_cabin_cooling(value: float) -> None:
+    """Send cabin cooling control to TSS server."""
+    packet = _build_control_packet(COMMAND_CABIN_COOLING, value)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
+
+
+def send_headlights(value: float) -> None:
+    """Send headlights control to TSS server."""
+    packet = _build_control_packet(COMMAND_HEADLIGHTS, value)
+    _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
 
 
 def send_brakes(value: float) -> None:
