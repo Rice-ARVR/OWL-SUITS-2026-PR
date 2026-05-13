@@ -3,6 +3,8 @@ import { useTelemetry } from "~/hooks/useTelemetry";
 import { useEstimates } from "./hooks/useEstimates";
 
 import { EVA_LIMITS, ROVER_LIMITS } from "~/constants/telemetryLimits";
+import { getTelemetryLabel } from "~/constants/telemetryLabels";
+
 import Battery from "~/components/ui/Battery";
 import Card from "~/components/ui/Card";
 import CO2 from "~/components/ui/CO2";
@@ -47,7 +49,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 function warningMessage(w: Warning): string {
-    return FIELD_LABELS[w.field] ?? `${w.field.replace(/_/g, " ")} is out of range.`;
+    return FIELD_LABELS[w.field] ?? `${getTelemetryLabel(w.field)} is out of range.`;
 }
 
 function formatRemaining(s: number | null): string {
@@ -281,11 +283,11 @@ export default function Telemetry() {
                                 <Pressure
                                     value={rover.cabin_pressure}
                                     {...ROVER_LIMITS.cabin_pressure}
-                                    label="Cabin Pressure"
+                                    label={getTelemetryLabel("cabin_pressure")}
                                 />
                                 <Graph
                                     value={rover.oxygen_pressure}
-                                    label="O2 Pressure"
+                                    label={getTelemetryLabel("oxygen_pressure")}
                                     unit=" psi"
                                     min={ROVER_LIMITS.oxygen_pressure.min}
                                     max={ROVER_LIMITS.oxygen_pressure.max}
@@ -320,8 +322,14 @@ export default function Telemetry() {
                                 />
                                 <Fans
                                     fans={[
-                                        { label: "Fan 1", rpm: rover.fan_pri_rpm ?? 0 },
-                                        { label: "Fan 2", rpm: rover.fan_sec_rpm ?? 0 },
+                                        {
+                                            label: getTelemetryLabel("fan_pri_rpm"),
+                                            rpm: rover.fan_pri_rpm ?? 0,
+                                        },
+                                        {
+                                            label: getTelemetryLabel("fan_sec_rpm"),
+                                            rpm: rover.fan_sec_rpm ?? 0,
+                                        },
                                     ]}
                                     fanWarnings={[
                                         w("rover", "fan_pri_rpm"),
@@ -419,7 +427,7 @@ export default function Telemetry() {
                             <Pressure
                                 value={eva1.suit_pressure_total}
                                 {...EVA_LIMITS.suit_pressure_total}
-                                label="Total Suit Pressure"
+                                label={getTelemetryLabel("suit_pressure_total")}
                             />
                             <div style={{ height: "34px" }} />
                             <Graph
