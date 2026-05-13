@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .env
+*.egg-info/
 app/services/rag/tss_context.txt
 app/services/rag/chroma_db/
 app/services/rag/chroma_db/

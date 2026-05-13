@@ -26,15 +26,17 @@ Our design was selected as one of the top 5 PR designs in the nation, earning us
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [VS Code](https://code.visualstudio.com/) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
-- [Ollama](https://ollama.com/) with the model ollama3.2 downloaded
+- [Ollama](https://ollama.com/) (Ollama 3.2, Gemma 4, nomic-embed-text)
+- [MongoDB+](https://www.mongodb.com/)
 
 ### Setup
 
 1. Clone the repo.
 2. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
 3. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically.
+4. Add .env to server folder
 
-### Running the App
+### Running the App+
 
 Start the backend:
 
