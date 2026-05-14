@@ -11,6 +11,7 @@ import app.services.telemetry.telemetry_service as telemetry_service
 import app.services.telemetry.tss_client as tss_client
 from app.models.nav_model import (
     DistanceCategory,
+    Hazard,
     LidarReading,
     LidarScan,
     NavigationState,
@@ -21,7 +22,11 @@ from app.models.nav_model import (
     SearchPhase,
     SearchSession,
 )
-from app.services.navigation.pathfinding import find_path_around_hazards
+from app.services.navigation.pathfinding import (
+    expand_polygon,
+    find_path_around_hazards,
+    point_in_polygon,
+)
 from app.services.navigation.spatial_math import (
     calculate_bearing,
     calculate_distance,
@@ -184,13 +189,26 @@ async def autonomous_mission_loop():
                 await asyncio.sleep(1)
                 continue
 
-            # 1. Pathfinding: Avoid hazards and generate safe waypoints
+            # 1. Waypoint Validation: Ensure that waypoints are not generated in hazards
+            safe_target_pos = validate_and_nudge_waypoint(
+                target.position, state.hazards, rover_pos
+            )
+            target.position = safe_target_pos
+
+            # 2. Pathfinding: Avoid hazards and generate safe waypoints
             # Offload math to separate worker thread
             safe_path = await asyncio.to_thread(
                 find_path_around_hazards, rover_pos, target.position, state.hazards
             )
 
-            # 2. Traverse the path using auto_drive
+            # 3. Target Check: Abort on unreachable waypoint
+            if not safe_path:
+                await abort_autonomous_mission(
+                    "Mission Aborted: Target is unreachable due to surrounding hazard barriers."
+                )
+                break
+
+            # 4. Traverse the path using auto_drive
             path_success = True
             for i, waypoint in enumerate(safe_path):
                 # Update the projected path so the frontend UI line adjusts dynamically
@@ -215,7 +233,7 @@ async def autonomous_mission_loop():
                 )
                 break
 
-            # 3. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
+            # 5. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
             await evaluate_phase_and_ping(state)
 
     except asyncio.CancelledError:
@@ -437,6 +455,56 @@ async def evaluate_phase_and_ping(state: NavigationState):
 
 
 # --- Utility Functions ---
+
+
+def validate_and_nudge_waypoint(
+    target_pos: Position, hazards: List[Hazard], rover_pos: Position
+) -> Position:
+    """
+    Checks if a target is inside a hazard and nudges it to a safe distance.
+    It does this by pulling the target back along the approach vector.
+    """
+    if not hazards:
+        return target_pos
+
+    OFFSET_M = 15.0
+    expanded_polygons = []
+    for h in hazards:
+        raw_poly = [(p.x, p.y) for p in h.points]
+        expanded_polygons.append(expand_polygon(raw_poly, OFFSET_M))
+
+    target_pt = (target_pos.x, target_pos.y)
+
+    for poly in expanded_polygons:
+        if point_in_polygon(target_pt, poly):
+            logger.warning(
+                "Safety Nudge: Generated waypoint is inside a hazard buffer. Nudging..."
+            )
+
+            # Pull the target back toward the rover until it is safely outside the polygon
+            dx = target_pos.x - rover_pos.x
+            dy = target_pos.y - rover_pos.y
+            dist = math.hypot(dx, dy)
+
+            if dist == 0:
+                return rover_pos
+
+            step_size = 2.0
+            current_dist = dist
+
+            while current_dist > 0:
+                current_dist -= step_size
+                test_pt = (
+                    rover_pos.x + (dx / dist) * current_dist,
+                    rover_pos.y + (dy / dist) * current_dist,
+                )
+                if not point_in_polygon(test_pt, poly):
+                    return Position(x=test_pt[0], y=test_pt[1])
+
+            # Fallback if the rover itself is somehow inside the buffer
+            return rover_pos
+
+    return target_pos
 
 
 def categorize_rssi(rssi_value: float) -> DistanceCategory:
