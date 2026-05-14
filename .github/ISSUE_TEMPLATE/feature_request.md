@@ -21,7 +21,6 @@ labels: feat
 
 - [ ] Feature works end-to-end as described in the proposed solution
 - [ ] Edge cases are handled
-- [ ] Tests are written and passing
 - [ ] Docs updated if applicable
 
 ## Additional Context
