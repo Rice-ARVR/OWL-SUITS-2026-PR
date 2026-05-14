@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     EMBED_MODEL: str = "nomic-embed-text"
     AIA_MODEL: str = "llama3.2"
 
+    DUST_CV_WS_URL: str = "ws://host.docker.internal:8766"
+
     MONGODB_URL: str
     MONGO_DB: str = "app"
 
