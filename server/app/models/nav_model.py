@@ -74,12 +74,15 @@ class SearchSession(BaseModel):
     success_vector: float
     ping_history: List[PingRecord]
 
-    # NEW: Arrays for the frontend map UI
+    # Arrays for the frontend map UI
     path_history: List[Position] = []
     projected_path: List[Position] = []
 
     best_rssi: float
     current_target: Optional[NavigationTarget] = None
+
+    # Track local minimum sweeps during Gradient Ascent
+    gradient_retries: int = 0
 
 
 class Hazard(BaseModel):

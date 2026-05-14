@@ -327,8 +327,14 @@ async def evaluate_phase_and_ping(state: NavigationState):
     elif session.phase == SearchPhase.GRADIENT_ASCENT:
         if success:
             improved = rssi > session.best_rssi
+
+            # If the signal drops significantly, we are moving the wrong way.
+            significant_drop = rssi < (session.best_rssi - 5.0)
+
             if improved:
                 session.best_rssi = rssi
+                session.gradient_retries = 0  # Reset counter on success
+
                 prev_x = (
                     session.ping_history[-2].rover_position.x
                     if len(session.ping_history) > 1
@@ -360,11 +366,44 @@ async def evaluate_phase_and_ping(state: NavigationState):
                     )
             else:
                 if not improved:
+                    if significant_drop:
+                        await abort_autonomous_mission(
+                            "Gradient Ascent aborted: Signal strength dropped significantly (wrong direction)."
+                        )
+                        return
+
+                    session.gradient_retries += 1
                     session.success_vector += 45.0
+
+                    # --- Sweep Limit / Local Minimum Trap ---
+                    if session.gradient_retries >= 8:
+                        await abort_autonomous_mission(
+                            "Gradient Ascent stalled. Trapped in a local signal minimum."
+                        )
+                        return  # Exit the evaluation early
+
+                # Determine the next projection based on the (potentially nudged) vector
+                next_target_pos = get_gradient_waypoint(
+                    rover_pos, session.success_vector, session.search_center
+                )
+
+                # --- Distance Cap Check ---
+                # Check if get_gradient_waypoint capped us at the SEARCH_RADIUS_M edge
+                dist_to_center = calculate_distance(
+                    session.search_center.x,
+                    session.search_center.y,
+                    next_target_pos.x,
+                    next_target_pos.y,
+                )
+
+                if dist_to_center >= SEARCH_RADIUS_M and not improved:
+                    await abort_autonomous_mission(
+                        "Gradient Ascent reached maximum search radius without finding a strong signal."
+                    )
+                    return
+
                 session.current_target = NavigationTarget(
-                    position=get_gradient_waypoint(
-                        rover_pos, session.success_vector, session.search_center
-                    ),
+                    position=next_target_pos,
                     description="Gradient ascent waypoint",
                     arrival_threshold_m=10.0,
                 )
