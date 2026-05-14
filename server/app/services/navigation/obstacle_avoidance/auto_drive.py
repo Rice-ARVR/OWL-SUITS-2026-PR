@@ -42,7 +42,7 @@ TELEMETRY_FRESH_WAIT_S = 0.5
 MAX_SPEED = 6.0
 THROTTLE_NORMAL = 35
 THROTTLE_SLOW = 30
-THROTTLE_BOOST = 60  
+THROTTLE_BOOST = 60
 THROTTLE_REVERSE = -30
 
 # Steering
@@ -116,7 +116,7 @@ MAX_RECOVERY_ATTEMPTS = 4
 REVERSE_DURATION_S = 5.0
 REORIENT_DURATION_S = 2.5
 
-# Crater escape 
+# Crater escape
 CRATER_ESCAPE_DURATION_S = 5.0
 CRATER_ESCAPE_COOLDOWN_S = 15.0
 CRATER_PITCH_DEG = -10.0  # nose-down beyond this => sitting in a pit
@@ -126,7 +126,7 @@ CRATER_PITCH_DEG = -10.0  # nose-down beyond this => sitting in a pit
 ######################
 
 # Lidar
-LIDAR_NO_HIT = 9999.0 
+LIDAR_NO_HIT = 9999.0
 
 # General Categories
 FRONT_SENSORS = (2, 5, 6)
@@ -433,9 +433,9 @@ async def _send_brakes(v: float) -> None:
     await asyncio.to_thread(tss_client.send_brakes, float(v))
 
 
-async def _send_drive(throttle: float, steering: float) -> None:
-    """Brake off, then apply steering and throttle."""
-    await _send_brakes(0.0)
+async def _send_drive(throttle: float, steering: float, brakes: float = 0.0) -> None:
+    """Apply brakes, steering, and throttle."""
+    await _send_brakes(brakes)
     await _send_steering(steering)
     await _send_throttle(throttle)
 
@@ -453,16 +453,6 @@ async def _brake_pulse() -> None:
     await asyncio.sleep(BRAKE_PULSE_S)
     await _send_brakes(0.0)
     await asyncio.sleep(TELEMETRY_FRESH_WAIT_S)
-
-
-async def _apply_speed_cap(tel, steering: float) -> bool:
-    """If over MAX_SPEED, brake while holding steering. Returns True if applied."""
-    if tel.speed < MAX_SPEED:
-        return False
-    await _send_steering(steering)
-    await _send_throttle(0.0)
-    await _send_brakes(1.0)
-    return True
 
 
 async def _read_telemetry():
@@ -620,9 +610,16 @@ async def _drive_step(tel, goalX: float, goalY: float) -> None:
             steering = heading_steer
             throttle = THROTTLE_SLOW if abs(err) > 30 else THROTTLE_NORMAL
 
-    if await _apply_speed_cap(tel, steering):
-        return
-    await _send_drive(throttle, steering)
+    # Apply speed cap dynamically without abandoning the maneuver
+    brakes = 0.0
+    if tel.speed >= MAX_SPEED:
+        throttle = 0.0  # Cut power
+        brakes = (
+            0.5  # Apply soft brakes (0.5 instead of 1.0) to maintain turning traction
+        )
+        _log_info("Speed cap applied: slowing down while maneuvering.")
+
+    await _send_drive(throttle, steering, brakes)
 
 
 async def _wall_follow_step(tel, state: _WallFollow) -> None:
@@ -637,9 +634,17 @@ async def _wall_follow_step(tel, state: _WallFollow) -> None:
     steering, why = _wall_follow_steering(lidar, state.side)
     _log_info("WALL(%s): %s -> steer=%+.2f", state.side, why, steering)
 
-    if await _apply_speed_cap(tel, steering):
-        return
-    await _send_drive(WALL_THROTTLE, steering)
+    # Apply speed cap dynamically without abandoning the maneuver
+    throttle = WALL_THROTTLE
+    brakes = 0.0
+    if tel.speed >= MAX_SPEED:
+        throttle = 0.0  # Cut power
+        brakes = (
+            0.5  # Apply soft brakes (0.5 instead of 1.0) to maintain turning traction
+        )
+        _log_info("Speed cap applied: slowing down while maneuvering.")
+
+    await _send_drive(throttle, steering, brakes)
 
 
 # ─── Public entry point ──────────────────────────────────────────────────────
