@@ -1,8 +1,10 @@
 import asyncio
+from typing import List
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from app.models.nav_model import Hazard
 from app.services.navigation.navigation_service import (
     execute_ping,
     navigation_state,
@@ -11,6 +13,18 @@ from app.services.navigation.navigation_service import (
 )
 
 router = APIRouter()
+
+
+@router.post("/navigation/hazards")
+async def update_hazards(hazards: List[Hazard]):
+    # Simply call the specific update method
+    await navigation_state.update_hazards(hazards)
+
+    return {
+        "status": "success",
+        "message": f"Successfully updated backend map with {len(hazards)} polygonal hazards.",
+        "hazards_processed": len(hazards),
+    }
 
 
 @router.get("/navigation/stream")

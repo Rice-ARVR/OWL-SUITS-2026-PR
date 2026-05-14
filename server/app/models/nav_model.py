@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # --- Enums ---
 
@@ -82,12 +82,31 @@ class SearchSession(BaseModel):
     current_target: Optional[NavigationTarget] = None
 
 
+class Hazard(BaseModel):
+    """
+    Represents a dynamically mapped hazard on the lunar surface.
+    Defined by a polygonal boundary of ordered coordinate points.
+    """
+
+    id: str
+    description: Optional[str] = "Polygonal Hazard"
+    # Field(min_length=3) enforces that the array must contain at least a triangle
+    points: List[Position] = Field(
+        ...,
+        min_length=3,
+        description="Ordered list of boundary points making up the hazard polygon.",
+    )
+
+
 class NavigationState(BaseModel):
     session: Optional[SearchSession] = None
     latest_rssi: Optional[RssiSignalStrength] = None
     latest_lidar: Optional[LidarScan] = None
     rover_position: Optional[Position] = None
     autonomous_driving: bool = False
+
+    hazards: List[Hazard] = []
+    projected_path: List[Position] = []
 
 
 # --- Thread-Safe Wrapper ---
@@ -97,6 +116,11 @@ class NavigationStateData:
     def __init__(self) -> None:
         self._data: NavigationState = NavigationState()
         self._lock: asyncio.Lock = asyncio.Lock()
+
+    async def update_hazards(self, hazards: List[Hazard]) -> None:
+        """Updates the list of polygonal hazards on the map."""
+        async with self._lock:
+            self._data.hazards = hazards
 
     async def update_session(self, session: SearchSession) -> None:
         async with self._lock:
