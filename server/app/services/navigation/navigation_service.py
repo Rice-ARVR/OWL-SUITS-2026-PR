@@ -25,12 +25,8 @@ from app.services.navigation.spatial_math import (
 )
 from app.services.rover_control_service import send_rover_command
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] NAV: %(message)s",
-    datefmt="%H:%M:%S",
-)
 logger = logging.getLogger(__name__)
+logger.propagate = False
 
 # --- Constants ---
 LNP_POSITION = Position(x=-600.0, y=-1200.6)
