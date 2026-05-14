@@ -14,6 +14,13 @@ services:
       - VITE_API_URL=http://localhost:8000
       - UVICORN_HOST=0.0.0.0
     command: sleep infinity
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   server:
     build:
@@ -24,6 +31,13 @@ services:
       - "8000:8000"
     environment:
       - OLLAMA_URL=http://host.docker.internal:11434
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   frontend:
     build:
