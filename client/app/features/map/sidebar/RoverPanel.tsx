@@ -1,28 +1,9 @@
-import { useState, useEffect } from "react";
 import styles from "./RoverPanel.module.css";
 import RoverSvg from "../../../assets/rover.svg?react";
 
 import { useTelemetry } from "~/hooks/useTelemetry";
 
-interface RoverPanelProps {
-    pitch?: number;
-    roll?: number;
-    surfaceIncline?: number;
-}
-
-export default function RoverPanel({
-    pitch: pitchProp = 4,
-    roll: rollProp = 10,
-    surfaceIncline: surfaceInclineProp = 0,
-}: RoverPanelProps) {
-    const [pitch, setPitch] = useState(pitchProp);
-    const [roll, setRoll] = useState(rollProp);
-    const [surfaceIncline, setSurfaceIncline] = useState(surfaceInclineProp);
-
-    // Sync with props when they change (e.g. from telemetry)
-    useEffect(() => setPitch(pitchProp), [pitchProp]);
-    useEffect(() => setRoll(rollProp), [rollProp]);
-    useEffect(() => setSurfaceIncline(surfaceInclineProp), [surfaceInclineProp]);
+export default function RoverPanel() {
     const telemetry = useTelemetry();
     return (
         <div className={styles.container}>
@@ -85,7 +66,9 @@ export default function RoverPanel({
                 </div>
             </div>
 
-            <h5 className="medium">Surface Incline: {surfaceIncline}°</h5>
+            <h5 className="medium">
+                Surface Incline: {telemetry.getRoverSurfaceIncline()?.toFixed(2)}°
+            </h5>
         </div>
     );
 }

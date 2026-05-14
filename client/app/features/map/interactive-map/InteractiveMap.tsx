@@ -20,17 +20,45 @@ import { Marker } from "./map-components/Marker"; // Pins
 import { HazardShape } from "./map-components/HazardShape";
 import { RoverIcon } from "./map-components/RoverIcon";
 
+import mockNavState from "./mock-nav-state.json";
+
+// Set to true to use mock navigation data instead of the live backend
+const DEBUG_MODE = true;
+
 // ── Main map component ─────────────────────────────────
 
-export default function InteractiveMap() {
+interface InteractiveMapProps {
+    onAutonomyChange?: (isAutonomous: boolean) => void;
+    stopAutonomyRef?: React.MutableRefObject<(() => void) | undefined>;
+    isSignaling?: boolean;
+}
+
+export default function InteractiveMap({
+    onAutonomyChange,
+    stopAutonomyRef,
+    isSignaling = false,
+}: InteractiveMapProps) {
     const svgRef = useRef<SVGSVGElement>(null);
 
     // Only connect to the navigation/stream SSE once the user starts autonomy
     const [autonomyRequested, setAutonomyRequested] = useState(false);
 
     // ── Navigation SSE hook ──
-    const { navState, connected, startAutonomy, stopAutonomy, executePing } =
-        useNavigationState(autonomyRequested);
+    const liveNav = useNavigationState(autonomyRequested);
+
+    const { navState, connected, startAutonomy, stopAutonomy, executePing } = DEBUG_MODE
+        ? {
+              navState: autonomyRequested ? (mockNavState as typeof liveNav.navState) : null,
+              connected: true,
+              startAutonomy: async () => {
+                  setAutonomyRequested(true);
+              },
+              stopAutonomy: async () => {
+                  setAutonomyRequested(false);
+              },
+              executePing: async () => {},
+          }
+        : liveNav;
 
     const telemetry = useTelemetry();
     const pos = telemetry.getRoverPosition() ?? { x: 0, y: 0, z: 0 };
@@ -40,6 +68,11 @@ export default function InteractiveMap() {
     };
 
     const isAutonomous = navState?.autonomous_driving ?? false;
+
+    // Notify parent when autonomy state changes
+    useEffect(() => {
+        onAutonomyChange?.(isAutonomous);
+    }, [isAutonomous, onAutonomyChange]);
 
     // Auto-center map on rover when position changes significantly
     const lastCenteredRef = useRef<{ x: number; y: number } | null>(null);
@@ -70,6 +103,16 @@ export default function InteractiveMap() {
     const [ltvX, setLtvX] = useState("");
     const [ltvY, setLtvY] = useState("");
     const [showManualConfirm, setShowManualConfirm] = useState(false);
+    const [savedPingHistory, setSavedPingHistory] = useState<
+        { rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
+    >([]);
+
+    // Sync ping history from navState into persistent local state
+    useEffect(() => {
+        if (navState?.session?.ping_history && navState.session.ping_history.length > 0) {
+            setSavedPingHistory(navState.session.ping_history);
+        }
+    }, [navState?.session?.ping_history]);
 
     // FAB menu
     const [showAddMenu, setShowAddMenu] = useState(false);
@@ -161,19 +204,44 @@ export default function InteractiveMap() {
             }
         }
 
-        // Directions — click near a POI to add it as waypoint
+        // Directions — click near a POI or ping to add it as waypoint
         if (
             mode === "directions" &&
             (directionsStep === "selectDestination" || directionsStep === "review")
         ) {
-            const clickRadius = 30;
-            const nearest = points.find((p) => {
-                const d = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
+            // Scale click radius to current zoom level so it feels consistent
+            const clickRadius = Math.max(30, viewBox.w * 0.04);
+
+            // Check POIs — check both pin tip (p.x, p.y) and pin center (p.x, p.y - 26)
+            const nearestPOI = points.find((p) => {
+                const dTip = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
+                const dCenter = Math.sqrt((p.x - x) ** 2 + (p.y - 26 - y) ** 2);
+                return Math.min(dTip, dCenter) < clickRadius;
+            });
+            if (nearestPOI && !waypoints.find((w) => w.id === nearestPOI.id)) {
+                setWaypoints((prev) => [...prev, nearestPOI]);
+                setDirectionsStep("review");
+                return;
+            }
+
+            // Check pings
+            const nearestPing = savedPingHistory.find((p) => {
+                const d = Math.sqrt((p.rover_position.x - x) ** 2 + (p.rover_position.y - y) ** 2);
                 return d < clickRadius;
             });
-            if (nearest && !waypoints.find((w) => w.id === nearest.id)) {
-                setWaypoints((prev) => [...prev, nearest]);
-                setDirectionsStep("review");
+            if (nearestPing) {
+                const pingWaypoint: MapPoint = {
+                    id: `ping-${nearestPing.rover_position.x}-${nearestPing.rover_position.y}`,
+                    x: nearestPing.rover_position.x,
+                    y: nearestPing.rover_position.y,
+                    label: `Ping ${Math.round(nearestPing.rssi)} dBm`,
+                    description: nearestPing.signal_category,
+                    type: "poi",
+                };
+                if (!waypoints.find((w) => w.id === pingWaypoint.id)) {
+                    setWaypoints((prev) => [...prev, pingWaypoint]);
+                    setDirectionsStep("review");
+                }
             }
         }
     };
@@ -304,9 +372,6 @@ export default function InteractiveMap() {
     };
 
     const handleLaunchAutonomy = async () => {
-        const x = parseFloat(ltvX);
-        const y = parseFloat(ltvY);
-        if (isNaN(x) || isNaN(y)) return;
         setAutonomyRequested(true);
         await startAutonomy();
         setMode("navigate");
@@ -329,6 +394,13 @@ export default function InteractiveMap() {
         setAutonomyRequested(false);
         setShowManualConfirm(false);
     };
+
+    // Expose stop handler to parent via ref
+    useEffect(() => {
+        if (stopAutonomyRef) {
+            stopAutonomyRef.current = confirmStopAutonomy;
+        }
+    });
 
     // ── Directions workflow ──
 
@@ -704,7 +776,7 @@ export default function InteractiveMap() {
                     </div>
 
                     {directionsStep === "selectDestination" && waypoints.length === 0 && (
-                        <p className={styles.panelHint}>Click a POI to set destination</p>
+                        <p className={styles.panelHint}>Click a POI or ping to set destination</p>
                     )}
 
                     {(directionsStep === "review" || directionsStep === "selectDestination") &&
@@ -779,7 +851,7 @@ export default function InteractiveMap() {
                                 ))}
 
                                 <p className={styles.panelHint} style={{ marginTop: "8px" }}>
-                                    Click more POIs to add to path
+                                    Click more POIs or pings to add to path
                                 </p>
                                 <div className={styles.routeActions}>
                                     <button className={styles.letsGoBtn} onClick={computeRoute}>
@@ -889,40 +961,46 @@ export default function InteractiveMap() {
                         </button>
                     </div>
 
-                    <p className={styles.panelHint}>Enter last known coordinates of the LTV</p>
-
                     <div className={styles.poiForm}>
-                        <label className={styles.poiLabel}>X Coordinate</label>
-                        <input
-                            type="number"
-                            className={styles.poiInput}
-                            value={ltvX}
-                            onChange={(e) => setLtvX(e.target.value)}
-                            placeholder="e.g. -6090.0"
-                            autoFocus
-                        />
-                        <label className={styles.poiLabel}>Y Coordinate</label>
-                        <input
-                            type="number"
-                            className={styles.poiInput}
-                            value={ltvY}
-                            onChange={(e) => setLtvY(e.target.value)}
-                            placeholder="e.g. -10485.6"
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleLaunchAutonomy();
-                                }
-                            }}
-                        />
-                        <button
-                            className={styles.finishBtn}
-                            onClick={handleLaunchAutonomy}
-                            disabled={!ltvX || !ltvY}
-                            style={{ opacity: !ltvX || !ltvY ? 0.4 : 1 }}
-                        >
+                        <button className={styles.finishBtn} onClick={handleLaunchAutonomy}>
                             Start Autonomous Navigation
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Signaling LTV Panel (top-left) ── */}
+            {isSignaling && (
+                <div className={styles.panel}>
+                    <div className={styles.panelHeader}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="2.5" fill="#6ee7b7" />
+                            <path
+                                d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
+                                stroke="#6ee7b7"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
+                                stroke="#6ee7b7"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
+                                stroke="#6ee7b7"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
+                                stroke="#6ee7b7"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            />
+                        </svg>
+                        <span className={styles.panelTitle}>Signaling LTV</span>
                     </div>
                 </div>
             )}
@@ -986,37 +1064,11 @@ export default function InteractiveMap() {
                             </span>
                         </div>
 
-                        {navState.session.best_rssi > -Infinity && (
-                            <div className={styles.autoPhaseRow}>
-                                <span className={styles.autoLabel}>Best RSSI</span>
-                                <span className={styles.autoValue}>
-                                    {Math.round(navState.session.best_rssi)} dBm
-                                </span>
-                            </div>
-                        )}
-
-                        <div className={styles.autoPhaseRow}>
-                            <span className={styles.autoLabel}>Pings</span>
-                            <span className={styles.autoValue}>
-                                {navState.session.ping_history.length}
-                            </span>
-                        </div>
-
                         {navState.session.current_target && (
                             <div className={styles.autoTargetBox}>
                                 <span className={styles.autoLabel}>Current Target</span>
                                 <span className={styles.autoTargetDesc}>
                                     {navState.session.current_target.description}
-                                </span>
-                            </div>
-                        )}
-
-                        {navState.session.projected_path.length > 0 && (
-                            <div className={styles.autoPhaseRow}>
-                                <span className={styles.autoLabel}>Planned Path</span>
-                                <span className={styles.autoValue}>
-                                    {navState.session.projected_path.length} waypoint
-                                    {navState.session.projected_path.length !== 1 ? "s" : ""} ahead
                                 </span>
                             </div>
                         )}
@@ -1027,15 +1079,6 @@ export default function InteractiveMap() {
                     </button>
                 </div>
             )}
-
-            {/* ── Info bar (bottom-left) ── */}
-            <div className={styles.infoBar}>
-                <span>
-                    {points.length} point{points.length !== 1 ? "s" : ""} · {hazards.length} hazard
-                    {hazards.length !== 1 ? "s" : ""}
-                    {isAutonomous ? " · 🟢 Autonomous" : ""}
-                </span>
-            </div>
 
             {/* ── FAB button (bottom-right) ── */}
             <div className={styles.fabArea}>
@@ -1330,8 +1373,9 @@ export default function InteractiveMap() {
                     />
                 )}
 
-                {/* Projected path */}
-                {navState?.session?.projected_path &&
+                {/* Projected path (only while autonomous) */}
+                {isAutonomous &&
+                    navState?.session?.projected_path &&
                     navState.session.projected_path.length >= 1 && (
                         <polyline
                             points={[
@@ -1346,8 +1390,8 @@ export default function InteractiveMap() {
                         />
                     )}
 
-                {/* Ping history markers */}
-                {navState?.session?.ping_history?.map((ping, i) => {
+                {/* Ping history markers (persisted after autonomy stops) */}
+                {savedPingHistory.map((ping, i) => {
                     const color =
                         ping.signal_category === "strong"
                             ? "#6ee7b7"
@@ -1389,7 +1433,7 @@ export default function InteractiveMap() {
                 })}
 
                 {/* Current autonomous target */}
-                {navState?.session?.current_target && (
+                {isAutonomous && navState?.session?.current_target && (
                     <g>
                         <circle
                             cx={navState.session.current_target.position.x}
@@ -1548,6 +1592,33 @@ export default function InteractiveMap() {
                             onLeave={() => setHoveredPointId(null)}
                         />
                     ))}
+
+                {/* Directions mode — invisible hit areas over POIs and pings for reliable clicking */}
+                {mode === "directions" &&
+                    (directionsStep === "selectDestination" || directionsStep === "review") && (
+                        <g>
+                            {points.map((p) => (
+                                <circle
+                                    key={`hit-${p.id}`}
+                                    cx={p.x}
+                                    cy={p.y - 13}
+                                    r={Math.max(20, viewBox.w * 0.025)}
+                                    fill="transparent"
+                                    style={{ cursor: "pointer" }}
+                                />
+                            ))}
+                            {savedPingHistory.map((ping, i) => (
+                                <circle
+                                    key={`hit-ping-${i}`}
+                                    cx={ping.rover_position.x}
+                                    cy={ping.rover_position.y}
+                                    r={Math.max(15, viewBox.w * 0.02)}
+                                    fill="transparent"
+                                    style={{ cursor: "pointer" }}
+                                />
+                            ))}
+                        </g>
+                    )}
 
                 {/* Pending POI (faded while editing) */}
                 {pendingPOI && (

@@ -5,8 +5,6 @@ import { useTelemetry } from "~/hooks/useTelemetry";
 interface TopBarProps {
     resourceStatus?: "safe" | "warning" | "critical";
     timeToPOI?: number; // seconds
-    missionTime?: number; // seconds
-    timeToHomebase?: number; // seconds
     roverDirection?: number; // degrees 0-360
 }
 
@@ -29,29 +27,29 @@ function degreesToCompass(deg: number | null): string {
 export default function TopBar({
     resourceStatus = "safe",
     timeToPOI: timeToPOIProp = 0,
-    missionTime: missionTimeProp = 0,
-    timeToHomebase: timeToHomebaseProp = 0,
     roverDirection: roverDirectionProp = 307,
 }: TopBarProps) {
     const [timeToPOI, setTimeToPOI] = useState(timeToPOIProp);
-    const [missionTime, setMissionTime] = useState(missionTimeProp);
-    const [timeToHomebase, setTimeToHomebase] = useState(timeToHomebaseProp);
     const [roverDirection, setRoverDirection] = useState(roverDirectionProp);
     const [status, setStatus] = useState(resourceStatus);
 
     useEffect(() => setTimeToPOI(timeToPOIProp), [timeToPOIProp]);
-    useEffect(() => setMissionTime(missionTimeProp), [missionTimeProp]);
-    useEffect(() => setTimeToHomebase(timeToHomebaseProp), [timeToHomebaseProp]);
     useEffect(() => setRoverDirection(roverDirectionProp), [roverDirectionProp]);
     useEffect(() => setStatus(resourceStatus), [resourceStatus]);
+
+    const telemetry = useTelemetry();
+    const missionTime = telemetry.getRoverElapsedTime() ?? 0;
+
+    // Time to homebase = distance from base / current speed
+    const distanceFromBase = telemetry.getRoverDistanceFromBase() ?? 0;
+    const speed = telemetry.getRoverSpeed() ?? 0;
+    const timeToHomebase = speed > 0 ? Math.round(distanceFromBase / speed) : 0;
 
     const statusLabel: Record<string, string> = {
         safe: "Safe to proceed",
         warning: "Use caution",
         critical: "Return to base",
     };
-
-    const telemetry = useTelemetry();
 
     return (
         <div className={styles.topBar}>
