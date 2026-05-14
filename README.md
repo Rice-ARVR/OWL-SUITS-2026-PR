@@ -34,7 +34,8 @@ Our design was selected as one of the top 5 PR designs in the nation, earning us
 1. Clone the repo.
 2. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
 3. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically.
-4. Add .env to server folder
+4. Add .env to client folder
+5. Add .env to server folder
 
 ### Running the App+
 
