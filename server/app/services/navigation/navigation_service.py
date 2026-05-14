@@ -185,8 +185,9 @@ async def autonomous_mission_loop():
                 continue
 
             # 1. Pathfinding: Avoid hazards and generate safe waypoints
-            safe_path = find_path_around_hazards(
-                rover_pos, target.position, state.hazards
+            # Offload math to separate worker thread
+            safe_path = await asyncio.to_thread(
+                find_path_around_hazards, rover_pos, target.position, state.hazards
             )
 
             # 2. Traverse the path using auto_drive
@@ -203,15 +204,15 @@ async def autonomous_mission_loop():
                 # Yield control to auto_drive until it arrives or fails
                 result = await auto_drive.travel(waypoint.x, waypoint.y)
 
+                # TRIGGER THE HAND-OFF TO MANUAL
                 if result != 0:
-                    logger.error(
-                        "Auto_drive failed (stuck or blocked). Aborting mission loop."
-                    )
                     path_success = False
                     break
 
             if not path_success:
-                await stop_autonomous_loop()
+                await abort_autonomous_mission(
+                    "Auto_drive failed (stuck or blocked). Control returned to operator."
+                )
                 break
 
             # 3. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
@@ -222,6 +223,22 @@ async def autonomous_mission_loop():
 
 
 # --- Mission Logic & Evaluation ---
+
+
+async def abort_autonomous_mission(reason: str) -> None:
+    """Gracefully aborts the mission, cleans up UI state, and stops the rover."""
+    logger.error(f"Mission Aborted: {reason}")
+
+    # 1. Scrub the session state so the frontend knows we are done
+    state = await navigation_state.get_snapshot()
+    if state.session:
+        state.session.phase = SearchPhase.IDLE
+        state.session.current_target = None
+        state.session.projected_path = []
+        await navigation_state.update_session(state.session)
+
+    # 2. Hand control back to the operator
+    await stop_autonomous_loop()
 
 
 async def evaluate_phase_and_ping(state: NavigationState):
