@@ -201,12 +201,20 @@ async def autonomous_mission_loop():
                 find_path_around_hazards, rover_pos, target.position, state.hazards
             )
 
-            # 3. Target Check: Abort on unreachable waypoint
+            # 3. Target Check: Attempt smart skipping if target is unreachable
             if not safe_path:
-                await abort_autonomous_mission(
-                    "Mission Aborted: Target is unreachable due to surrounding hazard barriers."
-                )
-                break
+                can_skip = await handle_unreachable_target(state)
+
+                if can_skip:
+                    logger.info(
+                        "Successfully skipped unreachable target. Restarting loop."
+                    )
+                    continue  # Jump back to the start of the while loop with the new target
+                else:
+                    await abort_autonomous_mission(
+                        "Mission Aborted: Target is unreachable and no valid skip path exists."
+                    )
+                    break
 
             # 4. Traverse the path using auto_drive
             path_success = True
@@ -257,6 +265,139 @@ async def abort_autonomous_mission(reason: str) -> None:
 
     # 2. Hand control back to the operator
     await stop_autonomous_loop()
+
+
+async def handle_unreachable_target(state: NavigationState) -> bool:
+    """
+    Attempts to skip an unreachable target based on the current search phase.
+    This provides a resilient "smart skipping" mechanism instead of a brittle hard-abort.
+
+    Returns:
+        True: If the rover successfully skipped the blocked target and re-routed.
+        False: If the target cannot be skipped (critical path) and the mission MUST abort.
+    """
+    # Pull in the global trackers for our search patterns
+    global ring_waypoints, current_ring_index, current_spiral_index
+
+    # Extract session and rover position from the current state snapshot
+    session = state.session
+    rover_pos = state.rover_position
+
+    # --- SAFETY CHECK: Guard against missing data ---
+    # Because state.session and state.rover_position are marked as `Optional` in our
+    # Pydantic models, they can be `None` if the telemetry loop hasn't initialized
+    # or the session was dropped. We must catch this before trying to access attributes
+    # like `session.phase` or `rover_pos.x` to prevent crashes.
+    if session is None or rover_pos is None:
+        logger.error(
+            "Cannot handle unreachable target: session or rover_position is None."
+        )
+        # Returning False triggers the graceful abort sequence in the mission loop
+        return False
+
+    logger.warning(
+        f"Target unreachable in phase {session.phase.value}. Attempting reroute..."
+    )
+
+    # --- PHASE: TRANSIT TO LNP (Last Nominal Position) ---
+    if session.phase == SearchPhase.TRANSIT_TO_LNP:
+        # The LNP is our primary initial destination. If the LNP itself is entirely
+        # walled off by hazards, the overarching mission is impossible to start.
+        # We cannot "skip" this, so we must return False to abort and ask for human help.
+        return False
+
+    # --- PHASE: CONCENTRIC SEARCH (The Rings) ---
+    elif session.phase == SearchPhase.CONCENTRIC_SEARCH:
+        # If a specific waypoint on the ring is blocked, it's not a big deal.
+        # We just advance the index to look at the next point on the ring.
+        current_ring_index += 1
+
+        if current_ring_index < len(ring_waypoints):
+            # We still have valid points left on the ring. Update the target to the next one.
+            session.current_target = NavigationTarget(
+                position=Position(
+                    x=ring_waypoints[current_ring_index][0],
+                    y=ring_waypoints[current_ring_index][1],
+                ),
+                description=f"Ring waypoint {current_ring_index + 1}/{len(ring_waypoints)}",
+                arrival_threshold_m=10.0,
+            )
+            # Save the updated target to state so the frontend UI line updates
+            await navigation_state.update_session(session)
+            return True
+        else:
+            # We have exhausted all waypoints in the concentric rings, and the last one
+            # happened to be blocked. We must transition to the next phase (Gradient Ascent).
+            await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+
+            # Reset the success vector to North (+Y) as a starting guess
+            session.success_vector = 0.0
+
+            # Project the first Gradient Ascent waypoint
+            session.current_target = NavigationTarget(
+                position=get_gradient_waypoint(
+                    rover_pos, session.success_vector, session.search_center
+                ),
+                description="Gradient ascent waypoint",
+                arrival_threshold_m=10.0,
+            )
+            await navigation_state.update_session(session)
+            return True
+
+    # --- PHASE: GRADIENT ASCENT (Following the Signal) ---
+    elif session.phase == SearchPhase.GRADIENT_ASCENT:
+        # In Gradient Ascent, a blocked path is treated identically to a "bad signal".
+        # If we can't drive in this direction, we increment our retry counter and
+        # rotate our search vector by 45 degrees to try a new path.
+        session.gradient_retries += 1
+        session.success_vector += 45.0
+
+        # --- LOCAL MINIMUM TRAP PREVENTER ---
+        # 8 retries * 45 degrees = 360 degrees. If we have spun in a complete circle
+        # and every path is blocked, the rover is trapped in a "cage" of hazards.
+        if session.gradient_retries >= 8:
+            return False  # Return False to trigger a manual operator abort
+
+        # If we aren't trapped yet, generate the new target along the rotated vector
+        session.current_target = NavigationTarget(
+            position=get_gradient_waypoint(
+                rover_pos, session.success_vector, session.search_center
+            ),
+            description="Gradient ascent reroute",
+            arrival_threshold_m=10.0,
+        )
+        await navigation_state.update_session(session)
+        return True
+
+    # --- PHASE: TIGHT SPIRAL (The Kill-Box) ---
+    elif session.phase == SearchPhase.TIGHT_SPIRAL:
+        # Re-generate the mathematical spiral based on the LNP center
+        spiral_points = generate_square_spiral(
+            session.search_center.x, session.search_center.y
+        )
+
+        # Increment to skip the blocked spiral point
+        current_spiral_index += 1
+
+        if spiral_points and current_spiral_index < len(spiral_points):
+            # Target the next point in the spiral sequence
+            session.current_target = NavigationTarget(
+                position=Position(
+                    x=spiral_points[current_spiral_index][0],
+                    y=spiral_points[current_spiral_index][1],
+                ),
+                description=f"Spiral waypoint {current_spiral_index}",
+                arrival_threshold_m=5.0,  # tighter arrival threshold for spiral
+            )
+            await navigation_state.update_session(session)
+            return True
+
+        # If we have exhausted all points in the generated spiral and haven't found the LTV,
+        # we have completely failed the search mission. Abort to human control.
+        return False
+
+    # Default fallback: if somehow a phase is unmatched, safely abort.
+    return False
 
 
 async def evaluate_phase_and_ping(state: NavigationState):
