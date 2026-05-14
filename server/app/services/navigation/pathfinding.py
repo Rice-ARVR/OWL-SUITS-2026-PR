@@ -4,7 +4,6 @@ from typing import List, Tuple
 from app.models.nav_model import Hazard, Position
 
 # --- Helper Types ---
-# We use Tuple[float, float] internally for speed, converting back to Position later.
 Point = Tuple[float, float]
 
 
@@ -43,24 +42,56 @@ def point_in_polygon(p: Point, polygon: List[Point]) -> bool:
 
 
 def expand_polygon(polygon: List[Point], offset: float) -> List[Point]:
+    """
+    Expands a polygon using vertex normals to ensure a uniform safety buffer,
+    resolving issues with concave shapes and centroid distortion.
+    """
     if not polygon:
         return []
 
-    # Compute centroid
-    cx = sum(p[0] for p in polygon) / len(polygon)
-    cy = sum(p[1] for p in polygon) / len(polygon)
-
+    n = len(polygon)
     expanded = []
-    # Push each vertex outward from centroid
-    for p in polygon:
-        dx, dy = p[0] - cx, p[1] - cy
-        distance = math.hypot(dx, dy)
-        if distance == 0:
-            expanded.append(p)
+
+    for i in range(n):
+        # Current vertex, previous vertex, and next vertex [cite: 40]
+        curr = polygon[i]
+        prev = polygon[(i - 1) % n]
+        nxt = polygon[(i + 1) % n]
+
+        # Calculate edge vectors [cite: 40]
+        v1 = (curr[0] - prev[0], curr[1] - prev[1])
+        v2 = (nxt[0] - curr[0], nxt[1] - curr[1])
+
+        # Normalize edge vectors
+        len1 = math.hypot(v1[0], v1[1])
+        len2 = math.hypot(v2[0], v2[1])
+
+        if len1 == 0 or len2 == 0:
+            expanded.append(curr)
+            continue
+
+        # Get unit normals for both edges (left-hand normal) [cite: 41]
+        n1 = (-v1[1] / len1, v1[0] / len1)
+        n2 = (-v2[1] / len2, v2[0] / len2)
+
+        # Average the normals to find the vertex normal [cite: 42]
+        bisector_x = n1[0] + n2[0]
+        bisector_y = n1[1] + n2[1]
+
+        bisector_len = math.hypot(bisector_x, bisector_y)
+
+        if bisector_len < 1e-6:  # Handle collinear cases
+            expanded.append((curr[0] + n1[0] * offset, curr[1] + n1[1] * offset))
         else:
+            # Scale the bisector to ensure a uniform perpendicular offset [cite: 42, 61]
+            scale = offset / (bisector_len / 2)  # Geometric compensation for the angle
             expanded.append(
-                (p[0] + (dx / distance) * offset, p[1] + (dy / distance) * offset)
+                (
+                    curr[0] + (bisector_x / bisector_len) * scale,
+                    curr[1] + (bisector_y / bisector_len) * scale,
+                )
             )
+
     return expanded
 
 
@@ -78,69 +109,50 @@ def line_clears_all_hazards(
     for poly in expanded_polygons:
         if line_intersects_polygon(a, b, poly):
             return False
-
-    # Also check midpoint isn't inside any polygon
-    mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
-    for poly in expanded_polygons:
+        # Midpoint check ensures the line doesn't cut through the hazard interior [cite: 12]
+        mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
         if point_in_polygon(mid, poly):
             return False
-
     return True
 
 
 def find_path_around_hazards(
     start: Position, end: Position, hazards: List[Hazard]
 ) -> List[Position]:
-    """
-    Uses a Visibility Graph and Dijkstra's algorithm to find the shortest
-    safe path around polygonal hazards.
-    """
-    OFFSET_M = 15.0  # Buffer distance to stay away from the edge of hazards
-
+    OFFSET_M = 15.0  # Buffer distance [cite: 13]
     start_pt = (start.x, start.y)
     end_pt = (end.x, end.y)
 
-    # Convert Hazard models to raw point lists and expand them
     expanded_polygons = []
     for h in hazards:
         raw_poly = [(p.x, p.y) for p in h.points]
         expanded_polygons.append(expand_polygon(raw_poly, OFFSET_M))
 
-    # If direct line is clear, go straight
     if line_clears_all_hazards(start_pt, end_pt, expanded_polygons):
-        return [
-            end
-        ]  # Returning just the end point implies a straight line from current position
+        return [end]
 
-    # Build visibility graph from start, end, and all expanded polygon vertices
     nodes: List[Point] = [start_pt]
-
     for poly in expanded_polygons:
         for v in poly:
-            # Only add vertices that aren't inside another polygon
-            inside_another = False
-            for other_poly in expanded_polygons:
-                if other_poly is poly:
-                    continue
-                if point_in_polygon(v, other_poly):
-                    inside_another = True
-                    break
-            if not inside_another:
+            # Graph nodes exclude vertices inside other hazard buffers [cite: 16]
+            if not any(
+                point_in_polygon(v, other)
+                for other in expanded_polygons
+                if other is not poly
+            ):
                 nodes.append(v)
 
     nodes.append(end_pt)
     n = len(nodes)
-
-    # Build adjacency matrix (Infinity implies no line of sight)
     adj = [[float("inf")] * n for _ in range(n)]
+
     for i in range(n):
         for j in range(i + 1, n):
             if line_clears_all_hazards(nodes[i], nodes[j], expanded_polygons):
                 d = dist(nodes[i], nodes[j])
-                adj[i][j] = d
-                adj[j][i] = d
+                adj[i][j] = adj[j][i] = d
 
-    # Dijkstra from node 0 (start) to node n-1 (end)
+    # Dijkstra [cite: 18, 19, 20]
     visited = [False] * n
     distances = [float("inf")] * n
     prev = [-1] * n
@@ -153,29 +165,21 @@ def find_path_around_hazards(
             if not visited[i] and distances[i] < min_dist:
                 min_dist = distances[i]
                 u = i
-
         if u == -1:
             break
-
         visited[u] = True
-
         for v in range(n):
             if not visited[v] and adj[u][v] < float("inf"):
                 alt = distances[u] + adj[u][v]
                 if alt < distances[v]:
-                    distances[v] = alt
-                    prev[v] = u
+                    distances[v], prev[v] = alt, u
 
-    # Reconstruct path
     if distances[n - 1] == float("inf"):
-        # No path found, fall back to straight line (auto_drive reactive dodge)
         return [end]
 
-    path_pts = []
-    cur = n - 1
+    path_pts, cur = [], n - 1
     while cur != -1:
         path_pts.insert(0, nodes[cur])
         cur = prev[cur]
 
-    # Convert points back to Position objects (skip the starting point itself)
     return [Position(x=p[0], y=p[1]) for p in path_pts[1:]]
