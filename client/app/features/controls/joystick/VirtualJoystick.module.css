@@ -1,170 +1,75 @@
 .container {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem;
+    justify-content: center;
     width: fit-content;
 }
 
 .joystickPad {
     position: relative;
-    width: 280px;
-    height: 280px;
-    background: linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%);
-    border-radius: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    width: 160px;
+    height: 160px;
+    background: #1e1e1e;
+    border-radius: 18px;
+    box-shadow: 0 2px 0 #111, 0 8px 28px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-/* Directional Buttons - 70px rounded squares */
-.directionButton {
+.dpad {
+    position: relative;
+    width: 124px;
+    height: 124px;
+}
+
+.btn {
     position: absolute;
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, #5a5a7e 0%, #3a3a5e 100%);
-    border: none;
-    border-radius: 16px;
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(160deg, #505050 0%, #3a3a3a 60%, #2e2e2e 100%);
+    border-radius: 10px;
     cursor: pointer;
-    transition: all 0.15s ease;
-    opacity: 0.5;
     outline: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.3);
+    transition: filter 0.08s;
 }
 
-.directionButton:hover {
-    background: linear-gradient(135deg, #6a6a8e 0%, #4a4a6e 100%);
-    opacity: 0.7;
+.btn.active {
+    filter: brightness(1.6);
+    box-shadow: 0 0 14px rgba(255,255,255,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 
-.directionButton.active {
-    opacity: 1;
-    animation: buttonPulse 0.3s ease-in-out infinite;
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
+.up    { top: 0;    left: 50%; transform: translateX(-50%); }
+.down  { bottom: 0; left: 50%; transform: translateX(-50%); }
+.left  { left: 0;  top: 50%;  transform: translateY(-50%); }
+.right { right: 0; top: 50%;  transform: translateY(-50%); }
 
-/* Button Positions */
-.up {
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.down {
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.left {
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.right {
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-/* Central Sphere - 100px glossy white ball */
-.sphere {
+.sphereWrap {
     position: absolute;
-    width: 100px;
-    height: 100px;
-    background: radial-gradient(circle at 35% 35%, #ffffff 0%, #f5f5f5 40%, #e8e8e8 100%);
-    border-radius: 50%;
-    box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.4),
-        inset -3px -3px 8px rgba(0, 0, 0, 0.2),
-        inset 3px 3px 8px rgba(255, 255, 255, 0.3),
-        0 0 20px rgba(255, 255, 255, 0.6);
+    top: 50%; left: 50%;
+    width: 56px; height: 56px;
+    margin-left: -28px; margin-top: -28px;
     z-index: 10;
+    pointer-events: none;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes buttonPulse {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
+.sphere {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 32%, #ffffff 0%, #e8e8e8 18%, #c8c8cc 42%, #9898a4 70%, #6a6a7a 100%);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.5), inset 0 -3px 8px rgba(0,0,0,0.25), inset 0 3px 6px rgba(255,255,255,0.2);
+    position: relative;
 }
 
-/* Digital Readout */
-.readout {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    background: rgba(42, 42, 62, 0.6);
-    border: 1px solid rgba(90, 90, 126, 0.4);
-    border-radius: 8px;
-    font-family: "Courier New", monospace;
-    font-size: 0.875rem;
-    color: #e8e8e8;
-    min-width: 200px;
-}
-
-.readoutRow {
-    display: flex;
-    justify-content: space-between;
-    gap: 1.5rem;
-    align-items: center;
-}
-
-.label {
-    font-weight: 500;
-    color: #a8a8c8;
-    font-size: 0.8rem;
-}
-
-.value {
-    font-weight: 600;
-    color: #f5f5f5;
-    min-width: 50px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-}
-
-/* Responsive Design */
-@media (max-width: 480px) {
-    .joystickPad {
-        width: 240px;
-        height: 240px;
-    }
-
-    .directionButton {
-        width: 60px;
-        height: 60px;
-        border-radius: 12px;
-    }
-
-    .up {
-        top: 12px;
-    }
-
-    .down {
-        bottom: 12px;
-    }
-
-    .left {
-        left: 12px;
-    }
-
-    .right {
-        right: 12px;
-    }
-
-    .sphere {
-        width: 80px;
-        height: 80px;
-    }
-
-    .readout {
-        font-size: 0.75rem;
-        padding: 0.5rem 0.75rem;
-    }
+.sphere::after {
+    content: '';
+    position: absolute;
+    top: 20%; left: 24%;
+    width: 14px; height: 9px;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.85) 0%, transparent 100%);
+    border-radius: 50%;
+    transform: rotate(-30deg);
 }
