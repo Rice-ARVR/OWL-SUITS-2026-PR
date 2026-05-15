@@ -82,8 +82,9 @@ async def start_autonomous_loop(force_reset: bool = False):
         # Wake up from a manual abort
         logger.info("Resuming aborted session. Retaining manual ping history.")
 
-        # Wake the state machine up by putting it in a baseline active phase
-        state.session.phase = SearchPhase.CONCENTRIC_SEARCH
+        # Wake the state machine up
+        # Restore the previous phase (fallback to Transit if None)
+        state.session.phase = state.session.previous_phase or SearchPhase.TRANSIT_TO_LNP
 
         # Give it a dummy target right where it is.
         # This forces the loop to instantly "arrive" and trigger a state evaluation
@@ -284,6 +285,9 @@ async def abort_autonomous_mission(reason: str) -> None:
     # 1. Scrub the session state so the frontend knows we are done
     state = await navigation_state.get_snapshot()
     if state.session:
+        # Remember what autonomous driving was doing in the last session
+        state.session.previous_phase = state.session.phase
+
         state.session.phase = SearchPhase.IDLE
         state.session.current_target = None
         state.session.projected_path = []

@@ -71,6 +71,10 @@ class SearchSession(BaseModel):
     lnp: Position
     search_center: Position
     phase: SearchPhase
+
+    # flag for memory
+    previous_phase: Optional[SearchPhase] = None
+
     success_vector: float
     ping_history: List[PingRecord]
 
