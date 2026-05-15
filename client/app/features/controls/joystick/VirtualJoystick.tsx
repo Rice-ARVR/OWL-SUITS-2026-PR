@@ -4,63 +4,74 @@ import styles from "./VirtualJoystick.module.css";
 
 const DIRECTION_THRESHOLD = 5;
 
-interface Direction {
-    up: boolean;
-    down: boolean;
-    left: boolean;
-    right: boolean;
-}
-
 export default function VirtualJoystick() {
     const { throttle, steering } = useWASD();
 
-    const knobY = useMemo(() => {
-        return (throttle / 100) * 50;
-    }, [throttle]);
-
-    const knobX = useMemo(() => {
-        return (steering * 50);
-    }, [steering]);
-
-    const directions: Direction = useMemo(() => ({
+    // Determine which directions to highlight based on input magnitude
+    const directions = useMemo(() => ({
         up: throttle > DIRECTION_THRESHOLD,
         down: throttle < -DIRECTION_THRESHOLD,
         left: steering < -DIRECTION_THRESHOLD / 50,
         right: steering > DIRECTION_THRESHOLD / 50,
     }), [throttle, steering]);
 
+    // Calculate intensity (0-1) for glow effects
+    const throttleIntensity = Math.min(Math.abs(throttle) / 100, 1);
+    const steeringIntensity = Math.min(Math.abs(steering), 1);
+
     return (
         <div className={styles.container}>
-            <h2 className={styles.title}>Virtual Joystick</h2>
+            <div className={styles.joystickPad}>
+                {/* Up Button */}
+                <button
+                    className={`${styles.directionButton} ${styles.up} ${directions.up ? styles.active : ""}`}
+                    style={{
+                        opacity: directions.up ? 1 : 0.5,
+                        boxShadow: directions.up ? `0 0 20px rgba(255, 255, 255, 0.8)` : "none",
+                    }}
+                    aria-label="Up"
+                />
 
-            <div className={styles.joystickWrapper}>
-                <div className={styles.joystick}>
-                    <div className={styles.referenceCircle} />
+                {/* Down Button */}
+                <button
+                    className={`${styles.directionButton} ${styles.down} ${directions.down ? styles.active : ""}`}
+                    style={{
+                        opacity: directions.down ? 1 : 0.5,
+                        boxShadow: directions.down ? `0 0 20px rgba(255, 255, 255, 0.8)` : "none",
+                    }}
+                    aria-label="Down"
+                />
 
-                    <div
-                        className={`${styles.directionIndicator} ${styles.up} ${directions.up ? styles.active : ""}`}
-                    />
-                    <div
-                        className={`${styles.directionIndicator} ${styles.down} ${directions.down ? styles.active : ""}`}
-                    />
-                    <div
-                        className={`${styles.directionIndicator} ${styles.left} ${directions.left ? styles.active : ""}`}
-                    />
-                    <div
-                        className={`${styles.directionIndicator} ${styles.right} ${directions.right ? styles.active : ""}`}
-                    />
+                {/* Left Button */}
+                <button
+                    className={`${styles.directionButton} ${styles.left} ${directions.left ? styles.active : ""}`}
+                    style={{
+                        opacity: directions.left ? 1 : 0.5,
+                        boxShadow: directions.left ? `0 0 20px rgba(255, 255, 255, 0.8)` : "none",
+                    }}
+                    aria-label="Left"
+                />
 
-                    <div
-                        className={styles.knob}
-                        style={{
-                            transform: `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`,
-                        }}
-                    >
-                        <div className={styles.knobInner} />
-                    </div>
-                </div>
+                {/* Right Button */}
+                <button
+                    className={`${styles.directionButton} ${styles.right} ${directions.right ? styles.active : ""}`}
+                    style={{
+                        opacity: directions.right ? 1 : 0.5,
+                        boxShadow: directions.right ? `0 0 20px rgba(255, 255, 255, 0.8)` : "none",
+                    }}
+                    aria-label="Right"
+                />
+
+                {/* Central Sphere */}
+                <div
+                    className={styles.sphere}
+                    style={{
+                        boxShadow: `0 0 ${20 + throttleIntensity * 20}px rgba(255, 255, 255, ${0.6 + throttleIntensity * 0.4})`,
+                    }}
+                />
             </div>
 
+            {/* Digital Readout */}
             <div className={styles.readout}>
                 <div className={styles.readoutRow}>
                     <span className={styles.label}>Throttle</span>
@@ -69,15 +80,6 @@ export default function VirtualJoystick() {
                 <div className={styles.readoutRow}>
                     <span className={styles.label}>Steering</span>
                     <span className={styles.value}>{steering.toFixed(2)}</span>
-                </div>
-            </div>
-
-            <div className={styles.hints}>
-                <div className={styles.hintRow}>
-                    <kbd>W</kbd> / <kbd>S</kbd> — Throttle
-                </div>
-                <div className={styles.hintRow}>
-                    <kbd>A</kbd> / <kbd>D</kbd> — Steering
                 </div>
             </div>
         </div>
