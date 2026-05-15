@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     POLL_INTERVAL: float = 1.0
     OLLAMA_URL: str = "http://host.docker.internal:11434"
     EMBED_MODEL: str = "nomic-embed-text"
-    AIA_MODEL: str = "llama3.2"
+    AIA_MODEL: str = "gemma4:e2b-it-q4_K_M"
 
     MONGODB_URL: str
     MONGO_DB: str = "app"

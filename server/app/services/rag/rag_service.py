@@ -132,7 +132,7 @@ def get_raw_context() -> str:
 
 
 # Singletons — built once at module load, reused for every request.
-_llm = ChatOllama(model="llama3.2", base_url=settings.OLLAMA_URL, keep_alive=-1)
+_llm = ChatOllama(model=settings.AIA_MODEL, base_url=settings.OLLAMA_URL, keep_alive=-1)
 
 _prompt = ChatPromptTemplate.from_messages(
     [
