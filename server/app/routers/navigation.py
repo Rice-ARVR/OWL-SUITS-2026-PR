@@ -77,6 +77,16 @@ async def get_session_status():
 async def execute_navigation_ping():
     """Execute a manual ping."""
     try:
+        # Lockout manual pings during autonomy
+        state = await navigation_state.get_snapshot()
+        if state.autonomous_driving:
+            return {
+                "success": False,
+                "error": "Manual ping disabled. Autonomous navigation is currently managing the sensor array.",
+                "rssi_value": 0.0,
+                "category": "idle",
+            }
+
         success, rssi_value, category = await execute_ping()
         return {
             "success": success,

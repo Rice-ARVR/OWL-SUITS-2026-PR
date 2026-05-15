@@ -175,11 +175,14 @@ def find_path_around_hazards(
                     distances[v], prev[v] = alt, u
 
     if distances[n - 1] == float("inf"):
-        return [end]
+        # No path found, target is walled off by hazards.
+        # Return an empty list to indicate failure.
+        return []
 
     path_pts, cur = [], n - 1
     while cur != -1:
         path_pts.insert(0, nodes[cur])
         cur = prev[cur]
 
+    # Convert points back to Position objects (skip the starting point itself)
     return [Position(x=p[0], y=p[1]) for p in path_pts[1:]]

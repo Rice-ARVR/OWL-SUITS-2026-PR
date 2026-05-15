@@ -11,6 +11,7 @@ import app.services.telemetry.telemetry_service as telemetry_service
 import app.services.telemetry.tss_client as tss_client
 from app.models.nav_model import (
     DistanceCategory,
+    Hazard,
     LidarReading,
     LidarScan,
     NavigationState,
@@ -21,7 +22,11 @@ from app.models.nav_model import (
     SearchPhase,
     SearchSession,
 )
-from app.services.navigation.pathfinding import find_path_around_hazards
+from app.services.navigation.pathfinding import (
+    expand_polygon,
+    find_path_around_hazards,
+    point_in_polygon,
+)
 from app.services.navigation.spatial_math import (
     calculate_bearing,
     calculate_distance,
@@ -73,8 +78,28 @@ async def start_autonomous_loop(force_reset: bool = False):
     if state.session is None or force_reset:
         await start_search_session()
         logger.info("New search session initialized.")
+    elif state.session.phase == SearchPhase.IDLE:
+        # Wake up from a manual abort
+        logger.info("Resuming aborted session. Retaining manual ping history.")
+
+        # Wake the state machine up
+        # Restore the previous phase (fallback to Transit if None)
+        state.session.phase = state.session.previous_phase or SearchPhase.TRANSIT_TO_LNP
+
+        # Give it a dummy target right where it is.
+        # This forces the loop to instantly "arrive" and trigger a state evaluation
+        # that will perfectly incorporate the manual pings!
+        state.session.current_target = NavigationTarget(
+            position=state.rover_position or LNP_POSITION,
+            description="Resuming from manual intervention",
+            arrival_threshold_m=5.0,
+        )
+        await navigation_state.update_session(state.session)
 
     await navigation_state.set_autonomous_driving(True)
+
+    # Let the UI know autonomy has taken over
+    await navigation_state.update_status("Autonomous navigation engaged.", "info")
 
     # Spin up the UI telemetry loop
     if _telemetry_task is None or _telemetry_task.done():
@@ -174,6 +199,10 @@ async def autonomous_mission_loop():
 
             if session.phase == SearchPhase.FOUND:
                 logger.info("LTV FOUND condition met! Ending autonomous mission.")
+                # Flag success to the UI before stopping
+                await navigation_state.update_status(
+                    "LTV Located! Mission accomplished.", "success"
+                )
                 await stop_autonomous_loop()
                 break
 
@@ -184,13 +213,34 @@ async def autonomous_mission_loop():
                 await asyncio.sleep(1)
                 continue
 
-            # 1. Pathfinding: Avoid hazards and generate safe waypoints
+            # 1. Waypoint Validation: Ensure that waypoints are not generated in hazards
+            safe_target_pos = validate_and_nudge_waypoint(
+                target.position, state.hazards, rover_pos
+            )
+            target.position = safe_target_pos
+
+            # 2. Pathfinding: Avoid hazards and generate safe waypoints
             # Offload math to separate worker thread
             safe_path = await asyncio.to_thread(
                 find_path_around_hazards, rover_pos, target.position, state.hazards
             )
 
-            # 2. Traverse the path using auto_drive
+            # 3. Target Check: Attempt smart skipping if target is unreachable
+            if not safe_path:
+                can_skip = await handle_unreachable_target(state)
+
+                if can_skip:
+                    logger.info(
+                        "Successfully skipped unreachable target. Restarting loop."
+                    )
+                    continue  # Jump back to the start of the while loop with the new target
+                else:
+                    await abort_autonomous_mission(
+                        "Mission Aborted: Target is unreachable and no valid skip path exists."
+                    )
+                    break
+
+            # 4. Traverse the path using auto_drive
             path_success = True
             for i, waypoint in enumerate(safe_path):
                 # Update the projected path so the frontend UI line adjusts dynamically
@@ -215,7 +265,7 @@ async def autonomous_mission_loop():
                 )
                 break
 
-            # 3. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
+            # 5. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
             await evaluate_phase_and_ping(state)
 
     except asyncio.CancelledError:
@@ -229,9 +279,15 @@ async def abort_autonomous_mission(reason: str) -> None:
     """Gracefully aborts the mission, cleans up UI state, and stops the rover."""
     logger.error(f"Mission Aborted: {reason}")
 
+    # Push the critical alert to the frontend
+    await navigation_state.update_status(reason, "critical")
+
     # 1. Scrub the session state so the frontend knows we are done
     state = await navigation_state.get_snapshot()
     if state.session:
+        # Remember what autonomous driving was doing in the last session
+        state.session.previous_phase = state.session.phase
+
         state.session.phase = SearchPhase.IDLE
         state.session.current_target = None
         state.session.projected_path = []
@@ -239,6 +295,144 @@ async def abort_autonomous_mission(reason: str) -> None:
 
     # 2. Hand control back to the operator
     await stop_autonomous_loop()
+
+
+async def handle_unreachable_target(state: NavigationState) -> bool:
+    """
+    Attempts to skip an unreachable target based on the current search phase.
+    This provides a resilient "smart skipping" mechanism instead of a brittle hard-abort.
+
+    Returns:
+        True: If the rover successfully skipped the blocked target and re-routed.
+        False: If the target cannot be skipped (critical path) and the mission MUST abort.
+    """
+    # Pull in the global trackers for our search patterns
+    global ring_waypoints, current_ring_index, current_spiral_index
+
+    # Extract session and rover position from the current state snapshot
+    session = state.session
+    rover_pos = state.rover_position
+
+    # --- SAFETY CHECK: Guard against missing data ---
+    # Because state.session and state.rover_position are marked as `Optional` in our
+    # Pydantic models, they can be `None` if the telemetry loop hasn't initialized
+    # or the session was dropped. We must catch this before trying to access attributes
+    # like `session.phase` or `rover_pos.x` to prevent crashes.
+    if session is None or rover_pos is None:
+        logger.error(
+            "Cannot handle unreachable target: session or rover_position is None."
+        )
+        # Returning False triggers the graceful abort sequence in the mission loop
+        return False
+
+    logger.warning(
+        f"Target unreachable in phase {session.phase.value}. Attempting reroute..."
+    )
+
+    # Notify driver that the rover is calculating a detour
+    await navigation_state.update_status(
+        f"Target blocked. Rerouting in phase: {session.phase.value}...", "warning"
+    )
+
+    # --- PHASE: TRANSIT TO LNP (Last Nominal Position) ---
+    if session.phase == SearchPhase.TRANSIT_TO_LNP:
+        # The LNP is our primary initial destination. If the LNP itself is entirely
+        # walled off by hazards, the overarching mission is impossible to start.
+        # We cannot "skip" this, so we must return False to abort and ask for human help.
+        return False
+
+    # --- PHASE: CONCENTRIC SEARCH (The Rings) ---
+    elif session.phase == SearchPhase.CONCENTRIC_SEARCH:
+        # If a specific waypoint on the ring is blocked, it's not a big deal.
+        # We just advance the index to look at the next point on the ring.
+        current_ring_index += 1
+
+        if current_ring_index < len(ring_waypoints):
+            # We still have valid points left on the ring. Update the target to the next one.
+            session.current_target = NavigationTarget(
+                position=Position(
+                    x=ring_waypoints[current_ring_index][0],
+                    y=ring_waypoints[current_ring_index][1],
+                ),
+                description=f"Ring waypoint {current_ring_index + 1}/{len(ring_waypoints)}",
+                arrival_threshold_m=10.0,
+            )
+            # Save the updated target to state so the frontend UI line updates
+            await navigation_state.update_session(session)
+            return True
+        else:
+            # We have exhausted all waypoints in the concentric rings, and the last one
+            # happened to be blocked. We must transition to the next phase (Gradient Ascent).
+            await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+
+            # Reset the success vector to North (+Y) as a starting guess
+            session.success_vector = 0.0
+
+            # Project the first Gradient Ascent waypoint
+            session.current_target = NavigationTarget(
+                position=get_gradient_waypoint(
+                    rover_pos, session.success_vector, session.search_center
+                ),
+                description="Gradient ascent waypoint",
+                arrival_threshold_m=10.0,
+            )
+            await navigation_state.update_session(session)
+            return True
+
+    # --- PHASE: GRADIENT ASCENT (Following the Signal) ---
+    elif session.phase == SearchPhase.GRADIENT_ASCENT:
+        # In Gradient Ascent, a blocked path is treated identically to a "bad signal".
+        # If we can't drive in this direction, we increment our retry counter and
+        # rotate our search vector by 45 degrees to try a new path.
+        session.gradient_retries += 1
+        session.success_vector += 45.0
+
+        # --- LOCAL MINIMUM TRAP PREVENTER ---
+        # 8 retries * 45 degrees = 360 degrees. If we have spun in a complete circle
+        # and every path is blocked, the rover is trapped in a "cage" of hazards.
+        if session.gradient_retries >= 8:
+            return False  # Return False to trigger a manual operator abort
+
+        # If we aren't trapped yet, generate the new target along the rotated vector
+        session.current_target = NavigationTarget(
+            position=get_gradient_waypoint(
+                rover_pos, session.success_vector, session.search_center
+            ),
+            description="Gradient ascent reroute",
+            arrival_threshold_m=10.0,
+        )
+        await navigation_state.update_session(session)
+        return True
+
+    # --- PHASE: TIGHT SPIRAL (The Kill-Box) ---
+    elif session.phase == SearchPhase.TIGHT_SPIRAL:
+        # Re-generate the mathematical spiral based on the LNP center
+        spiral_points = generate_square_spiral(
+            session.search_center.x, session.search_center.y
+        )
+
+        # Increment to skip the blocked spiral point
+        current_spiral_index += 1
+
+        if spiral_points and current_spiral_index < len(spiral_points):
+            # Target the next point in the spiral sequence
+            session.current_target = NavigationTarget(
+                position=Position(
+                    x=spiral_points[current_spiral_index][0],
+                    y=spiral_points[current_spiral_index][1],
+                ),
+                description=f"Spiral waypoint {current_spiral_index}",
+                arrival_threshold_m=5.0,  # tighter arrival threshold for spiral
+            )
+            await navigation_state.update_session(session)
+            return True
+
+        # If we have exhausted all points in the generated spiral and haven't found the LTV,
+        # we have completely failed the search mission. Abort to human control.
+        return False
+
+    # Default fallback: if somehow a phase is unmatched, safely abort.
+    return False
 
 
 async def evaluate_phase_and_ping(state: NavigationState):
@@ -262,11 +456,20 @@ async def evaluate_phase_and_ping(state: NavigationState):
             logger.info(
                 f"Holding position. Waiting {wait_time:.1f}s for ping cooldown..."
             )
+
+            # Let the driver know we are paused on purpose
+            await navigation_state.update_status(
+                f"Holding for Ping Cooldown ({wait_time:.0f}s)...", "info"
+            )
+
             await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
             await asyncio.sleep(wait_time)
 
     # Execute Ping
     success, rssi, _ = await execute_ping()
+
+    if success:
+        await navigation_state.update_status(f"Ping Executed. RSSI: {rssi} dBm", "info")
 
     # State Machine Transitions
     if session.phase == SearchPhase.TRANSIT_TO_LNP:
@@ -439,6 +642,56 @@ async def evaluate_phase_and_ping(state: NavigationState):
 # --- Utility Functions ---
 
 
+def validate_and_nudge_waypoint(
+    target_pos: Position, hazards: List[Hazard], rover_pos: Position
+) -> Position:
+    """
+    Checks if a target is inside a hazard and nudges it to a safe distance.
+    It does this by pulling the target back along the approach vector.
+    """
+    if not hazards:
+        return target_pos
+
+    OFFSET_M = 15.0
+    expanded_polygons = []
+    for h in hazards:
+        raw_poly = [(p.x, p.y) for p in h.points]
+        expanded_polygons.append(expand_polygon(raw_poly, OFFSET_M))
+
+    target_pt = (target_pos.x, target_pos.y)
+
+    for poly in expanded_polygons:
+        if point_in_polygon(target_pt, poly):
+            logger.warning(
+                "Safety Nudge: Generated waypoint is inside a hazard buffer. Nudging..."
+            )
+
+            # Pull the target back toward the rover until it is safely outside the polygon
+            dx = target_pos.x - rover_pos.x
+            dy = target_pos.y - rover_pos.y
+            dist = math.hypot(dx, dy)
+
+            if dist == 0:
+                return rover_pos
+
+            step_size = 2.0
+            current_dist = dist
+
+            while current_dist > 0:
+                current_dist -= step_size
+                test_pt = (
+                    rover_pos.x + (dx / dist) * current_dist,
+                    rover_pos.y + (dy / dist) * current_dist,
+                )
+                if not point_in_polygon(test_pt, poly):
+                    return Position(x=test_pt[0], y=test_pt[1])
+
+            # Fallback if the rover itself is somehow inside the buffer
+            return rover_pos
+
+    return target_pos
+
+
 def categorize_rssi(rssi_value: float) -> DistanceCategory:
     if rssi_value >= RSSI_THRESHOLDS[DistanceCategory.STRONG]:
         return DistanceCategory.STRONG
@@ -574,6 +827,18 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
         logger.info(f"Ping successful! RSSI: {rssi} dBm ({category.value})")
 
         state = await navigation_state.get_snapshot()
+
+        # If the driver pings manually before autonomy starts, there is no session.
+        # Initialize one so the backend has a place to save the history.
+        if state.session is None:
+            logger.info(
+                "Manual ping detected with no active session. Initializing dormant session."
+            )
+            state.session = await start_search_session()
+            # Set it to IDLE so the autonomy logic doesn't accidentally take over
+            state.session.phase = SearchPhase.IDLE
+            await navigation_state.update_session(state.session)
+
         session = state.session
         rover_pos = state.rover_position
 
@@ -587,6 +852,12 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
                 )
             )
             await navigation_state.update_session(session)
+
+            # Let the UI know a manual ping was recorded
+            await navigation_state.update_status(
+                f"Manual Ping Recorded. RSSI: {rssi} dBm", "info"
+            )
+
         return True, rssi, category
 
     return False, 0.0, DistanceCategory.VERY_WEAK

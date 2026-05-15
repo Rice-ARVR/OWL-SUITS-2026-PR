@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -71,6 +71,10 @@ class SearchSession(BaseModel):
     lnp: Position
     search_center: Position
     phase: SearchPhase
+
+    # flag for memory
+    previous_phase: Optional[SearchPhase] = None
+
     success_vector: float
     ping_history: List[PingRecord]
 
@@ -111,6 +115,10 @@ class NavigationState(BaseModel):
     hazards: List[Hazard] = []
     projected_path: List[Position] = []
 
+    # UI flags for driver handoff
+    status_message: str = "System Idle. Manual Control Active."
+    status_level: Literal["info", "warning", "critical", "success"] = "info"
+
 
 # --- Thread-Safe Wrapper ---
 
@@ -144,6 +152,17 @@ class NavigationStateData:
     async def set_autonomous_driving(self, enabled: bool) -> None:
         async with self._lock:
             self._data.autonomous_driving = enabled
+
+    # push UI alerts
+    async def update_status(
+        self,
+        message: str,
+        level: Literal["info", "warning", "critical", "success"] = "info",
+    ) -> None:
+        """Updates the UI status flags for frontend alerts."""
+        async with self._lock:
+            self._data.status_message = message
+            self._data.status_level = level
 
     async def get_snapshot(self) -> NavigationState:
         async with self._lock:
