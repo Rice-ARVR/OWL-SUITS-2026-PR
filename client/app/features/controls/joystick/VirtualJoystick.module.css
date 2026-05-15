@@ -2,139 +2,110 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
     padding: 1rem;
-    background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
-    border: 2px solid #00d4ff;
-    border-radius: 12px;
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), inset 0 0 20px rgba(0, 212, 255, 0.1);
     width: fit-content;
-    user-select: none;
 }
 
-.title {
-    margin: 0;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #00d4ff;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.joystickWrapper {
+.joystickPad {
     position: relative;
-    width: 220px;
-    height: 220px;
+    width: 280px;
+    height: 280px;
+    background: linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%);
+    border-radius: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at center, #0f1429 0%, #050a1a 100%);
-    border: 2px dashed #00d4ff;
-    border-radius: 50%;
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.2);
 }
 
-.joystick {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-.referenceCircle {
+/* Directional Buttons - 70px rounded squares */
+.directionButton {
     position: absolute;
-    top: 50%;
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, #5a5a7e 0%, #3a3a5e 100%);
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    opacity: 0.5;
+    outline: none;
+}
+
+.directionButton:hover {
+    background: linear-gradient(135deg, #6a6a8e 0%, #4a4a6e 100%);
+    opacity: 0.7;
+}
+
+.directionButton.active {
+    opacity: 1;
+    animation: buttonPulse 0.3s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Button Positions */
+.up {
+    top: 16px;
     left: 50%;
+    transform: translateX(-50%);
+}
+
+.down {
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.left {
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.right {
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Central Sphere - 100px glossy white ball */
+.sphere {
+    position: absolute;
     width: 100px;
     height: 100px;
-    border: 1px dashed rgba(0, 212, 255, 0.3);
+    background: radial-gradient(circle at 35% 35%, #ffffff 0%, #f5f5f5 40%, #e8e8e8 100%);
     border-radius: 50%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-}
-
-.knob {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 40px;
-    height: 40px;
-    transform: translate(-50%, -50%);
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.4),
+        inset -3px -3px 8px rgba(0, 0, 0, 0.2),
+        inset 3px 3px 8px rgba(255, 255, 255, 0.3),
+        0 0 20px rgba(255, 255, 255, 0.6);
     z-index: 10;
-    transition: transform 0.05s linear;
 }
 
-.knobInner {
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle at 30% 30%, #00ffff, #00d4ff);
-    border-radius: 50%;
-    box-shadow: 0 0 15px #00d4ff, 0 0 30px rgba(0, 212, 255, 0.6), inset -2px -2px 5px rgba(0, 0, 0, 0.5);
-    border: 2px solid #00d4ff;
-}
-
-.directionIndicator {
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    background: #00d4ff;
-    border-radius: 50%;
-    opacity: 0.3;
-    transition: opacity 0.1s ease;
-    box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
-}
-
-.directionIndicator.active {
-    opacity: 1;
-    animation: pulse 0.3s ease-in-out infinite;
-    box-shadow: 0 0 12px #00d4ff, 0 0 24px rgba(0, 212, 255, 0.8);
-}
-
-.directionIndicator.up {
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.directionIndicator.down {
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.directionIndicator.left {
-    left: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.directionIndicator.right {
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-@keyframes pulse {
+@keyframes buttonPulse {
     0%, 100% {
         transform: scale(1);
-        opacity: 1;
     }
     50% {
-        transform: scale(1.5);
-        opacity: 0.7;
+        transform: scale(1.05);
     }
 }
 
+/* Digital Readout */
 .readout {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    background: rgba(0, 212, 255, 0.05);
-    border: 1px solid rgba(0, 212, 255, 0.2);
-    border-radius: 6px;
+    background: rgba(42, 42, 62, 0.6);
+    border: 1px solid rgba(90, 90, 126, 0.4);
+    border-radius: 8px;
     font-family: "Courier New", monospace;
     font-size: 0.875rem;
-    color: #00d4ff;
+    color: #e8e8e8;
+    min-width: 200px;
 }
 
 .readoutRow {
@@ -146,69 +117,54 @@
 
 .label {
     font-weight: 500;
-    color: rgba(0, 212, 255, 0.7);
+    color: #a8a8c8;
+    font-size: 0.8rem;
 }
 
 .value {
     font-weight: 600;
-    color: #00d4ff;
+    color: #f5f5f5;
     min-width: 50px;
     text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
-.hints {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-    color: rgba(0, 212, 255, 0.6);
-    text-align: center;
-}
-
-.hintRow {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-    align-items: center;
-}
-
-kbd {
-    padding: 0.2rem 0.4rem;
-    background: rgba(0, 212, 255, 0.1);
-    border: 1px solid rgba(0, 212, 255, 0.3);
-    border-radius: 3px;
-    font-family: monospace;
-    font-size: 0.7rem;
-    color: #00d4ff;
-    font-weight: 600;
-}
-
+/* Responsive Design */
 @media (max-width: 480px) {
-    .container {
-        padding: 0.75rem;
-        gap: 1rem;
+    .joystickPad {
+        width: 240px;
+        height: 240px;
     }
 
-    .joystickWrapper {
-        width: 180px;
-        height: 180px;
+    .directionButton {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
     }
 
-    .title {
-        font-size: 0.75rem;
+    .up {
+        top: 12px;
+    }
+
+    .down {
+        bottom: 12px;
+    }
+
+    .left {
+        left: 12px;
+    }
+
+    .right {
+        right: 12px;
+    }
+
+    .sphere {
+        width: 80px;
+        height: 80px;
     }
 
     .readout {
         font-size: 0.75rem;
         padding: 0.5rem 0.75rem;
-        gap: 0.375rem;
-    }
-
-    .readoutRow {
-        gap: 1rem;
-    }
-
-    .hints {
-        font-size: 0.65rem;
     }
 }
