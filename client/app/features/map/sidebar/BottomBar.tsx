@@ -190,7 +190,11 @@ export default function BottomBar({
                 <button
                     className={`${styles.controlBtn} ${isSignaling ? styles.controlBtnActive : ""}`}
                     onClick={() => {
-                        if (!isSignaling) onSignalLTV?.();
+                        if (!isSignaling && !isAutonomous) onSignalLTV?.();
+                    }}
+                    style={{
+                        opacity: isAutonomous ? 0.4 : undefined,
+                        cursor: isAutonomous ? "not-allowed" : undefined,
                     }}
                 >
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
