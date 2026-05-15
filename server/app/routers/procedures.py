@@ -1,13 +1,13 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-
-from app.services.rag.procedures_service import get_all_procedures, set_procedure
+from app.services.rag.procedures_service import get_all_procedures, set_procedure, get_procedures_context
 
 router = APIRouter()
 
 
 @router.get("/procedures")
 async def list_procedures():
+    print(get_procedures_context())
     return JSONResponse(get_all_procedures())
 
 

@@ -96,7 +96,7 @@ Sammy: "Scrubber A is at 62% — vent it now using the CO2 switch on your DCU."
 === LIVE TSS TELEMETRY ===
 {telemetry}
 
-=== PROCEDURES & TASKS ===
+=== ACTIVE MISSION TASKS & PROCEDURES ===
 {procedures}
 
 === RELEVANT MISSION DOCUMENTS ===

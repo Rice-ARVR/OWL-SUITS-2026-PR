@@ -37,8 +37,8 @@ def get_all_procedures() -> list[dict]:
 
 
 def get_procedures_context() -> str:
-    lines = ["=== ACTIVE MISSION CHECKLIST ==="]
+    lines = []
     for id, desc in _PROCEDURES.items():
-        mark = "x" if _state[id] else " "
+        mark = "complete" if _state[id] else "incomplete"
         lines.append(f"[{mark}] {id}. {desc}")
     return "\n".join(lines)
