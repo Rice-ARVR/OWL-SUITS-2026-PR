@@ -807,6 +807,18 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
         logger.info(f"Ping successful! RSSI: {rssi} dBm ({category.value})")
 
         state = await navigation_state.get_snapshot()
+
+        # If the driver pings manually before autonomy starts, there is no session.
+        # Initialize one so the backend has a place to save the history.
+        if state.session is None:
+            logger.info(
+                "Manual ping detected with no active session. Initializing dormant session."
+            )
+            state.session = await start_search_session()
+            # Set it to IDLE so the autonomy logic doesn't accidentally take over
+            state.session.phase = SearchPhase.IDLE
+            await navigation_state.update_session(state.session)
+
         session = state.session
         rover_pos = state.rover_position
 
@@ -820,6 +832,12 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
                 )
             )
             await navigation_state.update_session(session)
+
+            # Let the UI know a manual ping was recorded
+            await navigation_state.update_status(
+                f"Manual Ping Recorded. RSSI: {rssi} dBm", "info"
+            )
+
         return True, rssi, category
 
     return False, 0.0, DistanceCategory.VERY_WEAK
