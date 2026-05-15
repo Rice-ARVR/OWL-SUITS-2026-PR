@@ -81,6 +81,9 @@ async def start_autonomous_loop(force_reset: bool = False):
 
     await navigation_state.set_autonomous_driving(True)
 
+    # Let the UI know autonomy has taken over
+    await navigation_state.update_status("Autonomous navigation engaged.", "info")
+
     # Spin up the UI telemetry loop
     if _telemetry_task is None or _telemetry_task.done():
         _telemetry_task = asyncio.create_task(telemetry_monitoring_loop())
@@ -179,6 +182,10 @@ async def autonomous_mission_loop():
 
             if session.phase == SearchPhase.FOUND:
                 logger.info("LTV FOUND condition met! Ending autonomous mission.")
+                # Flag success to the UI before stopping
+                await navigation_state.update_status(
+                    "LTV Located! Mission accomplished.", "success"
+                )
                 await stop_autonomous_loop()
                 break
 
@@ -255,6 +262,9 @@ async def abort_autonomous_mission(reason: str) -> None:
     """Gracefully aborts the mission, cleans up UI state, and stops the rover."""
     logger.error(f"Mission Aborted: {reason}")
 
+    # Push the critical alert to the frontend
+    await navigation_state.update_status(reason, "critical")
+
     # 1. Scrub the session state so the frontend knows we are done
     state = await navigation_state.get_snapshot()
     if state.session:
@@ -297,6 +307,11 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
 
     logger.warning(
         f"Target unreachable in phase {session.phase.value}. Attempting reroute..."
+    )
+
+    # Notify driver that the rover is calculating a detour
+    await navigation_state.update_status(
+        f"Target blocked. Rerouting in phase: {session.phase.value}...", "warning"
     )
 
     # --- PHASE: TRANSIT TO LNP (Last Nominal Position) ---
@@ -421,11 +436,20 @@ async def evaluate_phase_and_ping(state: NavigationState):
             logger.info(
                 f"Holding position. Waiting {wait_time:.1f}s for ping cooldown..."
             )
+
+            # Let the driver know we are paused on purpose
+            await navigation_state.update_status(
+                f"Holding for Ping Cooldown ({wait_time:.0f}s)...", "info"
+            )
+
             await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
             await asyncio.sleep(wait_time)
 
     # Execute Ping
     success, rssi, _ = await execute_ping()
+
+    if success:
+        await navigation_state.update_status(f"Ping Executed. RSSI: {rssi} dBm", "info")
 
     # State Machine Transitions
     if session.phase == SearchPhase.TRANSIT_TO_LNP:
