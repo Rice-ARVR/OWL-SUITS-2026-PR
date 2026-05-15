@@ -12,6 +12,7 @@ from langchain_ollama import ChatOllama
 from app.core.config import settings
 
 from .document_service import get_retriever
+from .procedures_service import get_procedures_context
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,9 @@ Sammy: "Scrubber A is at 62% — vent it now using the CO2 switch on your DCU."
 === LIVE TSS TELEMETRY ===
 {telemetry}
 
+=== PROCEDURES & TASKS ===
+{procedures}
+
 === RELEVANT MISSION DOCUMENTS ===
 {documents}"""
 
@@ -147,6 +151,7 @@ _chain_no_rag = (
     {
         "question": itemgetter("question"),
         "telemetry": RunnableLambda(lambda _: _read_telemetry()),
+        "procedures": RunnableLambda(lambda _: get_procedures_context()),
         "documents": RunnableLambda(lambda _: "(Document retrieval disabled.)"),
         "chat_history": itemgetter("chat_history"),
     }
@@ -166,6 +171,7 @@ def _get_rag_chain():
             {
                 "question": itemgetter("question"),
                 "telemetry": RunnableLambda(lambda _: _read_telemetry()),
+                "procedures": RunnableLambda(lambda _: get_procedures_context()),
                 "documents": itemgetter("question") | get_retriever() | RunnableLambda(_format_docs),
                 "chat_history": itemgetter("chat_history"),
             }
