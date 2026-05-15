@@ -72,7 +72,7 @@ class SearchSession(BaseModel):
     search_center: Position
     phase: SearchPhase
 
-    # flag for memory
+    # memory flag
     previous_phase: Optional[SearchPhase] = None
 
     success_vector: float
