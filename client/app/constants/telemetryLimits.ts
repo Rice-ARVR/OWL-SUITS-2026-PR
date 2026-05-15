@@ -43,7 +43,7 @@ export const EVA_LIMITS = {
 export const ROVER_LIMITS = {
     cabin_temperature: { min: 0, max: 30, safeMin: 10, safeMax: 21 },
     oxygen_storage: { min: 0, max: 100, safeMin: 25, safeMax: 100 },
-    oxygen_pressure: { min: 2990, max: 3005, safeMin: 2997, safeMax: 3000 },
+    oxygen_pressure: { min: 0, max: 3000, safeMin: 2997, safeMax: 3000 },
     cabin_pressure: { min: 3.0, max: 5.0, safeMin: 3.5, safeMax: 4.1 },
     coolant_pressure: { min: 490, max: 510, safeMin: 495, safeMax: 501 },
     coolant_storage: { min: 0, max: 100, safeMin: 80, safeMax: 100 },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import typo from "~/components/ui/typography.module.css";
 
@@ -31,18 +31,24 @@ export default function Graph({
     borderBottom = true,
     isWarning,
 }: GraphProps) {
+    const clipId = useId();
     const statusLabel = isWarning !== undefined ? (isWarning ? "Unsafe" : "Safe") : null;
     const statusColor = isWarning ? "#F59095" : "#9DE4CE";
     const fillColor = isWarning ? "#5C5357" : "#6F7674";
 
     const [history, setHistory] = useState<(number | null)[]>([]);
+    const valueRef = useRef(value);
+    valueRef.current = value;
 
     useEffect(() => {
-        setHistory((prev) => {
-            const next = [...prev, value];
-            return next.length > MAX_POINTS ? next.slice(-MAX_POINTS) : next;
-        });
-    }, [value]);
+        const id = setInterval(() => {
+            setHistory((prev) => {
+                const next = [...prev, valueRef.current];
+                return next.length > MAX_POINTS ? next.slice(-MAX_POINTS) : next;
+            });
+        }, 1000);
+        return () => clearInterval(id);
+    }, []);
 
     const values = history.filter((v): v is number => v !== null);
 
@@ -53,10 +59,10 @@ export default function Graph({
     let yMin: number;
     let yMax: number;
     if (min !== undefined && max !== undefined) {
-        const windowSize = (max - min) * 0.2;
-        const latest = currentVal ?? (values.length ? values[values.length - 1] : min);
+        const windowSize = (max - min) * 0.1;
+        const latest = value ?? currentVal ?? (values.length ? values[values.length - 1] : min);
         const windowIndex = Math.floor((latest - min) / windowSize);
-        const clampedIndex = Math.max(0, Math.min(4, windowIndex));
+        const clampedIndex = Math.max(0, Math.min(9, windowIndex));
         yMin = min + clampedIndex * windowSize;
         yMax = yMin + windowSize;
     } else {
@@ -120,7 +126,7 @@ export default function Graph({
         >
             <svg width={W} height={H} style={{ overflow: "visible", flexShrink: 0 }}>
                 <defs>
-                    <clipPath id="plot-area">
+                    <clipPath id={clipId}>
                         <rect x={PAD.left} y={PAD.top} width={plotW} height={plotH} />
                     </clipPath>
                 </defs>
@@ -169,7 +175,7 @@ export default function Graph({
                         </text>
                     );
                 })}
-                <g clipPath="url(#plot-area)">
+                <g clipPath={`url(#${clipId})`}>
                     {fills.map((d, i) => (
                         <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
                     ))}
