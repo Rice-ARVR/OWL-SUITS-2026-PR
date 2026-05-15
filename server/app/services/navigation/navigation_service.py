@@ -78,6 +78,22 @@ async def start_autonomous_loop(force_reset: bool = False):
     if state.session is None or force_reset:
         await start_search_session()
         logger.info("New search session initialized.")
+    elif state.session.phase == SearchPhase.IDLE:
+        # Wake up from a manual abort
+        logger.info("Resuming aborted session. Retaining manual ping history.")
+
+        # Wake the state machine up by putting it in a baseline active phase
+        state.session.phase = SearchPhase.CONCENTRIC_SEARCH
+
+        # Give it a dummy target right where it is.
+        # This forces the loop to instantly "arrive" and trigger a state evaluation
+        # that will perfectly incorporate the manual pings!
+        state.session.current_target = NavigationTarget(
+            position=state.rover_position or LNP_POSITION,
+            description="Resuming from manual intervention",
+            arrival_threshold_m=5.0,
+        )
+        await navigation_state.update_session(state.session)
 
     await navigation_state.set_autonomous_driving(True)
 
