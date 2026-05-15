@@ -14,10 +14,10 @@ export const EVA_LIMITS = {
     temperature: { min: 0, max: 40, safeMin: 10, safeMax: 32 },
     heart_rate: { min: 40, max: 180, safeMin: 50, safeMax: 160 },
     // Suit pressure
-    suit_pressure_oxy: { min: 3.0, max: 5.0, safeMin: 3.5, safeMax: 4.1 },
+    suit_pressure_oxy: { min: 0, max: 5.0, safeMin: 3.5, safeMax: 4.1 },
     suit_pressure_co2: { min: 0, max: 0.2, safeMin: 0.0, safeMax: 0.1 },
     suit_pressure_other: { min: 0, max: 1.0, safeMin: 0.0, safeMax: 0.5 },
-    suit_pressure_total: { min: 3.0, max: 5.0, safeMin: 3.5, safeMax: 4.5 },
+    suit_pressure_total: { min: 0, max: 5.0, safeMin: 3.5, safeMax: 4.5 },
     helmet_pressure_co2: { min: 0, max: 0.3, safeMin: 0.0, safeMax: 0.15 },
     // CO2
     co2_production: { min: 0, max: 0.2, safeMin: 0.05, safeMax: 0.15 },

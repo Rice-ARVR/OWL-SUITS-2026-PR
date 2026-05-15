@@ -8,6 +8,7 @@ interface GraphProps {
     unit?: string;
     min?: number;
     max?: number;
+    windowFraction?: number;
     borderTop?: boolean;
     borderBottom?: boolean;
     isWarning?: boolean;
@@ -27,6 +28,7 @@ export default function Graph({
     unit = "",
     min,
     max,
+    windowFraction = 0.1,
     borderTop = true,
     borderBottom = true,
     isWarning,
@@ -59,10 +61,11 @@ export default function Graph({
     let yMin: number;
     let yMax: number;
     if (min !== undefined && max !== undefined) {
-        const windowSize = (max - min) * 0.1;
+        const windowSize = (max - min) * windowFraction;
         const latest = value ?? currentVal ?? (values.length ? values[values.length - 1] : min);
         const windowIndex = Math.floor((latest - min) / windowSize);
-        const clampedIndex = Math.max(0, Math.min(9, windowIndex));
+        const maxBandIndex = Math.round(1 / windowFraction) - 1;
+        const clampedIndex = Math.max(0, Math.min(maxBandIndex, windowIndex));
         yMin = min + clampedIndex * windowSize;
         yMax = yMin + windowSize;
     } else {
