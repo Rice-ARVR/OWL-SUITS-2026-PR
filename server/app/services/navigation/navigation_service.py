@@ -79,16 +79,11 @@ async def start_autonomous_loop(force_reset: bool = False):
         await start_search_session()
         logger.info("New search session initialized.")
     elif state.session.phase == SearchPhase.IDLE:
-        # Wake up from a manual abort
-        logger.info("Resuming aborted session. Retaining manual ping history.")
+        logger.info("Resuming aborted session. Restoring previous phase.")
 
-        # Wake the state machine up
-        # Restore the previous phase (fallback to Transit if None)
+        # restore the previous phase (fallback to Transit if None)
         state.session.phase = state.session.previous_phase or SearchPhase.TRANSIT_TO_LNP
 
-        # Give it a dummy target right where it is.
-        # This forces the loop to instantly "arrive" and trigger a state evaluation
-        # that will perfectly incorporate the manual pings!
         state.session.current_target = NavigationTarget(
             position=state.rover_position or LNP_POSITION,
             description="Resuming from manual intervention",
@@ -285,7 +280,7 @@ async def abort_autonomous_mission(reason: str) -> None:
     # 1. Scrub the session state so the frontend knows we are done
     state = await navigation_state.get_snapshot()
     if state.session:
-        # Remember what autonomous driving was doing in the last session
+        # Save the current phase to memory before scrubbing
         state.session.previous_phase = state.session.phase
 
         state.session.phase = SearchPhase.IDLE
@@ -828,20 +823,35 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
 
         state = await navigation_state.get_snapshot()
 
-        # If the driver pings manually before autonomy starts, there is no session.
-        # Initialize one so the backend has a place to save the history.
+        # 1. Dormant Session Fix
         if state.session is None:
             logger.info(
                 "Manual ping detected with no active session. Initializing dormant session."
             )
             state.session = await start_search_session()
-            # Set it to IDLE so the autonomy logic doesn't accidentally take over
             state.session.phase = SearchPhase.IDLE
             await navigation_state.update_session(state.session)
 
         session = state.session
         rover_pos = state.rover_position
 
+        # 2. THE TELEMETRY DEADLOCK FIX
+        # If autonomy hasn't started yet, the background loop isn't updating rover_pos.
+        # We must fetch the coordinates manually so the ping can be mapped!
+        if rover_pos is None:
+            try:
+                rover_data = await tss_client.fetch_json(tss_client.COMMAND_ROVER)
+                if rover_data:
+                    rover_pos = Position(
+                        x=rover_data.get("pos_x", 0.0),
+                        y=rover_data.get("pos_y", 0.0),
+                        heading=rover_data.get("heading", 0.0),
+                    )
+                    await navigation_state.update_rover_position(rover_pos)
+            except Exception as e:
+                logger.error(f"Failed to fetch rover position for manual ping: {e}")
+
+        # Now that we guarantee we have a session AND a position, save the ping.
         if session is not None and rover_pos is not None:
             session.ping_history.append(
                 PingRecord(
