@@ -23,20 +23,31 @@ import { RoverIcon } from "./map-components/RoverIcon";
 import mockNavState from "./mock-nav-state.json";
 
 // Set to true to use mock navigation data instead of the live backend
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 
 // ── Main map component ─────────────────────────────────
 
+type ManualPingResult = {
+    rssi_value: number;
+    category: string;
+} | null;
+
 interface InteractiveMapProps {
     onAutonomyChange?: (isAutonomous: boolean) => void;
+    onCurrentTargetChange?: (pos: { x: number; y: number } | null) => void;
     stopAutonomyRef?: React.MutableRefObject<(() => void) | undefined>;
     isSignaling?: boolean;
+    signalStatus?: "pending" | "success" | "failed";
+    lastManualPing?: ManualPingResult;
 }
 
 export default function InteractiveMap({
     onAutonomyChange,
+    onCurrentTargetChange,
     stopAutonomyRef,
     isSignaling = false,
+    signalStatus = "pending",
+    lastManualPing,
 }: InteractiveMapProps) {
     const svgRef = useRef<SVGSVGElement>(null);
 
@@ -73,6 +84,12 @@ export default function InteractiveMap({
     useEffect(() => {
         onAutonomyChange?.(isAutonomous);
     }, [isAutonomous, onAutonomyChange]);
+
+    // Notify parent when current target changes
+    useEffect(() => {
+        const target = navState?.session?.current_target?.position ?? null;
+        onCurrentTargetChange?.(target ?? null);
+    }, [navState?.session?.current_target, onCurrentTargetChange]);
 
     // Auto-center map on rover when position changes significantly
     const lastCenteredRef = useRef<{ x: number; y: number } | null>(null);
@@ -113,6 +130,22 @@ export default function InteractiveMap({
             setSavedPingHistory(navState.session.ping_history);
         }
     }, [navState?.session?.ping_history]);
+
+    // Append manual pings (fired outside of autonomous mode) to saved history
+    const lastProcessedPingRef = useRef<ManualPingResult>(null);
+    useEffect(() => {
+        if (!lastManualPing || lastManualPing === lastProcessedPingRef.current) return;
+        lastProcessedPingRef.current = lastManualPing;
+
+        setSavedPingHistory((prev) => [
+            ...prev,
+            {
+                rover_position: { x: roverPosition.x, y: roverPosition.y },
+                rssi: lastManualPing.rssi_value,
+                signal_category: lastManualPing.category,
+            },
+        ]);
+    }, [lastManualPing, roverPosition.x, roverPosition.y]);
 
     // FAB menu
     const [showAddMenu, setShowAddMenu] = useState(false);
@@ -969,42 +1002,6 @@ export default function InteractiveMap({
                 </div>
             )}
 
-            {/* ── Signaling LTV Panel (top-left) ── */}
-            {isSignaling && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="2.5" fill="#6ee7b7" />
-                            <path
-                                d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                            />
-                            <path
-                                d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                            />
-                            <path
-                                d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                            />
-                            <path
-                                d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <span className={styles.panelTitle}>Signaling LTV</span>
-                    </div>
-                </div>
-            )}
-
             {/* ── Manual mode confirmation overlay ── */}
             {showManualConfirm && (
                 <div className={styles.confirmOverlay}>
@@ -1027,56 +1024,112 @@ export default function InteractiveMap({
                 </div>
             )}
 
-            {/* ── Autonomous Navigation Status Panel (top-left) ── */}
-            {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <circle
-                                cx="11"
-                                cy="11"
-                                r="7"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                fill="none"
-                            />
-                            <line
-                                x1="16.5"
-                                y1="16.5"
-                                x2="21"
-                                y2="21"
-                                stroke="#6ee7b7"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <span className={styles.panelTitle}>Autonomous Navigation</span>
-                        <button className={styles.panelClose} onClick={handleManualModeRequest}>
-                            ×
-                        </button>
-                    </div>
+            {/* ── Autonomous Navigation Status Panel + Signaling LTV (top-left, stacked) ── */}
+            {(isAutonomous || isSignaling) && (
+                <div className={styles.panelStack}>
+                    {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <circle
+                                        cx="11"
+                                        cy="11"
+                                        r="7"
+                                        stroke="#6ee7b7"
+                                        strokeWidth="2"
+                                        fill="none"
+                                    />
+                                    <line
+                                        x1="16.5"
+                                        y1="16.5"
+                                        x2="21"
+                                        y2="21"
+                                        stroke="#6ee7b7"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                <span className={styles.panelTitle}>Autonomous Navigation</span>
+                                <button
+                                    className={styles.panelClose}
+                                    onClick={handleManualModeRequest}
+                                >
+                                    ×
+                                </button>
+                            </div>
 
-                    <div className={styles.autoStatusBody}>
-                        <div className={styles.autoPhaseRow}>
-                            <span className={styles.autoLabel}>Phase</span>
-                            <span className={styles.autoPhaseBadge}>
-                                {navState.session.phase.replace(/_/g, " ")}
-                            </span>
+                            <div className={styles.autoStatusBody}>
+                                <div className={styles.autoPhaseRow}>
+                                    <span className={styles.autoLabel}>Phase</span>
+                                    <span className={styles.autoPhaseBadge}>
+                                        {navState.session.phase.replace(/_/g, " ")}
+                                    </span>
+                                </div>
+
+                                {navState.session.current_target && (
+                                    <div className={styles.autoTargetBox}>
+                                        <span className={styles.autoLabel}>Current Target</span>
+                                        <span className={styles.autoTargetDesc}>
+                                            {navState.session.current_target.description}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={styles.stopAutonomyBtn}
+                                onClick={handleManualModeRequest}
+                            >
+                                Stop Autonomous Navigation
+                            </button>
                         </div>
+                    )}
 
-                        {navState.session.current_target && (
-                            <div className={styles.autoTargetBox}>
-                                <span className={styles.autoLabel}>Current Target</span>
-                                <span className={styles.autoTargetDesc}>
-                                    {navState.session.current_target.description}
+                    {isSignaling && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="2.5"
+                                        fill={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                    />
+                                    <path
+                                        d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                <span className={styles.panelTitle}>
+                                    {signalStatus === "pending"
+                                        ? "Signaling LTV"
+                                        : signalStatus === "success"
+                                          ? "Signal Success"
+                                          : "Signal Failed"}
                                 </span>
                             </div>
-                        )}
-                    </div>
-
-                    <button className={styles.stopAutonomyBtn} onClick={handleManualModeRequest}>
-                        Stop Autonomous Navigation
-                    </button>
+                        </div>
+                    )}
                 </div>
             )}
 
