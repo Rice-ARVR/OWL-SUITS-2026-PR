@@ -10,6 +10,8 @@ export interface PingRecord {
 export interface NavState {
     autonomous_driving: boolean;
     rover_position: { x: number; y: number; heading: number | null } | null;
+    status_message: string;
+    status_level: "info" | "warning" | "critical" | "success";
     session: {
         session_id: string;
         phase: string;

@@ -120,6 +120,23 @@ export default function InteractiveMap({
     const [ltvX, setLtvX] = useState("");
     const [ltvY, setLtvY] = useState("");
     const [showManualConfirm, setShowManualConfirm] = useState(false);
+    const [criticalAlert, setCriticalAlert] = useState<string | null>(null);
+
+    // Show popup when status hits critical (backend may already set autonomous_driving=false)
+    const prevStatusLevelRef = useRef<string | undefined>(undefined);
+    useEffect(() => {
+        const level = navState?.status_level;
+        if (
+            level === "critical" &&
+            prevStatusLevelRef.current !== "critical" &&
+            navState?.status_message
+        ) {
+            setCriticalAlert(navState.status_message);
+            const timer = setTimeout(() => setCriticalAlert(null), 5000);
+            return () => clearTimeout(timer);
+        }
+        prevStatusLevelRef.current = level;
+    }, [navState?.status_level, navState?.status_message]);
     const [savedPingHistory, setSavedPingHistory] = useState<
         { rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
     >([]);
@@ -621,167 +638,6 @@ export default function InteractiveMap({
 
     return (
         <div className={styles.wrapper}>
-            {/* ── Plot Hazard / Add POI Panel (top-left) ── */}
-            {showPanel && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            {mode === "plotHazard" ? (
-                                <polygon
-                                    points="12,2 22,20 2,20"
-                                    stroke="#6ee7b7"
-                                    strokeWidth="2"
-                                    fill="none"
-                                    strokeDasharray="3 2"
-                                />
-                            ) : (
-                                <>
-                                    <circle cx="12" cy="12" r="3" fill="#6ee7b7" />
-                                    <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="9"
-                                        stroke="#6ee7b7"
-                                        strokeWidth="2"
-                                        fill="none"
-                                    />
-                                </>
-                            )}
-                        </svg>
-                        <span className={styles.panelTitle}>
-                            {mode === "plotHazard" ? "Plot a Hazard" : "Add POI"}
-                        </span>
-                        <button
-                            className={styles.panelClose}
-                            onClick={() => {
-                                if (mode === "addPOI" && pendingPOI) {
-                                    cancelPOI();
-                                } else {
-                                    cancelAll();
-                                }
-                            }}
-                        >
-                            ×
-                        </button>
-                    </div>
-
-                    {mode === "plotHazard" && activeHazard && (
-                        <>
-                            <span className={styles.pointCount}>
-                                {activeHazard.points.length} point
-                                {activeHazard.points.length !== 1 ? "s" : ""} placed
-                            </span>
-                            <div className={styles.panelActions}>
-                                <button className={styles.undoBtn} onClick={undoLastPoint}>
-                                    Undo
-                                </button>
-                                {activeHazard.points.length >= 2 && (
-                                    <button className={styles.doneBtn} onClick={finishPlotting}>
-                                        ✓ Done
-                                    </button>
-                                )}
-                            </div>
-                        </>
-                    )}
-
-                    {mode === "plotHazard" && !activeHazard && (
-                        <p className={styles.panelHint}>Click on the map to place points</p>
-                    )}
-
-                    {mode === "addPOI" && poiStep === "placing" && (
-                        <p className={styles.panelHint}>Click on the map to add a POI</p>
-                    )}
-
-                    {mode === "addPOI" && poiStep === "naming" && pendingPOI && (
-                        <div className={styles.poiForm}>
-                            <label className={styles.poiLabel}>Name</label>
-                            <input
-                                type="text"
-                                className={styles.poiInput}
-                                value={poiName}
-                                onChange={(e) => setPoiName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        confirmPOIName();
-                                    }
-                                }}
-                                autoFocus
-                                placeholder="POI name..."
-                            />
-                            <button className={styles.doneBtn} onClick={confirmPOIName}>
-                                Next
-                            </button>
-                        </div>
-                    )}
-
-                    {mode === "addPOI" && poiStep === "describing" && pendingPOI && (
-                        <div className={styles.poiForm}>
-                            <label className={styles.poiLabel}>Description</label>
-                            <textarea
-                                className={styles.poiTextarea}
-                                value={poiDescription}
-                                onChange={(e) => setPoiDescription(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !e.shiftKey) {
-                                        e.preventDefault();
-                                        confirmPOIDescription();
-                                    }
-                                }}
-                                autoFocus
-                                placeholder="Description (optional)..."
-                                rows={3}
-                            />
-                            <button className={styles.doneBtn} onClick={confirmPOIDescription}>
-                                ✓ Add POI
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ── Add Details Panel (top-left) ── */}
-            {showDetailsPanel && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <polygon
-                                points="12,2 22,20 2,20"
-                                stroke="#ff8a75"
-                                strokeWidth="2"
-                                fill="none"
-                            />
-                        </svg>
-                        <span className={styles.panelTitle}>Add Details</span>
-                        <button className={styles.panelClose} onClick={cancelAll}>
-                            ×
-                        </button>
-                    </div>
-
-                    <div className={styles.detailsBody}>
-                        <span className={styles.detailsLabel}>Hazard Type</span>
-                        <div className={styles.typeChips}>
-                            {(["regolith", "debris", "crater"] as HazardType[]).map((type) => (
-                                <button
-                                    key={type}
-                                    className={`${styles.typeChip} ${
-                                        selectedTypes.includes(type) ? styles.typeChipSelected : ""
-                                    }`}
-                                    onClick={() => toggleHazardType(type)}
-                                >
-                                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <button className={styles.finishBtn} onClick={finishHazard}>
-                        Finish
-                    </button>
-                </div>
-            )}
-
             {/* ── Directions Panel (top-left) ── */}
             {mode === "directions" && (
                 <div className={styles.panel}>
@@ -1024,8 +880,26 @@ export default function InteractiveMap({
                 </div>
             )}
 
-            {/* ── Autonomous Navigation Status Panel + Signaling LTV (top-left, stacked) ── */}
-            {(isAutonomous || isSignaling) && (
+            {/* ── Critical status alert overlay ── */}
+            {criticalAlert && (
+                <div className={styles.confirmOverlay}>
+                    <div className={styles.confirmBox}>
+                        <p
+                            className={styles.confirmText}
+                            style={{ color: "#e74c3c", fontWeight: 600 }}
+                        >
+                            ⚠ Autonomous Navigation Stopped
+                        </p>
+                        <p className={styles.confirmText}>{criticalAlert}</p>
+                        <p className={styles.confirmText} style={{ opacity: 0.7 }}>
+                            Control has been returned to the user.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* ── All top-left panels (stacked) ── */}
+            {(isAutonomous || isSignaling || showPanel || showDetailsPanel) && (
                 <div className={styles.panelStack}>
                     {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
                         <div className={styles.panel} style={{ position: "relative" }}>
@@ -1071,6 +945,27 @@ export default function InteractiveMap({
                                         <span className={styles.autoLabel}>Current Target</span>
                                         <span className={styles.autoTargetDesc}>
                                             {navState.session.current_target.description}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {navState.status_message && (
+                                    <div className={styles.autoPhaseRow}>
+                                        <span className={styles.autoLabel}>Status</span>
+                                        <span
+                                            className={styles.autoValue}
+                                            style={{
+                                                color:
+                                                    navState.status_level === "critical"
+                                                        ? "#e74c3c"
+                                                        : navState.status_level === "warning"
+                                                          ? "#fbbf24"
+                                                          : navState.status_level === "success"
+                                                            ? "#6ee7b7"
+                                                            : "#ccc",
+                                            }}
+                                        >
+                                            {navState.status_message}
                                         </span>
                                     </div>
                                 )}
@@ -1128,6 +1023,177 @@ export default function InteractiveMap({
                                           : "Signal Failed"}
                                 </span>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Plot Hazard / Add POI Panel */}
+                    {showPanel && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    {mode === "plotHazard" ? (
+                                        <polygon
+                                            points="12,2 22,20 2,20"
+                                            stroke="#6ee7b7"
+                                            strokeWidth="2"
+                                            fill="none"
+                                            strokeDasharray="3 2"
+                                        />
+                                    ) : (
+                                        <>
+                                            <circle cx="12" cy="12" r="3" fill="#6ee7b7" />
+                                            <circle
+                                                cx="12"
+                                                cy="12"
+                                                r="9"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                fill="none"
+                                            />
+                                        </>
+                                    )}
+                                </svg>
+                                <span className={styles.panelTitle}>
+                                    {mode === "plotHazard" ? "Plot a Hazard" : "Add POI"}
+                                </span>
+                                <button
+                                    className={styles.panelClose}
+                                    onClick={() => {
+                                        if (mode === "addPOI" && pendingPOI) {
+                                            cancelPOI();
+                                        } else {
+                                            cancelAll();
+                                        }
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            {mode === "plotHazard" && activeHazard && (
+                                <>
+                                    <span className={styles.pointCount}>
+                                        {activeHazard.points.length} point
+                                        {activeHazard.points.length !== 1 ? "s" : ""} placed
+                                    </span>
+                                    <div className={styles.panelActions}>
+                                        <button className={styles.undoBtn} onClick={undoLastPoint}>
+                                            Undo
+                                        </button>
+                                        {activeHazard.points.length >= 2 && (
+                                            <button
+                                                className={styles.doneBtn}
+                                                onClick={finishPlotting}
+                                            >
+                                                ✓ Done
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            {mode === "plotHazard" && !activeHazard && (
+                                <p className={styles.panelHint}>Click on the map to place points</p>
+                            )}
+
+                            {mode === "addPOI" && poiStep === "placing" && (
+                                <p className={styles.panelHint}>Click on the map to add a POI</p>
+                            )}
+
+                            {mode === "addPOI" && poiStep === "naming" && pendingPOI && (
+                                <div className={styles.poiForm}>
+                                    <label className={styles.poiLabel}>Name</label>
+                                    <input
+                                        type="text"
+                                        className={styles.poiInput}
+                                        value={poiName}
+                                        onChange={(e) => setPoiName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                confirmPOIName();
+                                            }
+                                        }}
+                                        autoFocus
+                                        placeholder="POI name..."
+                                    />
+                                    <button className={styles.doneBtn} onClick={confirmPOIName}>
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+
+                            {mode === "addPOI" && poiStep === "describing" && pendingPOI && (
+                                <div className={styles.poiForm}>
+                                    <label className={styles.poiLabel}>Description</label>
+                                    <textarea
+                                        className={styles.poiTextarea}
+                                        value={poiDescription}
+                                        onChange={(e) => setPoiDescription(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !e.shiftKey) {
+                                                e.preventDefault();
+                                                confirmPOIDescription();
+                                            }
+                                        }}
+                                        autoFocus
+                                        placeholder="Description (optional)..."
+                                        rows={3}
+                                    />
+                                    <button
+                                        className={styles.doneBtn}
+                                        onClick={confirmPOIDescription}
+                                    >
+                                        ✓ Add POI
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Add Details Panel */}
+                    {showDetailsPanel && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <polygon
+                                        points="12,2 22,20 2,20"
+                                        stroke="#ff8a75"
+                                        strokeWidth="2"
+                                        fill="none"
+                                    />
+                                </svg>
+                                <span className={styles.panelTitle}>Add Details</span>
+                                <button className={styles.panelClose} onClick={cancelAll}>
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className={styles.detailsBody}>
+                                <span className={styles.detailsLabel}>Hazard Type</span>
+                                <div className={styles.typeChips}>
+                                    {(["regolith", "debris", "crater"] as HazardType[]).map(
+                                        (type) => (
+                                            <button
+                                                key={type}
+                                                className={`${styles.typeChip} ${
+                                                    selectedTypes.includes(type)
+                                                        ? styles.typeChipSelected
+                                                        : ""
+                                                }`}
+                                                onClick={() => toggleHazardType(type)}
+                                            >
+                                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                                            </button>
+                                        ),
+                                    )}
+                                </div>
+                            </div>
+
+                            <button className={styles.finishBtn} onClick={finishHazard}>
+                                Finish
+                            </button>
                         </div>
                     )}
                 </div>
@@ -1270,9 +1336,13 @@ export default function InteractiveMap({
                 <button
                     className={`${styles.fabSecondary} ${mode === "directions" ? styles.fabSecondaryActive : ""}`}
                     onClick={() => {
-                        if (mode !== "directions") {
+                        if (!isAutonomous && mode !== "directions") {
                             handleStartDirections();
                         }
+                    }}
+                    style={{
+                        opacity: isAutonomous ? 0.4 : undefined,
+                        cursor: isAutonomous ? "not-allowed" : undefined,
                     }}
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
