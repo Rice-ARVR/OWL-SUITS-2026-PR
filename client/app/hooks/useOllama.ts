@@ -1,8 +1,10 @@
 import { useState } from "react";
+import type { AIAWidgetData } from "../types/aiaWidgets";
 
 export interface Message {
     role: "user" | "assistant";
     content: string;
+    widgets?: AIAWidgetData[];
 }
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -84,6 +86,7 @@ export function useOllama(model = "llama3.2") {
                     try {
                         const parsed = JSON.parse(data) as {
                             response?: string;
+                            widgets?: AIAWidgetData[];
                             error?: string;
                         };
 
@@ -100,6 +103,7 @@ export function useOllama(model = "llama3.2") {
                                 updated[updated.length - 1] = {
                                     role: "assistant",
                                     content: cleanAssistantText(fullResponse),
+                                    widgets: parsed.widgets ?? [],
                                 };
                                 return updated;
                             });

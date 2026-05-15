@@ -7,7 +7,7 @@ from app.models.eva import EvaSchema
 from app.models.ltv import LtvSchema
 from app.models.ltv_errors import LtvErrorsSchema
 from app.models.rover import RoverSchema
-from app.services.telemetry.telemetry_formatter import flatten_telemetry
+from app.services.telemetry.telemetry_formatter import flatten_telemetry_text
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,8 @@ _TREND_FIELDS = [
 # Stores (timestamp, eva1_dict, eva2_dict) — last 10 poll cycles
 _eva_history: deque = deque(maxlen=10)
 
+_latest_sections: dict = {}
+
 
 def _compute_trends(current_eva1: dict, current_eva2: dict) -> str:
     if len(_eva_history) < 2:
@@ -44,7 +46,10 @@ def _compute_trends(current_eva1: dict, current_eva2: dict) -> str:
 
     lines = [f"=== EVA TELEMETRY TRENDS (last ~{elapsed:.0f}s) ==="]
 
-    for label, current, oldest in (("EVA1", current_eva1, oldest_eva1), ("EVA2", current_eva2, oldest_eva2)):
+    for label, current, oldest in (
+        ("EVA1", current_eva1, oldest_eva1),
+        ("EVA2", current_eva2, oldest_eva2),
+    ):
         lines.append(f"\n[{label}]")
         for field in _TREND_FIELDS:
             curr = current.get(field)
@@ -58,7 +63,9 @@ def _compute_trends(current_eva1: dict, current_eva2: dict) -> str:
                 arrow, direction = "↑", "rising"
             else:
                 arrow, direction = "↓", "falling"
-            lines.append(f"  {field}: {curr:.2f}  [{arrow} {delta:+.2f} over {elapsed:.0f}s — {direction}]")
+            lines.append(
+                f"  {field}: {curr:.2f}  [{arrow} {delta:+.2f} over {elapsed:.0f}s — {direction}]"
+            )
 
     return "\n".join(lines)
 
@@ -81,6 +88,9 @@ async def build_and_save_context(
     if ltv_errors:
         sections["LTV_ERRORS"] = ltv_errors.model_dump()
 
+    global _latest_sections
+    _latest_sections = sections
+
     if not sections:
         text = "(No telemetry data available yet.)"
     else:
@@ -89,7 +99,7 @@ async def build_and_save_context(
         for name, data in sections.items():
             text += f"\n[{name}]\n"
 
-            formatted_lines = flatten_telemetry(data)
+            formatted_lines = flatten_telemetry_text(data)
 
             for line in formatted_lines:
                 text += f"- {line}\n"
@@ -106,3 +116,7 @@ async def build_and_save_context(
         logger.exception("Failed to write TSS context file")
 
     return text
+
+
+def get_current_telemetry_sections() -> dict:
+    return _latest_sections

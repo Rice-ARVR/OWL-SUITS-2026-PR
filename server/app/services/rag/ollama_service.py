@@ -5,7 +5,9 @@ from typing import AsyncGenerator
 import httpx
 
 from app.core.config import settings
+from app.services.rag.context_builder import get_current_telemetry_sections
 from app.services.rag.rag_service import get_chain, to_lc_messages
+from app.services.telemetry.telemetry_widget_service import select_widgets_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -15,14 +17,26 @@ _generate_url = f"{settings.OLLAMA_URL.rstrip('/')}/api/generate"
 async def warmup_model(model: str = "llama3.2") -> None:
     """Load the model into Ollama memory at startup so the first user request is instant."""
     url = f"{settings.OLLAMA_URL.rstrip('/')}/api/generate"
-    payload = {"model": model, "prompt": "hi", "stream": False, "keep_alive": -1, "options": {"num_predict": 1}}
-    print(f"[warmup] Loading Ollama model '{model}' at {url} — this may take a minute...", flush=True)
+    payload = {
+        "model": model,
+        "prompt": "hi",
+        "stream": False,
+        "keep_alive": -1,
+        "options": {"num_predict": 1},
+    }
+    print(
+        f"[warmup] Loading Ollama model '{model}' at {url} — this may take a minute...",
+        flush=True,
+    )
     try:
         async with httpx.AsyncClient(timeout=300.0) as client:
             await client.post(url, json=payload)
         print(f"[warmup] Ollama model '{model}' is loaded and ready.", flush=True)
     except Exception as e:
-        print(f"[warmup] WARNING: Ollama warmup failed (server will still start): {e}", flush=True)
+        print(
+            f"[warmup] WARNING: Ollama warmup failed (server will still start): {e}",
+            flush=True,
+        )
 
 
 async def check_ollama_health() -> dict:
@@ -47,13 +61,23 @@ async def check_ollama_health() -> dict:
 async def stream_rag(
     model: str, question: str, chat_history: list[dict], use_rag: bool = True
 ) -> AsyncGenerator[str, None]:
-    chain_input = {"question": question, "chat_history": to_lc_messages(chat_history)}
+    sections = get_current_telemetry_sections()
+    widgets = select_widgets_for_prompt(question, sections)
+
+    chain_input = {
+        "question": question,
+        "chat_history": to_lc_messages(chat_history),
+    }
+
     async for chunk in get_chain(use_rag).astream(chain_input):
-        yield f"data: {json.dumps({'response': chunk})}\n\n"
+        yield f"data: {json.dumps({'response': chunk, 'widgets': widgets})}\n\n"
+
     yield "data: [DONE]\n\n"
 
 
-async def invoke_rag(model: str, question: str, chat_history: list[dict], use_rag: bool = True) -> str:
+async def invoke_rag(
+    model: str, question: str, chat_history: list[dict], use_rag: bool = True
+) -> str:
     chain_input = {"question": question, "chat_history": to_lc_messages(chat_history)}
     return await get_chain(use_rag).ainvoke(chain_input)
 

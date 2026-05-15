@@ -16,7 +16,7 @@
 }
 
 .emptyState {
-    color: #c5c9d2;
+    color: #9aa4b2;
     font-size: 1rem;
 }
 
@@ -43,17 +43,19 @@
 }
 
 .messageBubble.user {
-    background: #4c7492;
-    color: #fff;
+    background: #2f4b45;
+    color: #dffcef;
+    border: 1px solid #69e6b2;
 }
 
 .messageBubble.assistant {
-    background: #f0f0f0;
-    color: #000;
+    background: #14181d;
+    color: #d7dde5;
+    border: 1px solid #2a333d;
 }
 
 .cursor {
-    color: #aaa;
+    color: #9aa4b2;
 }
 
 .typingDots {
@@ -92,7 +94,7 @@
 }
 
 .error {
-    color: red;
+    color: #ff8a80;
     font-size: 10px;
     margin-bottom: 4px;
 }
@@ -106,12 +108,19 @@
 .textarea {
     flex: 1;
     resize: none;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 8px;
-    color: #c5c9d2;
+    border: 1px solid #2a333d;
+    border-radius: 6px;
+    padding: 10px;
+    background: #050608;
+    color: #d7dde5;
     font-size: 1rem;
     margin: 5px;
+    outline: none;
+}
+
+.textarea:focus {
+    border-color: #69e6b2;
+    box-shadow: 0 0 0 1px #69e6b2;
 }
 
 .actions {
@@ -121,29 +130,62 @@
     gap: 4px;
 }
 
-.sendButton {
-    background: #578cb5;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+.sendButton,
+.micButton,
+.clearButton {
     font-size: 10px;
-    padding: 5px;
+    border: 1px solid #ffffff;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 6px 8px;
+    background: #14181d;
+}
+.sendButton,
+.micButton {
+    color: #69e6b2;
 }
 
-.micButton {
-    font-size: 10px;
-    background: #e0e0e0;
-    color: #333;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    padding: 5px;
+.sendButton,
+.sendButton:focus,
+.sendButton:active,
+.sendButton:hover {
+    background: #14181d !important;
+    color: #69e6b2 !important;
+    border: 1px solid #ffffff !important;
+    opacity: 1 !important;
+    box-shadow: none !important;
+}
+
+.sendButton:hover {
+    background: #2f4b45 !important;
+    border-color: #69e6b2 !important;
+}
+.clearButton {
+    color: #ff8a80;
+}
+
+.sendButton:hover,
+.micButton:hover {
+    background: #2f4b45;
+    border-color: #69e6b2;
+}
+
+.clearButton:hover {
+    background: #3b2020;
+    border-color: #ff8a80;
+}
+
+.sendButton:disabled,
+.micButton:disabled,
+.clearButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .micButtonActive {
-    background: #f59095;
-    color: #fff;
+    background: #5f2b2b;
+    color: #ffd6d6;
+    border-color: #a84646;
     animation: pulse 1s ease-in-out infinite;
 }
 
@@ -153,16 +195,132 @@
         opacity: 1;
     }
     50% {
-        opacity: 0.6;
+        opacity: 0.65;
     }
 }
 
-.clearButton {
-    font-size: 10px;
-    background: #f59095;
-    color: #333;
-    border: none;
-    border-radius: 4px;
+.aiaWidget {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    background: #14181d;
+    border: 1px solid #2a333d;
+    color: #d7dde5;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.actionModalWidget {
+    background: #161616;
+    border: 1px solid #2a333d;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    border-radius: 12px;
+}
+
+.aiaWidgetHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.aiaWidgetTitle {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.aiaWidgetValue {
+    font-size: 24px;
+    font-weight: 700;
+    color: #e7edf5;
+}
+
+.aiaWidgetUnit {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.aiaWidgetFooter {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #9aa4b2;
+}
+
+.aiaWidgetStatus {
+    font-size: 11px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.aiaWidgetActions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.aiaWidgetActions button {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #2a333d;
     cursor: pointer;
-    padding: 5px;
+    background: #1f4e5f;
+    color: #eaf6f8;
+    font-size: 12px;
+}
+
+.aiaWidgetActions button:hover {
+    border-color: #2b7a8f;
+    background: #245f73;
+}
+
+.aiaWidgetDescription {
+    margin-top: 6px;
+    font-size: 14px;
+    color: #b7c0cc;
+}
+
+.secondaryButton {
+    background: #14181d !important;
+    color: #9aa4b2 !important;
+}
+
+.secondaryButton:hover {
+    color: #d7dde5 !important;
+}
+
+.aiaWidgetStatusNormal {
+    background: rgba(46, 204, 113, 0.18);
+    color: #7dffb3;
+}
+
+.aiaWidgetStatusWarning {
+    background: rgba(241, 196, 15, 0.18);
+    color: #ffd95e;
+}
+
+.aiaWidgetStatusCritical {
+    background: rgba(231, 76, 60, 0.18);
+    color: #ff8a80;
+}
+
+.aiaWidgetStatusUnknown {
+    background: rgba(180, 180, 180, 0.15);
+    color: #cfcfcf;
+}
+
+.actionOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.actionModal {
+    width: min(420px, 90vw);
 }

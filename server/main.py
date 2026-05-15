@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.db.database import connect, disconnect
+from app.routers import systems_actions
 from app.routers.locations import router as locations_router
 from app.routers.navigation import router as navigation_router
 from app.routers.ollama import router as ollama_router
@@ -60,3 +61,4 @@ app.include_router(warnings_router)
 app.include_router(telemetry_ws_router)
 app.include_router(rover_control_router)
 app.include_router(navigation_router)
+app.include_router(systems_actions.router)
