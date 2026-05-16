@@ -1658,6 +1658,65 @@ export default function InteractiveMap({
 
                 {/* ── Autonomous Nav Overlays ── */}
 
+                {/* Search area donut */}
+                {isAutonomous && navState?.session?.search_area && (
+                    <g>
+                        {/* Outer circle (max radius) */}
+                        <circle
+                            cx={navState.session.search_area.center.x}
+                            cy={navState.session.search_area.center.y}
+                            r={navState.session.search_area.radius_max_m}
+                            fill="rgba(110, 231, 183, 0.06)"
+                            stroke="#6ee7b7"
+                            strokeWidth="1.5"
+                            strokeDasharray="8 4"
+                            opacity="0.4"
+                        />
+                        {/* Inner circle (min radius) — punches out the donut center */}
+                        {navState.session.search_area.radius_min_m > 0 && (
+                            <circle
+                                cx={navState.session.search_area.center.x}
+                                cy={navState.session.search_area.center.y}
+                                r={navState.session.search_area.radius_min_m}
+                                fill="#1e1e22"
+                                stroke="#6ee7b7"
+                                strokeWidth="1"
+                                strokeDasharray="4 4"
+                                opacity="0.35"
+                            />
+                        )}
+                        {/* Center crosshair */}
+                        <circle
+                            cx={navState.session.search_area.center.x}
+                            cy={navState.session.search_area.center.y}
+                            r="4"
+                            fill="none"
+                            stroke="#6ee7b7"
+                            strokeWidth="1"
+                            opacity="0.5"
+                        />
+                        {/* Label */}
+                        <text
+                            x={navState.session.search_area.center.x}
+                            y={
+                                navState.session.search_area.center.y -
+                                navState.session.search_area.radius_max_m -
+                                10
+                            }
+                            textAnchor="middle"
+                            fill="#6ee7b7"
+                            fontSize="10"
+                            opacity="0.6"
+                        >
+                            Search Area (
+                            {navState.session.search_area.radius_min_m > 0
+                                ? `${Math.round(navState.session.search_area.radius_min_m)}–${Math.round(navState.session.search_area.radius_max_m)}m`
+                                : `${Math.round(navState.session.search_area.radius_max_m)}m radius`}
+                            )
+                        </text>
+                    </g>
+                )}
+
                 {/* Breadcrumb trail */}
                 {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
                     <polyline

@@ -1,11 +1,21 @@
 {
     "autonomous_driving": true,
+    "status_message": "Gradient ascent in progress.",
+    "status_level": "info",
     "session": {
-        "phase": "signal_search",
-        "best_rssi": -62,
+        "phase": "gradient_ascent",
+        "best_rssi": -45,
+        "search_center": { "x": -6000, "y": -10450 },
+        "success_vector": 0.7,
         "current_target": {
             "position": { "x": -5980, "y": -10400 },
-            "description": "Strongest signal bearing"
+            "description": "Strongest signal bearing",
+            "arrival_threshold_m": 15
+        },
+        "search_area": {
+            "center": { "x": -6000, "y": -10450 },
+            "radius_min_m": 0,
+            "radius_max_m": 200
         },
         "ping_history": [
             {
@@ -30,7 +40,7 @@
             },
             {
                 "rover_position": { "x": -6000, "y": -10440 },
-                "rssi": -62,
+                "rssi": -45,
                 "signal_category": "strong"
             }
         ],
