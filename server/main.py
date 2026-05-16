@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
             logger.info("Route registered: %s methods=%s", path, methods)
     connect()
 
-    # await ingest_documents()
+    await ingest_documents(force=True)
     # await warmup_model(settings.AIA_MODEL)
     await start_polling()
     yield
