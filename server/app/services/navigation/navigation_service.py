@@ -81,12 +81,27 @@ async def start_autonomous_loop(force_reset: bool = False):
     elif state.session.phase == SearchPhase.IDLE:
         logger.info("Resuming aborted session. Restoring previous phase.")
 
-        # restore the previous phase (fallback to Transit if None)
-        state.session.phase = state.session.previous_phase or SearchPhase.TRANSIT_TO_LNP
+        # 1. Capture the phase we are restoring
+        resumed_phase = state.session.previous_phase or SearchPhase.TRANSIT_TO_LNP
+        state.session.phase = resumed_phase
 
+        # 2. Map the enum to a clean, UI-friendly string
+        phase_descriptions = {
+            SearchPhase.TRANSIT_TO_LNP: "Transit to Last Nominal Position",
+            SearchPhase.CONCENTRIC_SEARCH: "Concentric Search",
+            SearchPhase.GRADIENT_ASCENT: "Gradient Ascent",
+            SearchPhase.TIGHT_SPIRAL: "Tight Spiral",
+        }
+
+        # Default to a formatted string if not in the dictionary just in case
+        phase_name = phase_descriptions.get(
+            resumed_phase, resumed_phase.value.replace("_", " ").title()
+        )
+
+        # 3. Inject the dynamic phase name into the description
         state.session.current_target = NavigationTarget(
             position=state.rover_position or LNP_POSITION,
-            description="Resuming from manual intervention",
+            description=f"Resuming: {phase_name}",
             arrival_threshold_m=5.0,
         )
         await navigation_state.update_session(state.session)
