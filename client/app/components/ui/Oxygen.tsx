@@ -13,7 +13,7 @@ const INNER_SCALE = 1.1;
 const INNER_W = 137 * INNER_SCALE; // 150.7
 const INNER_H = 122 * INNER_SCALE; // 134.2
 const INNER_LEFT = OCX - CX * INNER_SCALE; // ≈ 23.73
-const INNER_TOP = OCY - CY * INNER_SCALE;  // ≈ 21.81
+const INNER_TOP = OCY - CY * INNER_SCALE; // ≈ 21.81
 
 interface OxygenProps {
     level: number; // 0–100
@@ -210,7 +210,13 @@ export default function Oxygen({
                     </span>
                 </div>
                 {remaining && (
-                    <div style={{ background: isLow ? "#4c424a" : "#333734", borderRadius: 8, padding: "5px 10px" }}>
+                    <div
+                        style={{
+                            background: isLow ? "#4c424a" : "#333734",
+                            borderRadius: 8,
+                            padding: "5px 10px",
+                        }}
+                    >
                         <span
                             style={{
                                 fontFamily: '"Be Vietnam Pro", sans-serif',

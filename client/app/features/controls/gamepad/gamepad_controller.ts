@@ -63,9 +63,14 @@ export function readGamepadState(): GamepadState {
 
     if (!gamepad) {
         return {
-            throttle: 0, steering: 0, brakes: 1.0,
-            cabinHeating, cabinCooling, headlights,
-            connected: false, hardwareError: null,
+            throttle: 0,
+            steering: 0,
+            brakes: 1.0,
+            cabinHeating,
+            cabinCooling,
+            headlights,
+            connected: false,
+            hardwareError: null,
         };
     }
 
@@ -95,5 +100,14 @@ export function readGamepadState(): GamepadState {
     const steering = parseFloat(applyDeadzone(rawSteerAxis).toFixed(2));
     const brakes = parseFloat(Math.max(leftTriggerValue, rightTriggerValue).toFixed(2));
 
-    return { throttle, steering, brakes, cabinHeating, cabinCooling, headlights, connected: true, hardwareError };
+    return {
+        throttle,
+        steering,
+        brakes,
+        cabinHeating,
+        cabinCooling,
+        headlights,
+        connected: true,
+        hardwareError,
+    };
 }

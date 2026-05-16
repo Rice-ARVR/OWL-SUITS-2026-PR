@@ -37,8 +37,12 @@ export function useWASD(): WASDHookState {
 
     useEffect(() => {
         controllerManager.registerInitialSync({
-            throttle: 0, steering: 0, brakes: 1.0,
-            cabin_heating: 0, cabin_cooling: 0, headlights: 0,
+            throttle: 0,
+            steering: 0,
+            brakes: 1.0,
+            cabin_heating: 0,
+            cabin_cooling: 0,
+            headlights: 0,
         });
         controllerManager.connect();
 
@@ -135,7 +139,7 @@ export function useWASD(): WASDHookState {
 
             if (e.repeat) return;
             pressedKeys.current.add(key);
-            applyKeys();    // immediate response on first press
+            applyKeys(); // immediate response on first press
             startInterval(); // then repeat at interval while held
         };
 

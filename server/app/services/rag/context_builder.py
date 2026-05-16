@@ -44,7 +44,10 @@ def _compute_trends(current_eva1: dict, current_eva2: dict) -> str:
 
     lines = [f"=== EVA TELEMETRY TRENDS (last ~{elapsed:.0f}s) ==="]
 
-    for label, current, oldest in (("EVA1", current_eva1, oldest_eva1), ("EVA2", current_eva2, oldest_eva2)):
+    for label, current, oldest in (
+        ("EVA1", current_eva1, oldest_eva1),
+        ("EVA2", current_eva2, oldest_eva2),
+    ):
         lines.append(f"\n[{label}]")
         for field in _TREND_FIELDS:
             curr = current.get(field)
@@ -58,7 +61,9 @@ def _compute_trends(current_eva1: dict, current_eva2: dict) -> str:
                 arrow, direction = "↑", "rising"
             else:
                 arrow, direction = "↓", "falling"
-            lines.append(f"  {field}: {curr:.2f}  [{arrow} {delta:+.2f} over {elapsed:.0f}s — {direction}]")
+            lines.append(
+                f"  {field}: {curr:.2f}  [{arrow} {delta:+.2f} over {elapsed:.0f}s — {direction}]"
+            )
 
     return "\n".join(lines)
 

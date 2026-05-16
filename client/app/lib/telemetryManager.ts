@@ -85,10 +85,7 @@ class TelemetryManager {
             this.notify();
             if (this.shouldReconnect) {
                 this.reconnectTimer = setTimeout(() => {
-                    this.reconnectDelay = Math.min(
-                        this.reconnectDelay * 2,
-                        this.maxReconnectDelay,
-                    );
+                    this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
                     this.openConnection();
                 }, this.reconnectDelay);
             }
@@ -448,9 +445,7 @@ class TelemetryManager {
     }
 
     getLtvErrorByCode(code: string): ErrorProcedure | null {
-        return (
-            this.data?.ltv_errors.error_procedures.find((e) => e.code === code) ?? null
-        );
+        return this.data?.ltv_errors.error_procedures.find((e) => e.code === code) ?? null;
     }
 }
 

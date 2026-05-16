@@ -5,15 +5,15 @@ _TASKS: dict[str, tuple[str, range]] = {
 }
 
 _PROCEDURES: dict[int, str] = {
-    1:  "Pilot verbally confirm battery level is > 95%",
-    2:  "Pilot verbally confirm O2 levels are > 95%",
-    3:  "Pilot verbally confirm O2 pressure is > 2900 psi",
-    4:  "Pilot verbally confirm PR Cabin Pressure is > 3.95 psi",
-    5:  "Pilot verify PR headlights are operational by manually cycling lights ON, OFF, ON, OFF, ON, verbally confirm success",
-    6:  "Pilot drop pin at current location, verbally confirm success",
-    7:  "Drop pin at LTV last known position, verbally confirm success",
-    8:  "Calculate optimal path to the LTV last nominal position",
-    9:  "Verbally announce completion of checklist",
+    1: "Pilot verbally confirm battery level is > 95%",
+    2: "Pilot verbally confirm O2 levels are > 95%",
+    3: "Pilot verbally confirm O2 pressure is > 2900 psi",
+    4: "Pilot verbally confirm PR Cabin Pressure is > 3.95 psi",
+    5: "Pilot verify PR headlights are operational by manually cycling lights ON, OFF, ON, OFF, ON, verbally confirm success",
+    6: "Pilot drop pin at current location, verbally confirm success",
+    7: "Drop pin at LTV last known position, verbally confirm success",
+    8: "Calculate optimal path to the LTV last nominal position",
+    9: "Verbally announce completion of checklist",
     10: "Begin navigation to LTV last nominal position",
     11: "Upon arrival, fully stop the PR, verbally confirm success",
     12: "Verbally announce arrival at LTV last nominal position",
@@ -54,7 +54,12 @@ def set_procedure(procedure_id: int, completed: bool) -> bool:
 
 def get_all_procedures() -> list[dict]:
     return [
-        {"id": id, "description": desc, "task": _get_task_letter(id), "completed": _state[id]}
+        {
+            "id": id,
+            "description": desc,
+            "task": _get_task_letter(id),
+            "completed": _state[id],
+        }
         for id, desc in _PROCEDURES.items()
     ]
 

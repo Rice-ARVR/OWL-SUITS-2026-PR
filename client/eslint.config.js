@@ -9,7 +9,7 @@ export default tseslint.config(
     js.configs.recommended,
     tseslint.configs.recommended,
     reactPlugin.configs.flat.recommended,
-    reactHooks.configs["recommended-latest"],
+    reactHooks.configs.flat["recommended-latest"],
     {
         rules: {
             "react/react-in-jsx-scope": "off", // not needed with React 17+

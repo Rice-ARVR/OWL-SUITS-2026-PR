@@ -42,7 +42,7 @@ TELEMETRY_FRESH_WAIT_S = 0.5
 MAX_SPEED = 6.0
 THROTTLE_NORMAL = 35
 THROTTLE_SLOW = 30
-THROTTLE_BOOST = 60  
+THROTTLE_BOOST = 60
 THROTTLE_REVERSE = -30
 
 # Steering
@@ -116,7 +116,7 @@ MAX_RECOVERY_ATTEMPTS = 4
 REVERSE_DURATION_S = 5.0
 REORIENT_DURATION_S = 2.5
 
-# Crater escape 
+# Crater escape
 CRATER_ESCAPE_DURATION_S = 5.0
 CRATER_ESCAPE_COOLDOWN_S = 15.0
 CRATER_PITCH_DEG = -10.0  # nose-down beyond this => sitting in a pit
@@ -126,7 +126,7 @@ CRATER_PITCH_DEG = -10.0  # nose-down beyond this => sitting in a pit
 ######################
 
 # Lidar
-LIDAR_NO_HIT = 9999.0 
+LIDAR_NO_HIT = 9999.0
 
 # General Categories
 FRONT_SENSORS = (2, 5, 6)

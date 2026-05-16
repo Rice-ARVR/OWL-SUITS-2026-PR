@@ -72,7 +72,9 @@ async def rag_query(request: RagQueryRequest):
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
             )
-        result = await invoke_rag(request.model, request.question, history, request.use_rag)
+        result = await invoke_rag(
+            request.model, request.question, history, request.use_rag
+        )
         return JSONResponse({"model": request.model, "response": result, "done": True})
     except Exception as e:
         logger.exception("Ollama rag-query failed: %s", e)

@@ -44,21 +44,80 @@ export default function BottomBar({
                 >
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                         {/* Sun body */}
-                        <circle
-                            cx="12"
-                            cy="12"
-                            r="4"
-                            fill="currentColor"
-                        />
+                        <circle cx="12" cy="12" r="4" fill="currentColor" />
                         {/* Rays */}
-                        <line x1="12" y1="2" x2="12" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="2" y1="12" x2="5" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="19" y1="12" x2="22" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="4.9" y1="4.9" x2="6.7" y2="6.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="17.3" y1="17.3" x2="19.1" y2="19.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="4.9" y1="19.1" x2="6.7" y2="17.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <line x1="17.3" y1="6.7" x2="19.1" y2="4.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        <line
+                            x1="12"
+                            y1="2"
+                            x2="12"
+                            y2="5"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="12"
+                            y1="19"
+                            x2="12"
+                            y2="22"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="2"
+                            y1="12"
+                            x2="5"
+                            y2="12"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="19"
+                            y1="12"
+                            x2="22"
+                            y2="12"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="4.9"
+                            y1="4.9"
+                            x2="6.7"
+                            y2="6.7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="17.3"
+                            y1="17.3"
+                            x2="19.1"
+                            y2="19.1"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="4.9"
+                            y1="19.1"
+                            x2="6.7"
+                            y2="17.3"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <line
+                            x1="17.3"
+                            y1="6.7"
+                            x2="19.1"
+                            y2="4.9"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
                     </svg>
                 </button>
 

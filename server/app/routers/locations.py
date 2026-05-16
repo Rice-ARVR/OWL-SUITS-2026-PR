@@ -7,7 +7,6 @@ from app.services.locations_service import (
     get_ltv_location,
     get_hazards,
     get_waypoints,
-    get_recommended_path,
     get_ltv_search_radius,
     get_best_path_routing,
 )

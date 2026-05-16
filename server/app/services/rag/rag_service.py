@@ -172,7 +172,9 @@ def _get_rag_chain():
                 "question": itemgetter("question"),
                 "telemetry": RunnableLambda(lambda _: _read_telemetry()),
                 "procedures": RunnableLambda(lambda _: get_procedures_context()),
-                "documents": itemgetter("question") | get_retriever() | RunnableLambda(_format_docs),
+                "documents": itemgetter("question")
+                | get_retriever()
+                | RunnableLambda(_format_docs),
                 "chat_history": itemgetter("chat_history"),
             }
             | _prompt
