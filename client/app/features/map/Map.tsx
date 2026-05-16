@@ -3,6 +3,7 @@ import styles from "./Map.module.css";
 import SideBar from "./sidebar/SideBar";
 import TopBar from "./topbar/TopBar";
 import InteractiveMap from "./interactive-map/InteractiveMap";
+import { VirtualJoystick } from "~/features/controls/joystick";
 
 export type ManualPingResult = {
     rssi_value: number;
