@@ -269,6 +269,20 @@ async def autonomous_mission_loop():
                 if result != 0:
                     path_success = False
                     break
+                else:
+                    # confirm Success upon arrival
+                    if (
+                        session.phase == SearchPhase.TRANSIT_TO_LNP
+                        and i == len(safe_path) - 1
+                    ):
+                        await navigation_state.update_status(
+                            "Success: Arrived at LTV Last Nominal Position. Rover fully stopped.",
+                            "success",
+                        )
+                    else:
+                        await navigation_state.update_status(
+                            "Success: Waypoint reached. Rover paused.", "success"
+                        )
 
             if not path_success:
                 await abort_autonomous_mission(
@@ -325,10 +339,10 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
     rover_pos = state.rover_position
 
     # --- SAFETY CHECK: Guard against missing data ---
-    # Because state.session and state.rover_position are marked as `Optional` in our
-    # Pydantic models, they can be `None` if the telemetry loop hasn't initialized
+    # Because state.session and state.rover_position are marked as Optional in our
+    # Pydantic models, they can be None if the telemetry loop hasn't initialized
     # or the session was dropped. We must catch this before trying to access attributes
-    # like `session.phase` or `rover_pos.x` to prevent crashes.
+    # like session.phase or rover_pos.x to prevent crashes.
     if session is None or rover_pos is None:
         logger.error(
             "Cannot handle unreachable target: session or rover_position is None."
@@ -480,7 +494,10 @@ async def evaluate_phase_and_ping(state: NavigationState):
     success, rssi, category = await execute_ping()
 
     if success:
-        await navigation_state.update_status(f"Ping Executed. RSSI: {rssi} dBm", "info")
+        # notify user ping is done
+        await navigation_state.update_status(
+            f"Ping Executed automatically. RSSI: {rssi} dBm", "info"
+        )
 
     # State Machine Transitions
     if session.phase == SearchPhase.TRANSIT_TO_LNP:
@@ -507,10 +524,16 @@ async def evaluate_phase_and_ping(state: NavigationState):
                     rover_pos.y,
                 )
 
-                # Only update search area when best signal improves
+                # Update search area when best signal improves
                 r_min, r_max = get_distance_range(category)
                 session.search_area = SearchArea(
                     center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                )
+
+                # search area updated message
+                await navigation_state.update_status(
+                    f"Stronger signal detected ({rssi} dBm). Recalculating LTV search area.",
+                    "success",
                 )
 
             if rssi >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
@@ -558,6 +581,12 @@ async def evaluate_phase_and_ping(state: NavigationState):
                 r_min, r_max = get_distance_range(category)
                 session.search_area = SearchArea(
                     center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                )
+
+                # search area updated message
+                await navigation_state.update_status(
+                    f"Stronger signal detected ({rssi} dBm). Recalculating LTV search area.",
+                    "success",
                 )
 
                 prev_x = (
@@ -822,6 +851,12 @@ async def start_search_session() -> SearchSession:
 
     await navigation_state.update_session(session)
     logger.info("Search Session Started. Transit to LNP initiated.")
+
+    # begin Navigation to LNP message
+    await navigation_state.update_status(
+        "Beginning navigation to LTV Last Nominal Position.", "info"
+    )
+
     return session
 
 
@@ -912,7 +947,7 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
 
             await navigation_state.update_session(session)
 
-            # Let the UI know a manual ping was recorded
+            # Notify user ping is done
             await navigation_state.update_status(
                 f"Manual Ping Recorded. RSSI: {rssi} dBm", "info"
             )
