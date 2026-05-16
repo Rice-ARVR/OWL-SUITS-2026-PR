@@ -10,6 +10,7 @@ interface BottomBarProps {
     onStopAutonomy?: () => void;
     isSignaling?: boolean;
     onSignalLTV?: () => void;
+    onHeadlightToggle?: (isOn: boolean) => void;
 }
 
 export default function BottomBar({
@@ -19,6 +20,7 @@ export default function BottomBar({
     onStopAutonomy,
     isSignaling = false,
     onSignalLTV,
+    onHeadlightToggle,
 }: BottomBarProps) {
     const [manualMode, setManualMode] = useState(manualModeProp);
     const [lightOn, setLightOn] = useState(false);
@@ -106,6 +108,7 @@ export default function BottomBar({
                         controllerManager.sendCommand({
                             headlights: next ? 1.0 : 0.0,
                         });
+                        onHeadlightToggle?.(next);
                     }}
                 >
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">

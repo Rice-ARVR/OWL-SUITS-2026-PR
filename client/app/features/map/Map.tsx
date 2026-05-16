@@ -19,6 +19,17 @@ export default function Map() {
     const [lastManualPing, setLastManualPing] = useState<ManualPingResult>(null);
     const signalingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    const [headlightNotice, setHeadlightNotice] = useState<"on" | "off" | null>(null);
+    const headlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleHeadlightToggle = useCallback((isOn: boolean) => {
+        setHeadlightNotice(isOn ? "on" : "off");
+        if (headlightTimer.current) clearTimeout(headlightTimer.current);
+        headlightTimer.current = setTimeout(() => {
+            setHeadlightNotice(null);
+        }, 2000);
+    }, []);
+
     const handleSignalLTV = useCallback(() => {
         if (isSignaling) return;
         setIsSignaling(true);
@@ -28,6 +39,7 @@ export default function Map() {
             .then(async (res) => {
                 if (res.ok) {
                     const data = await res.json();
+                    console.log("Manual ping result:", data);
                     if (data.success) {
                         setLastManualPing({
                             rssi_value: data.rssi_value,
@@ -58,6 +70,7 @@ export default function Map() {
                 onStopAutonomy={() => stopAutonomyRef.current?.()}
                 isSignaling={isSignaling}
                 onSignalLTV={handleSignalLTV}
+                onHeadlightToggle={handleHeadlightToggle}
             />
 
             <div className={styles.main}>
@@ -70,6 +83,7 @@ export default function Map() {
                         isSignaling={isSignaling}
                         signalStatus={signalStatus}
                         lastManualPing={lastManualPing}
+                        headlightNotice={headlightNotice}
                     />
                 </div>
             </div>

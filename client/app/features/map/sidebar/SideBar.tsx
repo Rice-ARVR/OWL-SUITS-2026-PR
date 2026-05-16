@@ -9,6 +9,7 @@ interface SideBarProps {
     onStopAutonomy?: () => void;
     isSignaling?: boolean;
     onSignalLTV?: () => void;
+    onHeadlightToggle?: (isOn: boolean) => void;
 }
 
 export default function SideBar({
@@ -16,6 +17,7 @@ export default function SideBar({
     onStopAutonomy,
     isSignaling = false,
     onSignalLTV,
+    onHeadlightToggle,
 }: SideBarProps) {
     return (
         <div className={styles.sidebar}>
@@ -33,6 +35,7 @@ export default function SideBar({
                 onStopAutonomy={onStopAutonomy}
                 isSignaling={isSignaling}
                 onSignalLTV={onSignalLTV}
+                onHeadlightToggle={onHeadlightToggle}
             />
         </div>
     );

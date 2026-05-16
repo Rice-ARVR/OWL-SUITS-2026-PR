@@ -39,6 +39,7 @@ interface InteractiveMapProps {
     isSignaling?: boolean;
     signalStatus?: "pending" | "success" | "failed";
     lastManualPing?: ManualPingResult;
+    headlightNotice?: "on" | "off" | null;
 }
 
 export default function InteractiveMap({
@@ -48,6 +49,7 @@ export default function InteractiveMap({
     isSignaling = false,
     signalStatus = "pending",
     lastManualPing,
+    headlightNotice = null,
 }: InteractiveMapProps) {
     const svgRef = useRef<SVGSVGElement>(null);
 
@@ -176,6 +178,8 @@ export default function InteractiveMap({
     const [pendingPOI, setPendingPOI] = useState<MapPoint | null>(null);
     const [poiName, setPoiName] = useState("");
     const [poiDescription, setPoiDescription] = useState("");
+    const [poiCoordX, setPoiCoordX] = useState("");
+    const [poiCoordY, setPoiCoordY] = useState("");
     const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
 
     // Directions workflow
@@ -400,6 +404,8 @@ export default function InteractiveMap({
         setPoiStep("placing");
         setPoiName("");
         setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
         setMousePos(null);
         setSelectedTypes([]);
         setWaypoints([]);
@@ -570,15 +576,40 @@ export default function InteractiveMap({
         setPendingPOI(null);
         setPoiName("");
         setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
         setPoiStep("placing");
+        setMode("navigate");
     };
 
     const cancelPOI = () => {
         setPendingPOI(null);
         setPoiName("");
         setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
         setPoiStep("placing");
         setMode("navigate");
+    };
+
+    const placePOIFromCoords = () => {
+        const x = parseFloat(poiCoordX);
+        const y = parseFloat(poiCoordY);
+        if (isNaN(x) || isNaN(y)) return;
+        const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
+        setPendingPOI({
+            id: crypto.randomUUID(),
+            x,
+            y,
+            label: defaultName,
+            description: "",
+            type: "poi",
+        });
+        setPoiName(defaultName);
+        setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
+        setPoiStep("naming");
     };
 
     // ── Delete handlers ──
@@ -880,27 +911,57 @@ export default function InteractiveMap({
                 </div>
             )}
 
-            {/* ── Critical status alert overlay ── */}
-            {criticalAlert && (
-                <div className={styles.confirmOverlay}>
-                    <div className={styles.confirmBox}>
-                        <p
-                            className={styles.confirmText}
-                            style={{ color: "#e74c3c", fontWeight: 600 }}
-                        >
-                            ⚠ Autonomous Navigation Stopped
-                        </p>
-                        <p className={styles.confirmText}>{criticalAlert}</p>
-                        <p className={styles.confirmText} style={{ opacity: 0.7 }}>
-                            Control has been returned to the user.
-                        </p>
-                    </div>
-                </div>
-            )}
-
             {/* ── All top-left panels (stacked) ── */}
-            {(isAutonomous || isSignaling || showPanel || showDetailsPanel) && (
+            {(isAutonomous ||
+                isSignaling ||
+                showPanel ||
+                showDetailsPanel ||
+                headlightNotice ||
+                criticalAlert) && (
                 <div className={styles.panelStack}>
+                    {/* Critical alert panel */}
+                    {criticalAlert && (
+                        <div
+                            className={styles.panel}
+                            style={{ position: "relative", borderLeft: "3px solid #e74c3c" }}
+                        >
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <polygon
+                                        points="12,2 22,20 2,20"
+                                        stroke="#e74c3c"
+                                        strokeWidth="2"
+                                        fill="none"
+                                    />
+                                    <line
+                                        x1="12"
+                                        y1="9"
+                                        x2="12"
+                                        y2="14"
+                                        stroke="#e74c3c"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <circle cx="12" cy="17" r="1" fill="#e74c3c" />
+                                </svg>
+                                <span className={styles.panelTitle} style={{ color: "#e74c3c" }}>
+                                    Autonomous Navigation Stopped
+                                </span>
+                            </div>
+                            <div style={{ padding: "0 12px 10px" }}>
+                                <span
+                                    className={styles.autoValue}
+                                    style={{ color: "#ccc", fontSize: "12px" }}
+                                >
+                                    {criticalAlert}
+                                </span>
+                                <p style={{ color: "#888", fontSize: "11px", margin: "6px 0 0" }}>
+                                    Control has been returned to the user.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
                         <div className={styles.panel} style={{ position: "relative" }}>
                             <div className={styles.panelHeader}>
@@ -1023,6 +1084,76 @@ export default function InteractiveMap({
                                           : "Signal Failed"}
                                 </span>
                             </div>
+                            {signalStatus === "success" && lastManualPing && (
+                                <div style={{ padding: "0 12px 8px" }}>
+                                    <span
+                                        className={styles.autoValue}
+                                        style={{ color: "#6ee7b7", fontSize: "12px" }}
+                                    >
+                                        RSSI: {Math.round(lastManualPing.rssi_value)} dBm ·{" "}
+                                        {lastManualPing.category}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Headlight notification */}
+                    {headlightNotice && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="4"
+                                        fill={headlightNotice === "on" ? "#6ee7b7" : "#888"}
+                                    />
+                                    {headlightNotice === "on" && (
+                                        <>
+                                            <line
+                                                x1="12"
+                                                y1="2"
+                                                x2="12"
+                                                y2="5"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                            <line
+                                                x1="12"
+                                                y1="19"
+                                                x2="12"
+                                                y2="22"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                            <line
+                                                x1="2"
+                                                y1="12"
+                                                x2="5"
+                                                y2="12"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                            <line
+                                                x1="19"
+                                                y1="12"
+                                                x2="22"
+                                                y2="12"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                        </>
+                                    )}
+                                </svg>
+                                <span className={styles.panelTitle}>
+                                    {headlightNotice === "on" ? "Headlights On" : "Headlights Off"}
+                                </span>
+                            </div>
                         </div>
                     )}
 
@@ -1097,7 +1228,47 @@ export default function InteractiveMap({
                             )}
 
                             {mode === "addPOI" && poiStep === "placing" && (
-                                <p className={styles.panelHint}>Click on the map to add a POI</p>
+                                <div>
+                                    <p className={styles.panelHint}>
+                                        Click on the map to add a POI
+                                    </p>
+                                    <p
+                                        className={styles.panelHint}
+                                        style={{ opacity: 0.5, margin: "4px 0" }}
+                                    >
+                                        — or enter coordinates —
+                                    </p>
+                                    <div className={styles.poiForm}>
+                                        <input
+                                            type="number"
+                                            className={styles.poiInput}
+                                            value={poiCoordX}
+                                            onChange={(e) => setPoiCoordX(e.target.value)}
+                                            placeholder="X coordinate"
+                                        />
+                                        <input
+                                            type="number"
+                                            className={styles.poiInput}
+                                            value={poiCoordY}
+                                            onChange={(e) => setPoiCoordY(e.target.value)}
+                                            placeholder="Y coordinate"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    placePOIFromCoords();
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            className={styles.doneBtn}
+                                            onClick={placePOIFromCoords}
+                                            disabled={!poiCoordX || !poiCoordY}
+                                            style={{ opacity: !poiCoordX || !poiCoordY ? 0.4 : 1 }}
+                                        >
+                                            Place POI
+                                        </button>
+                                    </div>
+                                </div>
                             )}
 
                             {mode === "addPOI" && poiStep === "naming" && pendingPOI && (
