@@ -144,6 +144,11 @@ export default function InteractiveMap({
     const [savedPingHistory, setSavedPingHistory] = useState<
         { rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
     >([]);
+    const [savedSearchArea, setSavedSearchArea] = useState<{
+        center: { x: number; y: number };
+        radius_min_m: number;
+        radius_max_m: number;
+    } | null>(null);
 
     // Sync ping history from navState into persistent local state
     useEffect(() => {
@@ -152,8 +157,30 @@ export default function InteractiveMap({
         }
     }, [navState?.session?.ping_history]);
 
+    // Sync search area from navState into persistent local state
+    useEffect(() => {
+        if (navState?.session?.search_area) {
+            setSavedSearchArea(navState.session.search_area);
+        }
+    }, [navState?.session?.search_area]);
+
     // Append manual pings (fired outside of autonomous mode) to saved history
     const lastProcessedPingRef = useRef<ManualPingResult>(null);
+
+    // Match backend get_distance_range()
+    const getDistanceRange = (category: string): [number, number] => {
+        switch (category) {
+            case "strong":
+                return [0, 100];
+            case "moderate":
+                return [100, 462];
+            case "weak":
+                return [462, 1200];
+            default:
+                return [1200, 2000];
+        }
+    };
+
     useEffect(() => {
         if (!lastManualPing || lastManualPing === lastProcessedPingRef.current) return;
         lastProcessedPingRef.current = lastManualPing;
@@ -166,6 +193,14 @@ export default function InteractiveMap({
                 signal_category: lastManualPing.category,
             },
         ]);
+
+        // Update search area from manual ping
+        const [rMin, rMax] = getDistanceRange(lastManualPing.category);
+        setSavedSearchArea({
+            center: { x: roverPosition.x, y: roverPosition.y },
+            radius_min_m: rMin,
+            radius_max_m: rMax,
+        });
     }, [lastManualPing, roverPosition.x, roverPosition.y]);
 
     // FAB menu
@@ -1659,13 +1694,13 @@ export default function InteractiveMap({
                 {/* ── Autonomous Nav Overlays ── */}
 
                 {/* Search area donut */}
-                {isAutonomous && navState?.session?.search_area && (
+                {savedSearchArea && (
                     <g>
                         {/* Outer circle (max radius) */}
                         <circle
-                            cx={navState.session.search_area.center.x}
-                            cy={navState.session.search_area.center.y}
-                            r={navState.session.search_area.radius_max_m}
+                            cx={savedSearchArea.center.x}
+                            cy={savedSearchArea.center.y}
+                            r={savedSearchArea.radius_max_m}
                             fill="rgba(110, 231, 183, 0.06)"
                             stroke="#6ee7b7"
                             strokeWidth="1.5"
@@ -1673,11 +1708,11 @@ export default function InteractiveMap({
                             opacity="0.4"
                         />
                         {/* Inner circle (min radius) — punches out the donut center */}
-                        {navState.session.search_area.radius_min_m > 0 && (
+                        {savedSearchArea.radius_min_m > 0 && (
                             <circle
-                                cx={navState.session.search_area.center.x}
-                                cy={navState.session.search_area.center.y}
-                                r={navState.session.search_area.radius_min_m}
+                                cx={savedSearchArea.center.x}
+                                cy={savedSearchArea.center.y}
+                                r={savedSearchArea.radius_min_m}
                                 fill="#1e1e22"
                                 stroke="#6ee7b7"
                                 strokeWidth="1"
@@ -1687,8 +1722,8 @@ export default function InteractiveMap({
                         )}
                         {/* Center crosshair */}
                         <circle
-                            cx={navState.session.search_area.center.x}
-                            cy={navState.session.search_area.center.y}
+                            cx={savedSearchArea.center.x}
+                            cy={savedSearchArea.center.y}
                             r="4"
                             fill="none"
                             stroke="#6ee7b7"
@@ -1697,21 +1732,17 @@ export default function InteractiveMap({
                         />
                         {/* Label */}
                         <text
-                            x={navState.session.search_area.center.x}
-                            y={
-                                navState.session.search_area.center.y -
-                                navState.session.search_area.radius_max_m -
-                                10
-                            }
+                            x={savedSearchArea.center.x}
+                            y={savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
                             textAnchor="middle"
                             fill="#6ee7b7"
                             fontSize="10"
                             opacity="0.6"
                         >
                             Search Area (
-                            {navState.session.search_area.radius_min_m > 0
-                                ? `${Math.round(navState.session.search_area.radius_min_m)}–${Math.round(navState.session.search_area.radius_max_m)}m`
-                                : `${Math.round(navState.session.search_area.radius_max_m)}m radius`}
+                            {savedSearchArea.radius_min_m > 0
+                                ? `${Math.round(savedSearchArea.radius_min_m)}–${Math.round(savedSearchArea.radius_max_m)}m`
+                                : `${Math.round(savedSearchArea.radius_max_m)}m radius`}
                             )
                         </text>
                     </g>

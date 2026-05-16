@@ -39,14 +39,15 @@ export default function Map() {
             .then(async (res) => {
                 if (res.ok) {
                     const data = await res.json();
-                    console.log("Manual ping result:", data);
                     if (data.success) {
                         setLastManualPing({
                             rssi_value: data.rssi_value,
                             category: data.category,
                         });
+                        setSignalStatus("success");
+                    } else {
+                        setSignalStatus("failed");
                     }
-                    setSignalStatus("success");
                 } else {
                     setSignalStatus("failed");
                 }
