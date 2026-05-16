@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     DUST_CV_WS_URL: str = "ws://host.docker.internal:8766"
 
+    CV_MODEL_PRIMARY: str = "yolo26_small_v2.pt"
+    CV_MODEL_SECONDARY: str = "yolo26_nano_v2.pt"
+
     MONGODB_URL: str
     MONGO_DB: str = "app"
 
