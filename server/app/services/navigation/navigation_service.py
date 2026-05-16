@@ -19,6 +19,7 @@ from app.models.nav_model import (
     NavigationTarget,
     PingRecord,
     Position,
+    SearchArea,
     SearchPhase,
     SearchSession,
 )
@@ -81,12 +82,27 @@ async def start_autonomous_loop(force_reset: bool = False):
     elif state.session.phase == SearchPhase.IDLE:
         logger.info("Resuming aborted session. Restoring previous phase.")
 
-        # restore the previous phase (fallback to Transit if None)
-        state.session.phase = state.session.previous_phase or SearchPhase.TRANSIT_TO_LNP
+        # 1. Capture the phase we are restoring
+        resumed_phase = state.session.previous_phase or SearchPhase.TRANSIT_TO_LNP
+        state.session.phase = resumed_phase
 
+        # 2. Map the enum to a clean, UI-friendly string
+        phase_descriptions = {
+            SearchPhase.TRANSIT_TO_LNP: "Transit to Last Nominal Position",
+            SearchPhase.CONCENTRIC_SEARCH: "Concentric Search",
+            SearchPhase.GRADIENT_ASCENT: "Gradient Ascent",
+            SearchPhase.TIGHT_SPIRAL: "Tight Spiral",
+        }
+
+        # Default to a formatted string if not in the dictionary just in case
+        phase_name = phase_descriptions.get(
+            resumed_phase, resumed_phase.value.replace("_", " ").title()
+        )
+
+        # 3. Inject the dynamic phase name into the description
         state.session.current_target = NavigationTarget(
             position=state.rover_position or LNP_POSITION,
-            description="Resuming from manual intervention",
+            description=f"Resuming: {phase_name}",
             arrival_threshold_m=5.0,
         )
         await navigation_state.update_session(state.session)
@@ -253,6 +269,20 @@ async def autonomous_mission_loop():
                 if result != 0:
                     path_success = False
                     break
+                else:
+                    # confirm Success upon arrival
+                    if (
+                        session.phase == SearchPhase.TRANSIT_TO_LNP
+                        and i == len(safe_path) - 1
+                    ):
+                        await navigation_state.update_status(
+                            "Success: Arrived at LTV Last Nominal Position. Rover fully stopped.",
+                            "success",
+                        )
+                    else:
+                        await navigation_state.update_status(
+                            "Success: Waypoint reached. Rover paused.", "success"
+                        )
 
             if not path_success:
                 await abort_autonomous_mission(
@@ -309,10 +339,10 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
     rover_pos = state.rover_position
 
     # --- SAFETY CHECK: Guard against missing data ---
-    # Because state.session and state.rover_position are marked as `Optional` in our
-    # Pydantic models, they can be `None` if the telemetry loop hasn't initialized
+    # Because state.session and state.rover_position are marked as Optional in our
+    # Pydantic models, they can be None if the telemetry loop hasn't initialized
     # or the session was dropped. We must catch this before trying to access attributes
-    # like `session.phase` or `rover_pos.x` to prevent crashes.
+    # like session.phase or rover_pos.x to prevent crashes.
     if session is None or rover_pos is None:
         logger.error(
             "Cannot handle unreachable target: session or rover_position is None."
@@ -461,10 +491,13 @@ async def evaluate_phase_and_ping(state: NavigationState):
             await asyncio.sleep(wait_time)
 
     # Execute Ping
-    success, rssi, _ = await execute_ping()
+    success, rssi, category = await execute_ping()
 
     if success:
-        await navigation_state.update_status(f"Ping Executed. RSSI: {rssi} dBm", "info")
+        # notify user ping is done
+        await navigation_state.update_status(
+            f"Ping Executed automatically. RSSI: {rssi} dBm", "info"
+        )
 
     # State Machine Transitions
     if session.phase == SearchPhase.TRANSIT_TO_LNP:
@@ -489,6 +522,18 @@ async def evaluate_phase_and_ping(state: NavigationState):
                     session.search_center.y,
                     rover_pos.x,
                     rover_pos.y,
+                )
+
+                # Update search area when best signal improves
+                r_min, r_max = get_distance_range(category)
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                )
+
+                # search area updated message
+                await navigation_state.update_status(
+                    f"Stronger signal detected ({rssi} dBm). Recalculating LTV search area.",
+                    "success",
                 )
 
             if rssi >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
@@ -532,6 +577,17 @@ async def evaluate_phase_and_ping(state: NavigationState):
             if improved:
                 session.best_rssi = rssi
                 session.gradient_retries = 0  # Reset counter on success
+
+                r_min, r_max = get_distance_range(category)
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                )
+
+                # search area updated message
+                await navigation_state.update_status(
+                    f"Stronger signal detected ({rssi} dBm). Recalculating LTV search area.",
+                    "success",
+                )
 
                 prev_x = (
                     session.ping_history[-2].rover_position.x
@@ -697,6 +753,20 @@ def categorize_rssi(rssi_value: float) -> DistanceCategory:
     return DistanceCategory.VERY_WEAK
 
 
+def get_distance_range(category: DistanceCategory) -> Tuple[float, float]:
+    """Translates a signal category into a minimum and maximum distance radius in meters."""
+    ranges = {
+        DistanceCategory.STRONG: (0.0, 100.0),
+        DistanceCategory.MODERATE: (100.0, 462.0),
+        DistanceCategory.WEAK: (462.0, 1200.0),
+        DistanceCategory.VERY_WEAK: (
+            1200.0,
+            2000.0,
+        ),  # 2000 acts as an arbitrary outer bound
+    }
+    return ranges[category]
+
+
 def generate_initial_rings(
     center_x: float, center_y: float
 ) -> List[Tuple[float, float]]:
@@ -781,6 +851,12 @@ async def start_search_session() -> SearchSession:
 
     await navigation_state.update_session(session)
     logger.info("Search Session Started. Transit to LNP initiated.")
+
+    # begin Navigation to LNP message
+    await navigation_state.update_status(
+        "Beginning navigation to LTV Last Nominal Position.", "info"
+    )
+
     return session
 
 
@@ -861,9 +937,17 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
                     signal_category=category,
                 )
             )
+
+            if rssi > session.best_rssi:
+                session.best_rssi = rssi
+                r_min, r_max = get_distance_range(category)
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                )
+
             await navigation_state.update_session(session)
 
-            # Let the UI know a manual ping was recorded
+            # Notify user ping is done
             await navigation_state.update_status(
                 f"Manual Ping Recorded. RSSI: {rssi} dBm", "info"
             )
