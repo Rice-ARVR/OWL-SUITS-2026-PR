@@ -5,7 +5,9 @@ from typing import AsyncGenerator
 import httpx
 
 from app.core.config import settings
+from app.services.rag.context_builder import get_current_telemetry_sections
 from app.services.rag.rag_service import get_chain, to_lc_messages
+from app.services.telemetry.telemetry_widget_service import select_widgets_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +61,17 @@ async def check_ollama_health() -> dict:
 async def stream_rag(
     model: str, question: str, chat_history: list[dict], use_rag: bool = True
 ) -> AsyncGenerator[str, None]:
-    chain_input = {"question": question, "chat_history": to_lc_messages(chat_history)}
+    sections = get_current_telemetry_sections()
+    widgets = select_widgets_for_prompt(question, sections)
+
+    chain_input = {
+        "question": question,
+        "chat_history": to_lc_messages(chat_history),
+    }
+
     async for chunk in get_chain(use_rag).astream(chain_input):
-        yield f"data: {json.dumps({'response': chunk})}\n\n"
+        yield f"data: {json.dumps({'response': chunk, 'widgets': widgets})}\n\n"
+
     yield "data: [DONE]\n\n"
 
 

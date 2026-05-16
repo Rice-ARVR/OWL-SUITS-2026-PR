@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.database import connect, disconnect
 from app.routers.estimation import router as estimation_router
+from app.routers import systems_actions
 from app.routers.locations import router as locations_router
 from app.routers.procedures import router as procedures_router
 from app.routers.navigation import router as navigation_router
@@ -64,3 +65,4 @@ app.include_router(telemetry_ws_router)
 app.include_router(rover_control_ws_router)
 app.include_router(navigation_router)
 app.include_router(procedures_router)
+app.include_router(systems_actions.router)
