@@ -19,6 +19,7 @@ from app.models.nav_model import (
     NavigationTarget,
     PingRecord,
     Position,
+    SearchArea,
     SearchPhase,
     SearchSession,
 )
@@ -476,7 +477,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
             await asyncio.sleep(wait_time)
 
     # Execute Ping
-    success, rssi, _ = await execute_ping()
+    success, rssi, category = await execute_ping()
 
     if success:
         await navigation_state.update_status(f"Ping Executed. RSSI: {rssi} dBm", "info")
@@ -504,6 +505,12 @@ async def evaluate_phase_and_ping(state: NavigationState):
                     session.search_center.y,
                     rover_pos.x,
                     rover_pos.y,
+                )
+
+                # Only update search area when best signal improves
+                r_min, r_max = get_distance_range(category)
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
                 )
 
             if rssi >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
@@ -547,6 +554,11 @@ async def evaluate_phase_and_ping(state: NavigationState):
             if improved:
                 session.best_rssi = rssi
                 session.gradient_retries = 0  # Reset counter on success
+
+                r_min, r_max = get_distance_range(category)
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                )
 
                 prev_x = (
                     session.ping_history[-2].rover_position.x
@@ -710,6 +722,20 @@ def categorize_rssi(rssi_value: float) -> DistanceCategory:
     elif rssi_value >= RSSI_THRESHOLDS[DistanceCategory.WEAK]:
         return DistanceCategory.WEAK
     return DistanceCategory.VERY_WEAK
+
+
+def get_distance_range(category: DistanceCategory) -> Tuple[float, float]:
+    """Translates a signal category into a minimum and maximum distance radius in meters."""
+    ranges = {
+        DistanceCategory.STRONG: (0.0, 100.0),
+        DistanceCategory.MODERATE: (100.0, 462.0),
+        DistanceCategory.WEAK: (462.0, 1200.0),
+        DistanceCategory.VERY_WEAK: (
+            1200.0,
+            2000.0,
+        ),  # 2000 acts as an arbitrary outer bound
+    }
+    return ranges[category]
 
 
 def generate_initial_rings(
@@ -876,6 +902,14 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
                     signal_category=category,
                 )
             )
+
+            if rssi > session.best_rssi:
+                session.best_rssi = rssi
+                r_min, r_max = get_distance_range(category)
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                )
+
             await navigation_state.update_session(session)
 
             # Let the UI know a manual ping was recorded

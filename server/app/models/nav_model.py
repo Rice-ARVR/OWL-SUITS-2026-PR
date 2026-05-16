@@ -48,6 +48,14 @@ class PingRecord(BaseModel):
     signal_category: DistanceCategory
 
 
+class SearchArea(BaseModel):
+    """Represents the estimated annulus (donut) area where the LTV is located."""
+
+    center: Position
+    radius_min_m: float
+    radius_max_m: float
+
+
 class LidarReading(BaseModel):
     index: int  # 0-16
     distance_cm: float
@@ -87,6 +95,9 @@ class SearchSession(BaseModel):
 
     # Track local minimum sweeps during Gradient Ascent
     gradient_retries: int = 0
+
+    # Expose the estimated search zone to the UI
+    search_area: Optional[SearchArea] = None
 
 
 class Hazard(BaseModel):
