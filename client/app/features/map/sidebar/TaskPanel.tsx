@@ -16,86 +16,203 @@ interface Task {
 }
 
 const INITIAL_CURRENT: Task = {
-    id: 1,
-    title: "Find lost LTV",
-    description: "Locate the non-communicating autonomous Lunar Terrain Vehicle (LTV).",
+    id: 100,
+    title: "Complete Pre-Navigation Checklist",
+    description:
+        "Perform a series of system checks and calibrations to ensure the rover is ready for navigation.",
     subtasks: [
         {
-            id: 101,
-            title: "Map Search Pattern",
-            description: "Generate a grid based on last known location and terrain.",
+            id: 1,
+            title: "Battery Check",
+            description: "Pilot verbally confirm battery level is > 95%",
         },
         {
-            id: 102,
-            title: "Lorem Ipsum",
-            description: "Navigate the rover to locate the LTV within the search radius.",
+            id: 2,
+            title: "O2 Check",
+            description: "Pilot verbally confirm O2 levels are > 95%",
         },
         {
-            id: 103,
-            title: "Initiate LTV Wake-up",
-            description: "Send a beacon signal to trigger the LTV's response when in range.",
+            id: 3,
+            title: "O2 Pressure Check",
+            description: "Pilot verbally confirm O2 pressure is > 2900 psi",
+        },
+        {
+            id: 4,
+            title: "PR Cabin Pressure Check",
+            description: "Pilot verbally confirm PR Cabin Pressure is > 3.95 psi ",
+        },
+        {
+            id: 5,
+            title: "PR Headlight Check",
+            description:
+                "Pilot verify PR headlights are operational by manually cycling lights ON, OFF, ON, OFF, ON, verbally confirm success",
+        },
+        {
+            id: 6,
+            title: "Drop Pin at Current Location",
+            description: "Pilot drop pin at current location, verbally confirm success",
+        },
+        {
+            id: 7,
+            title: "Drop Pin at LTV Last Known Position",
+            description: "Drop pin at LTV last known position, verbally confirm success",
+        },
+        {
+            id: 8,
+            title: "Calculate Optimal Path",
+            description: "Calculate optimal path to the LTV last nominal position",
+        },
+        {
+            id: 9,
+            title: "Announce Completion",
+            description: "Verbally announce completion of checklist",
         },
     ],
 };
 
 const INITIAL_UPCOMING: Task[] = [
     {
-        id: 2,
-        title: "EV Navigation",
-        description: "Traverse the lunar surface safely while detecting environmental hazards.",
+        id: 200,
+        title: "Navigate to LTV last known location",
+        description:
+            "Navigate to the last known location of the LTV based on telemetry data, while continuously monitoring rover systems and ensuring safe operation.",
         subtasks: [
             {
-                id: 201,
-                title: "Map Search Pattern",
-                description: "Generate a grid based on last known location and terrain.",
+                id: 10,
+                title: "Navigate to LTV Last Nominal Position",
+                description: "Begin navigation to LTV last nominal position",
             },
             {
-                id: 202,
-                title: "Lorem Ipsum",
-                description: "Navigate the rover to locate the LTV within the search radius.",
+                id: 11,
+                title: "Navigate to LTV Last Nominal Position",
+                description: "Upon arrival, fully stop the PR, verbally confirm success",
             },
             {
-                id: 203,
-                title: "Initiate LTV Wake-up",
-                description: "Send a beacon signal to trigger the LTV's response when in range.",
+                id: 12,
+                title: "Announce Arrival",
+                description: "Verbally announce arrival at LTV last nominal position",
+            },
+            {
+                id: 13,
+                title: "Check Telemetry",
+                description:
+                    "Check telemetry data and look for any off-nominal values before proceeding",
+            },
+            {
+                id: 14,
+                title: "Announce LTV Search",
+                description: "Verbally announce beginning LTV search",
             },
         ],
     },
     {
-        id: 3,
-        title: "Egress",
+        id: 300,
+        title: "Initial ping and calculate search area",
         description:
-            "Complete specific Umbilical Interface Assembly (UIA) procedures to safely exit the airlock and initiate the EVA.",
+            "Perform the initial ping to establish a communication link with the LTV, analyze the incoming RSSI (signal strength) data to calculate a search area, and set a pin for the next ping location based on the calculated search area.",
         subtasks: [
             {
-                id: 301,
-                title: "Prepare airlock",
-                description: "Run depressurization sequence and verify seal integrity.",
+                id: 15,
+                title: "Establish Communication Link",
+                description: "Send first ping, analyze the incoming RSSI (signal strength)",
+            },
+            {
+                id: 16,
+                title: "Calculate Search Area",
+                description:
+                    "Calculate a search area based on the LTV max speed and time away from last nominal position",
+            },
+            {
+                id: 17,
+                title: "Set Pin for Next Ping Location",
+                description:
+                    "Set pin for next ping location and calculate optimal path of navigation",
+            },
+            {
+                id: 18,
+                title: "Review Consumables",
+                description:
+                    "Review consumables, verify and verbally confirm point-of-no-return state is nominal",
+            },
+        ],
+    },
+    {
+        id: 400,
+        title: "Execute search procedure, find LTV",
+        description:
+            "Execute the search procedure by navigating to the next ping location, sending subsequent pings, and analyzing RSSI updates to iteratively narrow down the search area until the LTV is visually located. Verbally confirm each step of the process and ensure safe operation throughout.",
+        subtasks: [
+            {
+                id: 19,
+                title: "Navigate to Next Ping Location",
+                description: "Begin navigation to next ping location",
+            },
+            {
+                id: 20,
+                title: "Announce Arrival",
+                description: " Upon arrival, fully stop the PR, verbally confirm success",
+            },
+            {
+                id: 21,
+                title: "Send Ping",
+                description:
+                    "Send ping and wait for new RSSI value, verbally confirm new RSSI update",
+            },
+            {
+                id: 22,
+                title: "Determine Next Ping Location",
+                description: "Determine next ping location based on RSSI",
+            },
+            {
+                id: 23,
+                title: "Repeat Search Procedure",
+                description: "Repeat steps 1-4 until LTV is located",
+            },
+            {
+                id: 24,
+                title: "Visually Locate LTV",
+                description: "Once LTV is located, verbally confirm visual of LTV",
+            },
+            {
+                id: 25,
+                title: "Drop Pin at LTV Location",
+                description: "Drop pin at exact location of LTV , verbally confirm success",
+            },
+        ],
+    },
+    {
+        id: 500,
+        title: "Navigate back to HAB",
+        description:
+            "Using the last known location of the LTV, navigate back to the HAB while continuously monitoring rover systems and ensuring safe operation. Upon arrival at the HAB, verbally confirm success and announce conclusion of EVA.",
+        subtasks: [
+            {
+                id: 26,
+                title: "Calculate Optimal Path to HAB",
+                description:
+                    "Calculate the optimal path back to HAB using the provided map of the DUST lunar environment",
+            },
+            {
+                id: 27,
+                title: "Navigate to HAB",
+                description: "Navigate back to HAB.",
+            },
+            {
+                id: 28,
+                title: "Announce Arrival at HAB",
+                description:
+                    " Upon arrival at the HAB, fully stop the PR, verbally confirm success",
+            },
+            {
+                id: 29,
+                title: "Announce Conclusion of EVA",
+                description: "Announce arrival at HAB and conclusion of EVA",
             },
         ],
     },
 ];
 
-const INITIAL_COMPLETED: Task[] = [
-    {
-        id: 4,
-        title: "LTV Repair",
-        description:
-            "EV must follow AI-guided procedures to diagnose and perform physical repairs on the malfunctioning LTV.",
-        subtasks: [
-            {
-                id: 401,
-                title: "Run diagnostics",
-                description: "Execute full system diagnostic scan on the LTV.",
-            },
-            {
-                id: 402,
-                title: "Replace power cell",
-                description: "Swap the depleted power cell with a charged replacement.",
-            },
-        ],
-    },
-];
+const INITIAL_COMPLETED: Task[] = [];
 
 interface TaskCardProps {
     task: Task;
@@ -193,6 +310,14 @@ export default function TaskPanel() {
     const toggleTask = (id: number): void => {
         const next = { ...checkedTasks, [id]: !checkedTasks[id] };
         setCheckedTasks(next);
+
+        // Sync with backend
+        const endpoint = next[id]
+            ? `/procedures/${id}/set_complete`
+            : `/procedures/${id}/set_incomplete`;
+        fetch(endpoint, { method: "PATCH" }).catch((err) =>
+            console.error("Failed to sync procedure:", err),
+        );
 
         // Check if all subtasks of current task are now checked
         if (current) {

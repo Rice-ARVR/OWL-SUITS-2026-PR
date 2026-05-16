@@ -1,9 +1,9 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # --- Enums ---
 
@@ -48,6 +48,14 @@ class PingRecord(BaseModel):
     signal_category: DistanceCategory
 
 
+class SearchArea(BaseModel):
+    """Represents the estimated annulus (donut) area where the LTV is located."""
+
+    center: Position
+    radius_min_m: float
+    radius_max_m: float
+
+
 class LidarReading(BaseModel):
     index: int  # 0-16
     distance_cm: float
@@ -71,15 +79,41 @@ class SearchSession(BaseModel):
     lnp: Position
     search_center: Position
     phase: SearchPhase
+
+    # memory flag
+    previous_phase: Optional[SearchPhase] = None
+
     success_vector: float
     ping_history: List[PingRecord]
 
-    # NEW: Arrays for the frontend map UI
+    # Arrays for the frontend map UI
     path_history: List[Position] = []
     projected_path: List[Position] = []
 
     best_rssi: float
     current_target: Optional[NavigationTarget] = None
+
+    # Track local minimum sweeps during Gradient Ascent
+    gradient_retries: int = 0
+
+    # Expose the estimated search zone to the UI
+    search_area: Optional[SearchArea] = None
+
+
+class Hazard(BaseModel):
+    """
+    Represents a dynamically mapped hazard on the lunar surface.
+    Defined by a polygonal boundary of ordered coordinate points.
+    """
+
+    id: str
+    description: Optional[str] = "Polygonal Hazard"
+    # Field(min_length=3) enforces that the array must contain at least a triangle
+    points: List[Position] = Field(
+        ...,
+        min_length=3,
+        description="Ordered list of boundary points making up the hazard polygon.",
+    )
 
 
 class NavigationState(BaseModel):
@@ -89,6 +123,13 @@ class NavigationState(BaseModel):
     rover_position: Optional[Position] = None
     autonomous_driving: bool = False
 
+    hazards: List[Hazard] = []
+    projected_path: List[Position] = []
+
+    # UI flags for driver handoff
+    status_message: str = "System Idle. Manual Control Active."
+    status_level: Literal["info", "warning", "critical", "success"] = "info"
+
 
 # --- Thread-Safe Wrapper ---
 
@@ -97,6 +138,11 @@ class NavigationStateData:
     def __init__(self) -> None:
         self._data: NavigationState = NavigationState()
         self._lock: asyncio.Lock = asyncio.Lock()
+
+    async def update_hazards(self, hazards: List[Hazard]) -> None:
+        """Updates the list of polygonal hazards on the map."""
+        async with self._lock:
+            self._data.hazards = hazards
 
     async def update_session(self, session: SearchSession) -> None:
         async with self._lock:
@@ -117,6 +163,17 @@ class NavigationStateData:
     async def set_autonomous_driving(self, enabled: bool) -> None:
         async with self._lock:
             self._data.autonomous_driving = enabled
+
+    # push UI alerts
+    async def update_status(
+        self,
+        message: str,
+        level: Literal["info", "warning", "critical", "success"] = "info",
+    ) -> None:
+        """Updates the UI status flags for frontend alerts."""
+        async with self._lock:
+            self._data.status_message = message
+            self._data.status_level = level
 
     async def get_snapshot(self) -> NavigationState:
         async with self._lock:

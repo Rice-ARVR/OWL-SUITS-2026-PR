@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import styles from "./InteractiveMap.module.css";
 import { useNavigationState } from "./useNavigationState";
 import { useTelemetry } from "~/hooks/useTelemetry";
+import { VirtualJoystick } from "~/features/controls/joystick";
+
 import type {
     Point,
     MapPoint,
@@ -20,17 +22,58 @@ import { Marker } from "./map-components/Marker"; // Pins
 import { HazardShape } from "./map-components/HazardShape";
 import { RoverIcon } from "./map-components/RoverIcon";
 
+import mockNavState from "./mock-nav-state.json";
+
+// Set to true to use mock navigation data instead of the live backend
+const DEBUG_MODE = false;
+
 // ── Main map component ─────────────────────────────────
 
-export default function InteractiveMap() {
+type ManualPingResult = {
+    rssi_value: number;
+    category: string;
+} | null;
+
+interface InteractiveMapProps {
+    onAutonomyChange?: (isAutonomous: boolean) => void;
+    onCurrentTargetChange?: (pos: { x: number; y: number } | null) => void;
+    stopAutonomyRef?: React.MutableRefObject<(() => void) | undefined>;
+    isSignaling?: boolean;
+    signalStatus?: "pending" | "success" | "failed";
+    lastManualPing?: ManualPingResult;
+    headlightNotice?: "on" | "off" | null;
+}
+
+export default function InteractiveMap({
+    onAutonomyChange,
+    onCurrentTargetChange,
+    stopAutonomyRef,
+    isSignaling = false,
+    signalStatus = "pending",
+    lastManualPing,
+    headlightNotice = null,
+}: InteractiveMapProps) {
     const svgRef = useRef<SVGSVGElement>(null);
 
     // Only connect to the navigation/stream SSE once the user starts autonomy
     const [autonomyRequested, setAutonomyRequested] = useState(false);
 
     // ── Navigation SSE hook ──
-    const { navState, connected, startAutonomy, stopAutonomy, executePing } =
-        useNavigationState(autonomyRequested);
+    const liveNav = useNavigationState(autonomyRequested);
+
+    const { navState, connected, startAutonomy, stopAutonomy, executePing } = DEBUG_MODE
+        ? {
+              navState: autonomyRequested ? (mockNavState as typeof liveNav.navState) : null,
+              connected: true,
+              startAutonomy: async () => {
+                  setAutonomyRequested(true);
+              },
+              stopAutonomy: async () => {
+                  setAutonomyRequested(false);
+              },
+              executePing: async () => {},
+          }
+        : liveNav;
 
     const telemetry = useTelemetry();
     const pos = telemetry.getRoverPosition() ?? { x: 0, y: 0, z: 0 };
@@ -40,6 +83,17 @@ export default function InteractiveMap() {
     };
 
     const isAutonomous = navState?.autonomous_driving ?? false;
+
+    // Notify parent when autonomy state changes
+    useEffect(() => {
+        onAutonomyChange?.(isAutonomous);
+    }, [isAutonomous, onAutonomyChange]);
+
+    // Notify parent when current target changes
+    useEffect(() => {
+        const target = navState?.session?.current_target?.position ?? null;
+        onCurrentTargetChange?.(target ?? null);
+    }, [navState?.session?.current_target, onCurrentTargetChange]);
 
     // Auto-center map on rover when position changes significantly
     const lastCenteredRef = useRef<{ x: number; y: number } | null>(null);
@@ -70,6 +124,84 @@ export default function InteractiveMap() {
     const [ltvX, setLtvX] = useState("");
     const [ltvY, setLtvY] = useState("");
     const [showManualConfirm, setShowManualConfirm] = useState(false);
+    const [criticalAlert, setCriticalAlert] = useState<string | null>(null);
+
+    // Show popup when status hits critical (backend may already set autonomous_driving=false)
+    const prevStatusLevelRef = useRef<string | undefined>(undefined);
+    useEffect(() => {
+        const level = navState?.status_level;
+        if (
+            level === "critical" &&
+            prevStatusLevelRef.current !== "critical" &&
+            navState?.status_message
+        ) {
+            setCriticalAlert(navState.status_message);
+            const timer = setTimeout(() => setCriticalAlert(null), 5000);
+            return () => clearTimeout(timer);
+        }
+        prevStatusLevelRef.current = level;
+    }, [navState?.status_level, navState?.status_message]);
+    const [savedPingHistory, setSavedPingHistory] = useState<
+        { rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
+    >([]);
+    const [savedSearchArea, setSavedSearchArea] = useState<{
+        center: { x: number; y: number };
+        radius_min_m: number;
+        radius_max_m: number;
+    } | null>(null);
+
+    // Sync ping history from navState into persistent local state
+    useEffect(() => {
+        if (navState?.session?.ping_history && navState.session.ping_history.length > 0) {
+            setSavedPingHistory(navState.session.ping_history);
+        }
+    }, [navState?.session?.ping_history]);
+
+    // Sync search area from navState into persistent local state
+    useEffect(() => {
+        if (navState?.session?.search_area) {
+            setSavedSearchArea(navState.session.search_area);
+        }
+    }, [navState?.session?.search_area]);
+
+    // Append manual pings (fired outside of autonomous mode) to saved history
+    const lastProcessedPingRef = useRef<ManualPingResult>(null);
+
+    // Match backend get_distance_range()
+    const getDistanceRange = (category: string): [number, number] => {
+        switch (category) {
+            case "strong":
+                return [0, 100];
+            case "moderate":
+                return [100, 462];
+            case "weak":
+                return [462, 1200];
+            default:
+                return [1200, 2000];
+        }
+    };
+
+    useEffect(() => {
+        if (!lastManualPing || lastManualPing === lastProcessedPingRef.current) return;
+        lastProcessedPingRef.current = lastManualPing;
+
+        setSavedPingHistory((prev) => [
+            ...prev,
+            {
+                rover_position: { x: roverPosition.x, y: roverPosition.y },
+                rssi: lastManualPing.rssi_value,
+                signal_category: lastManualPing.category,
+            },
+        ]);
+
+        // Update search area from manual ping
+        const [rMin, rMax] = getDistanceRange(lastManualPing.category);
+        setSavedSearchArea({
+            center: { x: roverPosition.x, y: roverPosition.y },
+            radius_min_m: rMin,
+            radius_max_m: rMax,
+        });
+    }, [lastManualPing, roverPosition.x, roverPosition.y]);
 
     // FAB menu
     const [showAddMenu, setShowAddMenu] = useState(false);
@@ -83,6 +215,8 @@ export default function InteractiveMap() {
     const [pendingPOI, setPendingPOI] = useState<MapPoint | null>(null);
     const [poiName, setPoiName] = useState("");
     const [poiDescription, setPoiDescription] = useState("");
+    const [poiCoordX, setPoiCoordX] = useState("");
+    const [poiCoordY, setPoiCoordY] = useState("");
     const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
 
     // Directions workflow
@@ -161,19 +295,44 @@ export default function InteractiveMap() {
             }
         }
 
-        // Directions — click near a POI to add it as waypoint
+        // Directions — click near a POI or ping to add it as waypoint
         if (
             mode === "directions" &&
             (directionsStep === "selectDestination" || directionsStep === "review")
         ) {
-            const clickRadius = 30;
-            const nearest = points.find((p) => {
-                const d = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
+            // Scale click radius to current zoom level so it feels consistent
+            const clickRadius = Math.max(30, viewBox.w * 0.04);
+
+            // Check POIs — check both pin tip (p.x, p.y) and pin center (p.x, p.y - 26)
+            const nearestPOI = points.find((p) => {
+                const dTip = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
+                const dCenter = Math.sqrt((p.x - x) ** 2 + (p.y - 26 - y) ** 2);
+                return Math.min(dTip, dCenter) < clickRadius;
+            });
+            if (nearestPOI && !waypoints.find((w) => w.id === nearestPOI.id)) {
+                setWaypoints((prev) => [...prev, nearestPOI]);
+                setDirectionsStep("review");
+                return;
+            }
+
+            // Check pings
+            const nearestPing = savedPingHistory.find((p) => {
+                const d = Math.sqrt((p.rover_position.x - x) ** 2 + (p.rover_position.y - y) ** 2);
                 return d < clickRadius;
             });
-            if (nearest && !waypoints.find((w) => w.id === nearest.id)) {
-                setWaypoints((prev) => [...prev, nearest]);
-                setDirectionsStep("review");
+            if (nearestPing) {
+                const pingWaypoint: MapPoint = {
+                    id: `ping-${nearestPing.rover_position.x}-${nearestPing.rover_position.y}`,
+                    x: nearestPing.rover_position.x,
+                    y: nearestPing.rover_position.y,
+                    label: `Ping ${Math.round(nearestPing.rssi)} dBm`,
+                    description: nearestPing.signal_category,
+                    type: "poi",
+                };
+                if (!waypoints.find((w) => w.id === pingWaypoint.id)) {
+                    setWaypoints((prev) => [...prev, pingWaypoint]);
+                    setDirectionsStep("review");
+                }
             }
         }
     };
@@ -282,6 +441,8 @@ export default function InteractiveMap() {
         setPoiStep("placing");
         setPoiName("");
         setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
         setMousePos(null);
         setSelectedTypes([]);
         setWaypoints([]);
@@ -304,9 +465,6 @@ export default function InteractiveMap() {
     };
 
     const handleLaunchAutonomy = async () => {
-        const x = parseFloat(ltvX);
-        const y = parseFloat(ltvY);
-        if (isNaN(x) || isNaN(y)) return;
         setAutonomyRequested(true);
         await startAutonomy();
         setMode("navigate");
@@ -329,6 +487,13 @@ export default function InteractiveMap() {
         setAutonomyRequested(false);
         setShowManualConfirm(false);
     };
+
+    // Expose stop handler to parent via ref
+    useEffect(() => {
+        if (stopAutonomyRef) {
+            stopAutonomyRef.current = confirmStopAutonomy;
+        }
+    });
 
     // ── Directions workflow ──
 
@@ -448,15 +613,40 @@ export default function InteractiveMap() {
         setPendingPOI(null);
         setPoiName("");
         setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
         setPoiStep("placing");
+        setMode("navigate");
     };
 
     const cancelPOI = () => {
         setPendingPOI(null);
         setPoiName("");
         setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
         setPoiStep("placing");
         setMode("navigate");
+    };
+
+    const placePOIFromCoords = () => {
+        const x = parseFloat(poiCoordX);
+        const y = parseFloat(poiCoordY);
+        if (isNaN(x) || isNaN(y)) return;
+        const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
+        setPendingPOI({
+            id: crypto.randomUUID(),
+            x,
+            y,
+            label: defaultName,
+            description: "",
+            type: "poi",
+        });
+        setPoiName(defaultName);
+        setPoiDescription("");
+        setPoiCoordX("");
+        setPoiCoordY("");
+        setPoiStep("naming");
     };
 
     // ── Delete handlers ──
@@ -516,167 +706,6 @@ export default function InteractiveMap() {
 
     return (
         <div className={styles.wrapper}>
-            {/* ── Plot Hazard / Add POI Panel (top-left) ── */}
-            {showPanel && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            {mode === "plotHazard" ? (
-                                <polygon
-                                    points="12,2 22,20 2,20"
-                                    stroke="#6ee7b7"
-                                    strokeWidth="2"
-                                    fill="none"
-                                    strokeDasharray="3 2"
-                                />
-                            ) : (
-                                <>
-                                    <circle cx="12" cy="12" r="3" fill="#6ee7b7" />
-                                    <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="9"
-                                        stroke="#6ee7b7"
-                                        strokeWidth="2"
-                                        fill="none"
-                                    />
-                                </>
-                            )}
-                        </svg>
-                        <span className={styles.panelTitle}>
-                            {mode === "plotHazard" ? "Plot a Hazard" : "Add POI"}
-                        </span>
-                        <button
-                            className={styles.panelClose}
-                            onClick={() => {
-                                if (mode === "addPOI" && pendingPOI) {
-                                    cancelPOI();
-                                } else {
-                                    cancelAll();
-                                }
-                            }}
-                        >
-                            ×
-                        </button>
-                    </div>
-
-                    {mode === "plotHazard" && activeHazard && (
-                        <>
-                            <span className={styles.pointCount}>
-                                {activeHazard.points.length} point
-                                {activeHazard.points.length !== 1 ? "s" : ""} placed
-                            </span>
-                            <div className={styles.panelActions}>
-                                <button className={styles.undoBtn} onClick={undoLastPoint}>
-                                    Undo
-                                </button>
-                                {activeHazard.points.length >= 2 && (
-                                    <button className={styles.doneBtn} onClick={finishPlotting}>
-                                        ✓ Done
-                                    </button>
-                                )}
-                            </div>
-                        </>
-                    )}
-
-                    {mode === "plotHazard" && !activeHazard && (
-                        <p className={styles.panelHint}>Click on the map to place points</p>
-                    )}
-
-                    {mode === "addPOI" && poiStep === "placing" && (
-                        <p className={styles.panelHint}>Click on the map to add a POI</p>
-                    )}
-
-                    {mode === "addPOI" && poiStep === "naming" && pendingPOI && (
-                        <div className={styles.poiForm}>
-                            <label className={styles.poiLabel}>Name</label>
-                            <input
-                                type="text"
-                                className={styles.poiInput}
-                                value={poiName}
-                                onChange={(e) => setPoiName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        confirmPOIName();
-                                    }
-                                }}
-                                autoFocus
-                                placeholder="POI name..."
-                            />
-                            <button className={styles.doneBtn} onClick={confirmPOIName}>
-                                Next
-                            </button>
-                        </div>
-                    )}
-
-                    {mode === "addPOI" && poiStep === "describing" && pendingPOI && (
-                        <div className={styles.poiForm}>
-                            <label className={styles.poiLabel}>Description</label>
-                            <textarea
-                                className={styles.poiTextarea}
-                                value={poiDescription}
-                                onChange={(e) => setPoiDescription(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !e.shiftKey) {
-                                        e.preventDefault();
-                                        confirmPOIDescription();
-                                    }
-                                }}
-                                autoFocus
-                                placeholder="Description (optional)..."
-                                rows={3}
-                            />
-                            <button className={styles.doneBtn} onClick={confirmPOIDescription}>
-                                ✓ Add POI
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ── Add Details Panel (top-left) ── */}
-            {showDetailsPanel && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <polygon
-                                points="12,2 22,20 2,20"
-                                stroke="#ff8a75"
-                                strokeWidth="2"
-                                fill="none"
-                            />
-                        </svg>
-                        <span className={styles.panelTitle}>Add Details</span>
-                        <button className={styles.panelClose} onClick={cancelAll}>
-                            ×
-                        </button>
-                    </div>
-
-                    <div className={styles.detailsBody}>
-                        <span className={styles.detailsLabel}>Hazard Type</span>
-                        <div className={styles.typeChips}>
-                            {(["regolith", "debris", "crater"] as HazardType[]).map((type) => (
-                                <button
-                                    key={type}
-                                    className={`${styles.typeChip} ${
-                                        selectedTypes.includes(type) ? styles.typeChipSelected : ""
-                                    }`}
-                                    onClick={() => toggleHazardType(type)}
-                                >
-                                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <button className={styles.finishBtn} onClick={finishHazard}>
-                        Finish
-                    </button>
-                </div>
-            )}
-
             {/* ── Directions Panel (top-left) ── */}
             {mode === "directions" && (
                 <div className={styles.panel}>
@@ -704,7 +733,7 @@ export default function InteractiveMap() {
                     </div>
 
                     {directionsStep === "selectDestination" && waypoints.length === 0 && (
-                        <p className={styles.panelHint}>Click a POI to set destination</p>
+                        <p className={styles.panelHint}>Click a POI or ping to set destination</p>
                     )}
 
                     {(directionsStep === "review" || directionsStep === "selectDestination") &&
@@ -779,7 +808,7 @@ export default function InteractiveMap() {
                                 ))}
 
                                 <p className={styles.panelHint} style={{ marginTop: "8px" }}>
-                                    Click more POIs to add to path
+                                    Click more POIs or pings to add to path
                                 </p>
                                 <div className={styles.routeActions}>
                                     <button className={styles.letsGoBtn} onClick={computeRoute}>
@@ -889,38 +918,8 @@ export default function InteractiveMap() {
                         </button>
                     </div>
 
-                    <p className={styles.panelHint}>Enter last known coordinates of the LTV</p>
-
                     <div className={styles.poiForm}>
-                        <label className={styles.poiLabel}>X Coordinate</label>
-                        <input
-                            type="number"
-                            className={styles.poiInput}
-                            value={ltvX}
-                            onChange={(e) => setLtvX(e.target.value)}
-                            placeholder="e.g. -6090.0"
-                            autoFocus
-                        />
-                        <label className={styles.poiLabel}>Y Coordinate</label>
-                        <input
-                            type="number"
-                            className={styles.poiInput}
-                            value={ltvY}
-                            onChange={(e) => setLtvY(e.target.value)}
-                            placeholder="e.g. -10485.6"
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleLaunchAutonomy();
-                                }
-                            }}
-                        />
-                        <button
-                            className={styles.finishBtn}
-                            onClick={handleLaunchAutonomy}
-                            disabled={!ltvX || !ltvY}
-                            style={{ opacity: !ltvX || !ltvY ? 0.4 : 1 }}
-                        >
+                        <button className={styles.finishBtn} onClick={handleLaunchAutonomy}>
                             Start Autonomous Navigation
                         </button>
                     </div>
@@ -949,93 +948,464 @@ export default function InteractiveMap() {
                 </div>
             )}
 
-            {/* ── Autonomous Navigation Status Panel (top-left) ── */}
-            {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <circle
-                                cx="11"
-                                cy="11"
-                                r="7"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                fill="none"
-                            />
-                            <line
-                                x1="16.5"
-                                y1="16.5"
-                                x2="21"
-                                y2="21"
-                                stroke="#6ee7b7"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <span className={styles.panelTitle}>Autonomous Navigation</span>
-                        <button className={styles.panelClose} onClick={handleManualModeRequest}>
-                            ×
-                        </button>
-                    </div>
-
-                    <div className={styles.autoStatusBody}>
-                        <div className={styles.autoPhaseRow}>
-                            <span className={styles.autoLabel}>Phase</span>
-                            <span className={styles.autoPhaseBadge}>
-                                {navState.session.phase.replace(/_/g, " ")}
-                            </span>
+            {/* ── All top-left panels (stacked) ── */}
+            {(isAutonomous ||
+                isSignaling ||
+                showPanel ||
+                showDetailsPanel ||
+                headlightNotice ||
+                criticalAlert) && (
+                <div className={styles.panelStack}>
+                    {/* Critical alert panel */}
+                    {criticalAlert && (
+                        <div
+                            className={styles.panel}
+                            style={{ position: "relative", borderLeft: "3px solid #e74c3c" }}
+                        >
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <polygon
+                                        points="12,2 22,20 2,20"
+                                        stroke="#e74c3c"
+                                        strokeWidth="2"
+                                        fill="none"
+                                    />
+                                    <line
+                                        x1="12"
+                                        y1="9"
+                                        x2="12"
+                                        y2="14"
+                                        stroke="#e74c3c"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <circle cx="12" cy="17" r="1" fill="#e74c3c" />
+                                </svg>
+                                <span className={styles.panelTitle} style={{ color: "#e74c3c" }}>
+                                    Autonomous Navigation Stopped
+                                </span>
+                            </div>
+                            <div style={{ padding: "0 12px 10px" }}>
+                                <span
+                                    className={styles.autoValue}
+                                    style={{ color: "#ccc", fontSize: "12px" }}
+                                >
+                                    {criticalAlert}
+                                </span>
+                                <p style={{ color: "#888", fontSize: "11px", margin: "6px 0 0" }}>
+                                    Control has been returned to the user.
+                                </p>
+                            </div>
                         </div>
+                    )}
 
-                        {navState.session.best_rssi > -Infinity && (
-                            <div className={styles.autoPhaseRow}>
-                                <span className={styles.autoLabel}>Best RSSI</span>
-                                <span className={styles.autoValue}>
-                                    {Math.round(navState.session.best_rssi)} dBm
-                                </span>
+                    {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <circle
+                                        cx="11"
+                                        cy="11"
+                                        r="7"
+                                        stroke="#6ee7b7"
+                                        strokeWidth="2"
+                                        fill="none"
+                                    />
+                                    <line
+                                        x1="16.5"
+                                        y1="16.5"
+                                        x2="21"
+                                        y2="21"
+                                        stroke="#6ee7b7"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                <span className={styles.panelTitle}>Autonomous Navigation</span>
+                                <button
+                                    className={styles.panelClose}
+                                    onClick={handleManualModeRequest}
+                                >
+                                    ×
+                                </button>
                             </div>
-                        )}
 
-                        <div className={styles.autoPhaseRow}>
-                            <span className={styles.autoLabel}>Pings</span>
-                            <span className={styles.autoValue}>
-                                {navState.session.ping_history.length}
-                            </span>
+                            <div className={styles.autoStatusBody}>
+                                <div className={styles.autoPhaseRow}>
+                                    <span className={styles.autoLabel}>Phase</span>
+                                    <span className={styles.autoPhaseBadge}>
+                                        {navState.session.phase.replace(/_/g, " ")}
+                                    </span>
+                                </div>
+
+                                {navState.session.current_target && (
+                                    <div className={styles.autoTargetBox}>
+                                        <span className={styles.autoLabel}>Current Target</span>
+                                        <span className={styles.autoTargetDesc}>
+                                            {navState.session.current_target.description}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {navState.status_message && (
+                                    <div className={styles.autoPhaseRow}>
+                                        <span className={styles.autoLabel}>Status</span>
+                                        <span
+                                            className={styles.autoValue}
+                                            style={{
+                                                color:
+                                                    navState.status_level === "critical"
+                                                        ? "#e74c3c"
+                                                        : navState.status_level === "warning"
+                                                          ? "#fbbf24"
+                                                          : navState.status_level === "success"
+                                                            ? "#6ee7b7"
+                                                            : "#ccc",
+                                            }}
+                                        >
+                                            {navState.status_message}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                className={styles.stopAutonomyBtn}
+                                onClick={handleManualModeRequest}
+                            >
+                                Stop Autonomous Navigation
+                            </button>
                         </div>
+                    )}
 
-                        {navState.session.current_target && (
-                            <div className={styles.autoTargetBox}>
-                                <span className={styles.autoLabel}>Current Target</span>
-                                <span className={styles.autoTargetDesc}>
-                                    {navState.session.current_target.description}
+                    {isSignaling && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="2.5"
+                                        fill={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                    />
+                                    <path
+                                        d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                    <path
+                                        d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
+                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                <span className={styles.panelTitle}>
+                                    {signalStatus === "pending"
+                                        ? "Signaling LTV"
+                                        : signalStatus === "success"
+                                          ? "Signal Success"
+                                          : "Signal Failed"}
                                 </span>
                             </div>
-                        )}
+                            {signalStatus === "success" && lastManualPing && (
+                                <div style={{ padding: "0 12px 8px" }}>
+                                    <span
+                                        className={styles.autoValue}
+                                        style={{ color: "#6ee7b7", fontSize: "12px" }}
+                                    >
+                                        RSSI: {Math.round(lastManualPing.rssi_value)} dBm ·{" "}
+                                        {lastManualPing.category}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
-                        {navState.session.projected_path.length > 0 && (
-                            <div className={styles.autoPhaseRow}>
-                                <span className={styles.autoLabel}>Planned Path</span>
-                                <span className={styles.autoValue}>
-                                    {navState.session.projected_path.length} waypoint
-                                    {navState.session.projected_path.length !== 1 ? "s" : ""} ahead
+                    {/* Headlight notification */}
+                    {headlightNotice && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="4"
+                                        fill={headlightNotice === "on" ? "#6ee7b7" : "#888"}
+                                    />
+                                    {headlightNotice === "on" && (
+                                        <>
+                                            <line
+                                                x1="12"
+                                                y1="2"
+                                                x2="12"
+                                                y2="5"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                            <line
+                                                x1="12"
+                                                y1="19"
+                                                x2="12"
+                                                y2="22"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                            <line
+                                                x1="2"
+                                                y1="12"
+                                                x2="5"
+                                                y2="12"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                            <line
+                                                x1="19"
+                                                y1="12"
+                                                x2="22"
+                                                y2="12"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                            />
+                                        </>
+                                    )}
+                                </svg>
+                                <span className={styles.panelTitle}>
+                                    {headlightNotice === "on" ? "Headlights On" : "Headlights Off"}
                                 </span>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
-                    <button className={styles.stopAutonomyBtn} onClick={handleManualModeRequest}>
-                        Stop Autonomous Navigation
-                    </button>
+                    {/* Plot Hazard / Add POI Panel */}
+                    {showPanel && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    {mode === "plotHazard" ? (
+                                        <polygon
+                                            points="12,2 22,20 2,20"
+                                            stroke="#6ee7b7"
+                                            strokeWidth="2"
+                                            fill="none"
+                                            strokeDasharray="3 2"
+                                        />
+                                    ) : (
+                                        <>
+                                            <circle cx="12" cy="12" r="3" fill="#6ee7b7" />
+                                            <circle
+                                                cx="12"
+                                                cy="12"
+                                                r="9"
+                                                stroke="#6ee7b7"
+                                                strokeWidth="2"
+                                                fill="none"
+                                            />
+                                        </>
+                                    )}
+                                </svg>
+                                <span className={styles.panelTitle}>
+                                    {mode === "plotHazard" ? "Plot a Hazard" : "Add POI"}
+                                </span>
+                                <button
+                                    className={styles.panelClose}
+                                    onClick={() => {
+                                        if (mode === "addPOI" && pendingPOI) {
+                                            cancelPOI();
+                                        } else {
+                                            cancelAll();
+                                        }
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            {mode === "plotHazard" && activeHazard && (
+                                <>
+                                    <span className={styles.pointCount}>
+                                        {activeHazard.points.length} point
+                                        {activeHazard.points.length !== 1 ? "s" : ""} placed
+                                    </span>
+                                    <div className={styles.panelActions}>
+                                        <button className={styles.undoBtn} onClick={undoLastPoint}>
+                                            Undo
+                                        </button>
+                                        {activeHazard.points.length >= 2 && (
+                                            <button
+                                                className={styles.doneBtn}
+                                                onClick={finishPlotting}
+                                            >
+                                                ✓ Done
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            {mode === "plotHazard" && !activeHazard && (
+                                <p className={styles.panelHint}>Click on the map to place points</p>
+                            )}
+
+                            {mode === "addPOI" && poiStep === "placing" && (
+                                <div>
+                                    <p className={styles.panelHint}>
+                                        Click on the map to add a POI
+                                    </p>
+                                    <p
+                                        className={styles.panelHint}
+                                        style={{ opacity: 0.5, margin: "4px 0" }}
+                                    >
+                                        — or enter coordinates —
+                                    </p>
+                                    <div className={styles.poiForm}>
+                                        <input
+                                            type="number"
+                                            className={styles.poiInput}
+                                            value={poiCoordX}
+                                            onChange={(e) => setPoiCoordX(e.target.value)}
+                                            placeholder="X coordinate"
+                                        />
+                                        <input
+                                            type="number"
+                                            className={styles.poiInput}
+                                            value={poiCoordY}
+                                            onChange={(e) => setPoiCoordY(e.target.value)}
+                                            placeholder="Y coordinate"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    placePOIFromCoords();
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            className={styles.doneBtn}
+                                            onClick={placePOIFromCoords}
+                                            disabled={!poiCoordX || !poiCoordY}
+                                            style={{ opacity: !poiCoordX || !poiCoordY ? 0.4 : 1 }}
+                                        >
+                                            Place POI
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {mode === "addPOI" && poiStep === "naming" && pendingPOI && (
+                                <div className={styles.poiForm}>
+                                    <label className={styles.poiLabel}>Name</label>
+                                    <input
+                                        type="text"
+                                        className={styles.poiInput}
+                                        value={poiName}
+                                        onChange={(e) => setPoiName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                confirmPOIName();
+                                            }
+                                        }}
+                                        autoFocus
+                                        placeholder="POI name..."
+                                    />
+                                    <button className={styles.doneBtn} onClick={confirmPOIName}>
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+
+                            {mode === "addPOI" && poiStep === "describing" && pendingPOI && (
+                                <div className={styles.poiForm}>
+                                    <label className={styles.poiLabel}>Description</label>
+                                    <textarea
+                                        className={styles.poiTextarea}
+                                        value={poiDescription}
+                                        onChange={(e) => setPoiDescription(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !e.shiftKey) {
+                                                e.preventDefault();
+                                                confirmPOIDescription();
+                                            }
+                                        }}
+                                        autoFocus
+                                        placeholder="Description (optional)..."
+                                        rows={3}
+                                    />
+                                    <button
+                                        className={styles.doneBtn}
+                                        onClick={confirmPOIDescription}
+                                    >
+                                        ✓ Add POI
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Add Details Panel */}
+                    {showDetailsPanel && (
+                        <div className={styles.panel} style={{ position: "relative" }}>
+                            <div className={styles.panelHeader}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <polygon
+                                        points="12,2 22,20 2,20"
+                                        stroke="#ff8a75"
+                                        strokeWidth="2"
+                                        fill="none"
+                                    />
+                                </svg>
+                                <span className={styles.panelTitle}>Add Details</span>
+                                <button className={styles.panelClose} onClick={cancelAll}>
+                                    ×
+                                </button>
+                            </div>
+
+                            <div className={styles.detailsBody}>
+                                <span className={styles.detailsLabel}>Hazard Type</span>
+                                <div className={styles.typeChips}>
+                                    {(["regolith", "debris", "crater"] as HazardType[]).map(
+                                        (type) => (
+                                            <button
+                                                key={type}
+                                                className={`${styles.typeChip} ${
+                                                    selectedTypes.includes(type)
+                                                        ? styles.typeChipSelected
+                                                        : ""
+                                                }`}
+                                                onClick={() => toggleHazardType(type)}
+                                            >
+                                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                                            </button>
+                                        ),
+                                    )}
+                                </div>
+                            </div>
+
+                            <button className={styles.finishBtn} onClick={finishHazard}>
+                                Finish
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
-
-            {/* ── Info bar (bottom-left) ── */}
-            <div className={styles.infoBar}>
-                <span>
-                    {points.length} point{points.length !== 1 ? "s" : ""} · {hazards.length} hazard
-                    {hazards.length !== 1 ? "s" : ""}
-                    {isAutonomous ? " · 🟢 Autonomous" : ""}
-                </span>
-            </div>
 
             {/* ── FAB button (bottom-right) ── */}
             <div className={styles.fabArea}>
@@ -1174,9 +1544,13 @@ export default function InteractiveMap() {
                 <button
                     className={`${styles.fabSecondary} ${mode === "directions" ? styles.fabSecondaryActive : ""}`}
                     onClick={() => {
-                        if (mode !== "directions") {
+                        if (!isAutonomous && mode !== "directions") {
                             handleStartDirections();
                         }
+                    }}
+                    style={{
+                        opacity: isAutonomous ? 0.4 : undefined,
+                        cursor: isAutonomous ? "not-allowed" : undefined,
                     }}
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -1319,6 +1693,61 @@ export default function InteractiveMap() {
 
                 {/* ── Autonomous Nav Overlays ── */}
 
+                {/* Search area donut */}
+                {savedSearchArea && (
+                    <g>
+                        {/* Outer circle (max radius) */}
+                        <circle
+                            cx={savedSearchArea.center.x}
+                            cy={savedSearchArea.center.y}
+                            r={savedSearchArea.radius_max_m}
+                            fill="rgba(110, 231, 183, 0.06)"
+                            stroke="#6ee7b7"
+                            strokeWidth="1.5"
+                            strokeDasharray="8 4"
+                            opacity="0.4"
+                        />
+                        {/* Inner circle (min radius) — punches out the donut center */}
+                        {savedSearchArea.radius_min_m > 0 && (
+                            <circle
+                                cx={savedSearchArea.center.x}
+                                cy={savedSearchArea.center.y}
+                                r={savedSearchArea.radius_min_m}
+                                fill="#1e1e22"
+                                stroke="#6ee7b7"
+                                strokeWidth="1"
+                                strokeDasharray="4 4"
+                                opacity="0.35"
+                            />
+                        )}
+                        {/* Center crosshair */}
+                        <circle
+                            cx={savedSearchArea.center.x}
+                            cy={savedSearchArea.center.y}
+                            r="4"
+                            fill="none"
+                            stroke="#6ee7b7"
+                            strokeWidth="1"
+                            opacity="0.5"
+                        />
+                        {/* Label */}
+                        <text
+                            x={savedSearchArea.center.x}
+                            y={savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
+                            textAnchor="middle"
+                            fill="#6ee7b7"
+                            fontSize="10"
+                            opacity="0.6"
+                        >
+                            Search Area (
+                            {savedSearchArea.radius_min_m > 0
+                                ? `${Math.round(savedSearchArea.radius_min_m)}–${Math.round(savedSearchArea.radius_max_m)}m`
+                                : `${Math.round(savedSearchArea.radius_max_m)}m radius`}
+                            )
+                        </text>
+                    </g>
+                )}
+
                 {/* Breadcrumb trail */}
                 {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
                     <polyline
@@ -1330,8 +1759,9 @@ export default function InteractiveMap() {
                     />
                 )}
 
-                {/* Projected path */}
-                {navState?.session?.projected_path &&
+                {/* Projected path (only while autonomous) */}
+                {isAutonomous &&
+                    navState?.session?.projected_path &&
                     navState.session.projected_path.length >= 1 && (
                         <polyline
                             points={[
@@ -1346,8 +1776,8 @@ export default function InteractiveMap() {
                         />
                     )}
 
-                {/* Ping history markers */}
-                {navState?.session?.ping_history?.map((ping, i) => {
+                {/* Ping history markers (persisted after autonomy stops) */}
+                {savedPingHistory.map((ping, i) => {
                     const color =
                         ping.signal_category === "strong"
                             ? "#6ee7b7"
@@ -1389,7 +1819,7 @@ export default function InteractiveMap() {
                 })}
 
                 {/* Current autonomous target */}
-                {navState?.session?.current_target && (
+                {isAutonomous && navState?.session?.current_target && (
                     <g>
                         <circle
                             cx={navState.session.current_target.position.x}
@@ -1549,6 +1979,33 @@ export default function InteractiveMap() {
                         />
                     ))}
 
+                {/* Directions mode — invisible hit areas over POIs and pings for reliable clicking */}
+                {mode === "directions" &&
+                    (directionsStep === "selectDestination" || directionsStep === "review") && (
+                        <g>
+                            {points.map((p) => (
+                                <circle
+                                    key={`hit-${p.id}`}
+                                    cx={p.x}
+                                    cy={p.y - 13}
+                                    r={Math.max(20, viewBox.w * 0.025)}
+                                    fill="transparent"
+                                    style={{ cursor: "pointer" }}
+                                />
+                            ))}
+                            {savedPingHistory.map((ping, i) => (
+                                <circle
+                                    key={`hit-ping-${i}`}
+                                    cx={ping.rover_position.x}
+                                    cy={ping.rover_position.y}
+                                    r={Math.max(15, viewBox.w * 0.02)}
+                                    fill="transparent"
+                                    style={{ cursor: "pointer" }}
+                                />
+                            ))}
+                        </g>
+                    )}
+
                 {/* Pending POI (faded while editing) */}
                 {pendingPOI && (
                     <g opacity="0.4">
@@ -1584,6 +2041,13 @@ export default function InteractiveMap() {
                 {/* Rover */}
                 <RoverIcon position={roverPosition} />
             </svg>
+
+            {/* ── Virtual Joystick (bottom-left) ── */}
+            {!isAutonomous && (
+                <div className={styles.joystickArea}>
+                    <VirtualJoystick />
+                </div>
+            )}
         </div>
     );
 }

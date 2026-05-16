@@ -1,8 +1,10 @@
 import asyncio
+from typing import List
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from app.models.nav_model import Hazard
 from app.services.navigation.navigation_service import (
     execute_ping,
     navigation_state,
@@ -11,6 +13,18 @@ from app.services.navigation.navigation_service import (
 )
 
 router = APIRouter()
+
+
+@router.post("/navigation/hazards")
+async def update_hazards(hazards: List[Hazard]):
+    # Simply call the specific update method
+    await navigation_state.update_hazards(hazards)
+
+    return {
+        "status": "success",
+        "message": f"Successfully updated backend map with {len(hazards)} polygonal hazards.",
+        "hazards_processed": len(hazards),
+    }
 
 
 @router.get("/navigation/stream")
@@ -63,6 +77,16 @@ async def get_session_status():
 async def execute_navigation_ping():
     """Execute a manual ping."""
     try:
+        # Lockout manual pings during autonomy
+        state = await navigation_state.get_snapshot()
+        if state.autonomous_driving:
+            return {
+                "success": False,
+                "error": "Manual ping disabled. Autonomous navigation is currently managing the sensor array.",
+                "rssi_value": 0.0,
+                "category": "idle",
+            }
+
         success, rssi_value, category = await execute_ping()
         return {
             "success": success,
