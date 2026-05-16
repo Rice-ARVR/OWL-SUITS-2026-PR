@@ -91,12 +91,6 @@ export default function BottomBar({
                         {effectiveManualMode ? "ON" : "OFF"}
                     </span>
                 </span>
-                <button
-                    className={`${styles.toggle} ${effectiveManualMode ? styles.toggleOn : ""}`}
-                    onClick={toggleManual}
-                >
-                    <div className={styles.toggleThumb} />
-                </button>
             </div>
 
             <div className={styles.controls}>

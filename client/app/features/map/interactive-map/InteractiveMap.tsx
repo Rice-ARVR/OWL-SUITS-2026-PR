@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import styles from "./InteractiveMap.module.css";
 import { useNavigationState } from "./useNavigationState";
 import { useTelemetry } from "~/hooks/useTelemetry";
+import { VirtualJoystick } from "~/features/controls/joystick";
+
 import type {
     Point,
     MapPoint,
@@ -1949,6 +1951,13 @@ export default function InteractiveMap({
                 {/* Rover */}
                 <RoverIcon position={roverPosition} />
             </svg>
+
+            {/* ── Virtual Joystick (bottom-left) ── */}
+            {!isAutonomous && (
+                <div className={styles.joystickArea}>
+                    <VirtualJoystick />
+                </div>
+            )}
         </div>
     );
 }
