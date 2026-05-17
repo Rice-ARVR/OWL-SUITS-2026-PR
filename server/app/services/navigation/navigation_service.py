@@ -163,7 +163,7 @@ async def start_autonomous_loop(force_reset: bool = False):
     logger.info("Autonomous Tasks Started.")
 
 
-async def stop_autonomous_loop():
+async def stop_autonomous_loop(apply_brakes: bool = True):
     global _telemetry_task, _mission_task
     await navigation_state.set_autonomous_driving(False)
 
@@ -172,8 +172,10 @@ async def stop_autonomous_loop():
     if _mission_task and not _mission_task.done():
         _mission_task.cancel()
 
-    # Slam the brakes to release controls safely to user
-    await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
+    # Slam the brakes to release controls safely to user (if not overridden)
+    if apply_brakes:
+        await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
+
     logger.info("Autonomous Loop Stopped. User has control.")
 
 
