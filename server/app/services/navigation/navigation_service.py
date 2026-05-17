@@ -265,8 +265,11 @@ async def autonomous_mission_loop():
             path_success = True
             for i, waypoint in enumerate(safe_path):
                 # Update the projected path so the frontend UI line adjusts dynamically
-                session.projected_path = safe_path[i:]
-                await navigation_state.update_session(session)
+                # Fetch fresh state to prevent overwriting telemetry
+                fresh_state = await navigation_state.get_snapshot()
+                if fresh_state.session:
+                    fresh_state.session.projected_path = safe_path[i:]
+                    await navigation_state.update_session(fresh_state.session)
 
                 logger.info(
                     f"Delegating to auto_drive for waypoint: ({waypoint.x:.1f}, {waypoint.y:.1f})"
