@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     CV_MODEL_PRIMARY: str = "yolo26_small_v2.pt"
     CV_MODEL_SECONDARY: str = "yolo26_nano_v2.pt"
 
+    # Detector cutoff. Kept low on purpose: the track-memory layer in
+    # cv_service (confirmation hysteresis + coasting) does the real filtering,
+    # so borderline obstacles still enter the pipeline instead of flickering.
+    CV_CONF: float = 0.20
+    # Frames a confirmed track keeps being emitted (velocity-extrapolated)
+    # after the detector stops matching it, before it is dropped.
+    CV_TRACK_MAX_AGE: int = 8
+    # Frames a new track must be seen before it is published downstream.
+    CV_TRACK_MIN_HITS: int = 3
+
     MONGODB_URL: str
     MONGO_DB: str = "app"
 
