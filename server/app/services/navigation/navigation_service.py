@@ -336,7 +336,7 @@ async def autonomous_mission_loop():
                 break
 
             # 5. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
-            await evaluate_phase_and_ping(state)
+            await evaluate_phase_and_ping()
 
     except asyncio.CancelledError:
         pass
@@ -505,10 +505,12 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
     return False
 
 
-async def evaluate_phase_and_ping(state: NavigationState):
+async def evaluate_phase_and_ping():
     """Called when auto_drive successfully reaches a target. Pings and decides next phase."""
     global ring_waypoints, current_ring_index, current_spiral_index
 
+    # 1. Grab FRESH state immediately after arriving
+    state = await navigation_state.get_snapshot()
     session = state.session
     rover_pos = state.rover_position
     lidar = state.latest_lidar
