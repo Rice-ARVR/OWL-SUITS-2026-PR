@@ -22,8 +22,9 @@ export default function MessageBubble({ msg, index, dismissedActionIds, fallback
                 {msg.content || fallbackContent}
             </span>
 
-            {msg.widgets
-                ?.filter((widget) => !dismissedActionIds.has(widget.id))
+            {[...( msg.widgets ?? [])]
+                .filter((widget) => !dismissedActionIds.has(widget.id))
+                .sort((a, b) => (a.type === "system_action" ? 1 : 0) - (b.type === "system_action" ? 1 : 0))
                 .map((widget) => (
                     <AIAWidgetRenderer
                         key={widget.id}
