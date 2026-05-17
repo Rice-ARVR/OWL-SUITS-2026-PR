@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import type { SystemActionWidgetData } from "~/types/aiaWidgets";
 import { useOllama } from "~/hooks/useOllama";
 import { useVoice } from "~/hooks/useVoice";
 import styles from "./aia.module.css";
 import MessageBubble from "./components/MessageBubble";
-import SystemActionWidget from "./widgets/SystemActionWidget";
 
 function TypingDots() {
     return (
@@ -18,7 +18,7 @@ function TypingDots() {
 export function AiaChat() {
     const [input, setInput] = useState("");
 
-    const [dismissedActionId, setDismissedActionId] = useState<string | null>(null);
+    const [dismissedActionIds, setDismissedActionIds] = useState<Set<string>>(new Set());
 
     const { chat, messages, loading, error, connected, clearHistory } = useOllama("llama3.2");
 
@@ -56,61 +56,34 @@ export function AiaChat() {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    const actionWidgets = messages.flatMap(
-        (msg) => msg.widgets?.filter((widget) => widget.type === "system_action") ?? [],
-    );
+    async function handleSystemAction(
+        payload: SystemActionWidgetData["payload"],
+        widget: SystemActionWidgetData,
+    ) {
+        setDismissedActionIds((prev) => new Set(prev).add(widget.id));
 
-    const latestAssistantMessage = [...messages].reverse().find((msg) => msg.role === "assistant");
-
-    const latestActionWidget = latestAssistantMessage?.widgets?.find(
-        (widget) => widget.type === "system_action",
-    );
-
-    const visibleActionWidget =
-        latestActionWidget && latestActionWidget.id !== dismissedActionId
-            ? latestActionWidget
-            : null;
-
-    async function handleSystemAction(payload: {
-        action: string;
-        target?: string;
-        value?: string | number | boolean;
-    }) {
-        console.log("System action clicked:", payload);
+        if (payload.action === "cancel") return;
 
         try {
             const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-
-            const response = await fetch(`${apiUrl}/system/action`, {
+            await fetch(`${apiUrl}/system/action`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-
-            const data = await response.json();
-
-            console.log("System action response:", data);
         } catch (err) {
             console.error("Failed to trigger system action:", err);
         }
-        setDismissedActionId(latestActionWidget?.id ?? null);
 
-        // Later, connect this to the real backend/system endpoint.
-        // Example:
-        // fetch(`${apiUrl}/system/action`, {
-        //     method: "POST",
-        //     headers: { "Content-Type": "application/json" },
-        //     body: JSON.stringify(payload),
-        // });
+        chat(
+            `The user confirmed the following action — Title: "${widget.title}". Description: "${widget.description}". Action: "${widget.actionLabel}". Please provide concise guidance on how to carry this out.`,
+        );
     }
 
     const handleSend = () => {
         const trimmed = input.trim();
         if (!trimmed || loading) return;
 
-        setDismissedActionId(null);
         setInput("");
         chat(trimmed);
     };
@@ -136,7 +109,7 @@ export function AiaChat() {
                         key={i}
                         msg={msg}
                         index={i}
-                        fallbackContent={<TypingDots />}
+                        dismissedActionIds={dismissedActionIds}
                         onSystemAction={handleSystemAction}
                     />
                 ))}
@@ -187,16 +160,6 @@ export function AiaChat() {
                 </div>
             </div>
 
-            {visibleActionWidget && visibleActionWidget.type === "system_action" && (
-                <div className={styles.actionOverlay}>
-                    <div className={styles.actionModal}>
-                        <SystemActionWidget
-                            widget={visibleActionWidget}
-                            onAction={handleSystemAction}
-                        />
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

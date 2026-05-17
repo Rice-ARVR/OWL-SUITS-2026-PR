@@ -3,7 +3,7 @@ import styles from "../aia.module.css";
 
 type Props = {
     widget: SystemActionWidgetData;
-    onAction: (payload: SystemActionWidgetData["payload"]) => void;
+    onAction: (payload: SystemActionWidgetData["payload"], widget: SystemActionWidgetData) => void;
 };
 
 export default function SystemActionWidget({ widget, onAction }: Props) {
@@ -16,17 +16,14 @@ export default function SystemActionWidget({ widget, onAction }: Props) {
             <p className={styles.aiaWidgetDescription}>{widget.description}</p>
 
             <div className={styles.aiaWidgetActions}>
-                <button onClick={() => onAction(widget.payload)}>
+                <button onClick={() => onAction(widget.payload, widget)}>
                     {widget.confirmText ?? "Yes"}
                 </button>
 
                 <button
                     className={styles.secondaryButton}
                     onClick={() =>
-                        onAction({
-                            action: "cancel",
-                            target: widget.payload.target,
-                        })
+                        onAction({ action: "cancel", target: widget.payload.target }, widget)
                     }
                 >
                     {widget.cancelText ?? "No"}

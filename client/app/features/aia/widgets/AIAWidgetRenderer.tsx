@@ -5,7 +5,7 @@ import SystemActionWidget from "./SystemActionWidget";
 
 type Props = {
     widget: AIAWidgetData;
-    onSystemAction: (payload: SystemActionWidgetData["payload"]) => void;
+    onSystemAction: (payload: SystemActionWidgetData["payload"], widget: SystemActionWidgetData) => void;
 };
 
 export default function AIAWidgetRenderer({ widget, onSystemAction }: Props) {
