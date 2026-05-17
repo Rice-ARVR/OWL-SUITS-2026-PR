@@ -400,6 +400,7 @@ export default function Telemetry() {
                                 unit=" psi"
                                 min={EVA_LIMITS.suit_pressure_oxy.min}
                                 max={EVA_LIMITS.suit_pressure_oxy.max}
+                                windowFraction={1}
                                 borderBottom={false}
                                 isWarning={w("eva1", "suit_pressure_oxy")}
                             />
@@ -409,6 +410,7 @@ export default function Telemetry() {
                                 unit=" psi"
                                 min={EVA_LIMITS.suit_pressure_co2.min}
                                 max={EVA_LIMITS.suit_pressure_co2.max}
+                                windowFraction={1}
                                 borderBottom={false}
                                 borderTop={false}
                                 isWarning={w("eva1", "suit_pressure_co2")}
