@@ -540,11 +540,14 @@ async def evaluate_phase_and_ping():
     # Execute Ping
     success, rssi, category = await execute_ping()
 
-    # execute_ping() modified the global session (added a ping to history).
-    # We MUST fetch a fresh snapshot, otherwise we will overwrite and erase that ping!
+    # 2. execute_ping() modified the global session (added a ping to history).
+    # We MUST fetch a fresh snapshot and refresh our locals!
     state = await navigation_state.get_snapshot()
     session = state.session
-    if session is None:
+    rover_pos = state.rover_position
+    lidar = state.latest_lidar
+
+    if session is None or rover_pos is None:
         return
 
     if success:
@@ -714,12 +717,32 @@ async def evaluate_phase_and_ping():
                 )
 
     elif session.phase == SearchPhase.TIGHT_SPIRAL:
-        ltv_pos = (
-            check_for_ltv_proximity(session.best_rssi, lidar)
-            if lidar is not None
-            else None
-        )
-        if ltv_pos or session.best_rssi > -10.0:
+        found_ltv = False
+
+        # 1. Vision Check (if CV is enabled)
+        if settings.NAV_TRAVEL_ALGORITHM == "cv":
+            # Safely fetch the latest CV detections from state
+            cv_detections = getattr(state, "latest_cv_detections", [])
+            for det in cv_detections:
+                label = det.label if hasattr(det, "label") else det.get("label", "")
+                if label == "Lunar Terrain Vehicle":
+                    found_ltv = True
+                    logger.info("LTV Found via Computer Vision!")
+                    break
+
+        # 2. Lidar/RSSI Check (Fallback or primary if not CV)
+        if not found_ltv:
+            ltv_pos = (
+                check_for_ltv_proximity(session.best_rssi, lidar)
+                if lidar is not None
+                else None
+            )
+            if ltv_pos or session.best_rssi > -10.0:
+                found_ltv = True
+                logger.info("LTV Found via Lidar / RSSI proximity!")
+
+        # 3. Transition based on findings
+        if found_ltv:
             session.phase = SearchPhase.FOUND
             session.current_target = None
         else:
