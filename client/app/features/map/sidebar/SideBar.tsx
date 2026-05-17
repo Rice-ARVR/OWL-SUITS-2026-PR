@@ -4,7 +4,21 @@ import RoverPanel from "./RoverPanel";
 import TaskPanel from "./TaskPanel";
 import BottomBar from "./BottomBar";
 
-export default function SideBar() {
+interface SideBarProps {
+    isAutonomous?: boolean;
+    onStopAutonomy?: () => void;
+    isSignaling?: boolean;
+    onSignalLTV?: () => void;
+    onHeadlightToggle?: (isOn: boolean) => void;
+}
+
+export default function SideBar({
+    isAutonomous = false,
+    onStopAutonomy,
+    isSignaling = false,
+    onSignalLTV,
+    onHeadlightToggle,
+}: SideBarProps) {
     return (
         <div className={styles.sidebar}>
             <div className={styles.topRow}>
@@ -16,7 +30,13 @@ export default function SideBar() {
                 <TaskPanel />
             </div>
 
-            <BottomBar />
+            <BottomBar
+                isAutonomous={isAutonomous}
+                onStopAutonomy={onStopAutonomy}
+                isSignaling={isSignaling}
+                onSignalLTV={onSignalLTV}
+                onHeadlightToggle={onHeadlightToggle}
+            />
         </div>
     );
 }

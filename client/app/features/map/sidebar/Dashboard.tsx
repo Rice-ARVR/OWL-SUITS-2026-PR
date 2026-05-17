@@ -1,43 +1,55 @@
-import { useState } from "react";
 import styles from "./Dashboard.module.css";
 
 import { useTelemetry } from "~/hooks/useTelemetry";
 
 export default function Dashboard() {
-    const [speed, setSpeed] = useState(0.0);
-    const [throttle, setThrottle] = useState(-30);
-    const [distanceTravelled, setdistanceTravelled] = useState(60.0);
+    const telemetry = useTelemetry();
+    const throttle = telemetry.getRoverThrottle() ?? 0;
 
     // throttle ranges from -100 to 100
     const fillWidth = Math.abs(throttle) / 2; // percentage of half the bar
     const fillStyle =
         throttle >= 0
             ? { left: "50%", width: `${fillWidth}%`, borderRadius: "0 1rem 1rem 0" }
-            : { left: `${50 - fillWidth}%`, width: `${fillWidth}%`, borderRadius: "1rem 0 0 1rem" };
+            : {
+                  left: `${50 - fillWidth}%`,
+                  width: `${fillWidth}%`,
+                  borderRadius: "1rem 0 0 1rem",
+                  backgroundColor: "#e74c3c",
+              };
 
-    const telemetry = useTelemetry();
+    // Determine active gear
+    const speed = telemetry.getRoverSpeed() ?? 0;
+    const activeGear = throttle > 0 ? "D" : throttle < 0 ? "R" : speed > 0.01 ? "N" : "P";
+
+    const gearStyle = (gear: string) => ({
+        fontWeight: gear === activeGear ? 700 : 400,
+        opacity: gear === activeGear ? 1 : 0.4,
+    });
 
     return (
         <div className={styles.container}>
-            <h1 className="xlarge">{telemetry.getRoverSpeed()?.toFixed(2)}</h1>
+            <h1 className="xlarge">{speed.toFixed(2)}</h1>
             <div className={styles.dashboardInfo}>
                 <div className={styles.gearSelector}>
-                    <h5 className="medium">P</h5>
-                    <h5 className="medium">R</h5>
-                    <h5 className="medium">N</h5>
-                    <h5 className="medium">D</h5>
+                    <h5 className="medium" style={gearStyle("P")}>
+                        P
+                    </h5>
+                    <h5 className="medium" style={gearStyle("R")}>
+                        R
+                    </h5>
+                    <h5 className="medium" style={gearStyle("N")}>
+                        N
+                    </h5>
+                    <h5 className="medium" style={gearStyle("D")}>
+                        D
+                    </h5>
                 </div>
                 <h5 className="medium">Kph</h5>
                 <div className={styles.distanceContainer}>
                     <h5 className="medium">
                         {telemetry.getRoverDistanceTraveled()?.toFixed(0)} mi
                     </h5>
-                    <div className={styles.progressBar}>
-                        <div
-                            className={styles.progressFill}
-                            style={{ width: `${distanceTravelled}%` }}
-                        />
-                    </div>
                 </div>
             </div>
             <div className={styles.sliderContainer}>

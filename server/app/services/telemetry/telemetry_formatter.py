@@ -1,24 +1,19 @@
 from typing import Any
+from app.services.telemetry.replacements import get_replacements
 
 
 def format_key(key: str) -> str:
-    replacements = {
-        "eva1": "EVA 1",
-        "eva2": "EVA 2",
-        "pr": "Rover",
-        "oxy": "oxygen",
-        "o2": "oxygen",
-        "pri": "primary",
-        "sec": "secondary",
-        "co2": "carbon dioxide",
-        "temp": "temperature",
-        "rpm": "RPM",
-        "pos": "position",
-    }
+    replacements = get_replacements()
 
-    parts = key.replace("_", " ").split()
+    parts = key.lower().split("_")
 
-    return " ".join(replacements.get(part.lower(), part) for part in parts)
+    # Try longest matching suffix first (handles prefixed keys like "eva_primary_battery_level")
+    for i in range(len(parts)):
+        candidate = "_".join(parts[i:])
+        if candidate in replacements:
+            return replacements[candidate]
+
+    return " ".join(part.capitalize() for part in parts)
 
 
 def flatten_telemetry_text(

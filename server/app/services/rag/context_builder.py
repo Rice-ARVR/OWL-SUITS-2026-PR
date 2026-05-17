@@ -7,7 +7,7 @@ from app.models.eva import EvaSchema
 from app.models.ltv import LtvSchema
 from app.models.ltv_errors import LtvErrorsSchema
 from app.models.rover import RoverSchema
-from app.services.telemetry.telemetry_formatter import flatten_telemetry_text
+from app.services.telemetry.telemetry_formatter import flatten_telemetry_text, format_key
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def _compute_trends(current_eva1: dict, current_eva2: dict) -> str:
             else:
                 arrow, direction = "↓", "falling"
             lines.append(
-                f"  {field}: {curr:.2f}  [{arrow} {delta:+.2f} over {elapsed:.0f}s — {direction}]"
+                f"  {format_key(field)}: {curr:.2f}  [{arrow} {delta:+.2f} over {elapsed:.0f}s — {direction}]"
             )
 
     return "\n".join(lines)

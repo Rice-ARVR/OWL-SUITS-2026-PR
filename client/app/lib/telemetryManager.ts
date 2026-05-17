@@ -85,10 +85,7 @@ class TelemetryManager {
             this.notify();
             if (this.shouldReconnect) {
                 this.reconnectTimer = setTimeout(() => {
-                    this.reconnectDelay = Math.min(
-                        this.reconnectDelay * 2,
-                        this.maxReconnectDelay,
-                    );
+                    this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
                     this.openConnection();
                 }, this.reconnectDelay);
             }
@@ -421,6 +418,14 @@ class TelemetryManager {
         return this.data?.rover.pr_telemetry.sim_running ?? null;
     }
 
+    getRoverSurfaceIncline(): number | null {
+        return this.data?.rover.pr_telemetry.surface_incline ?? null;
+    }
+
+    getRoverLightsOn(): boolean | null {
+        return this.data?.rover.pr_telemetry.lights_on ?? null;
+    }
+
     // --- LTV ---
 
     getLtvSnapshot(): LtvSnapshot | null {
@@ -448,9 +453,7 @@ class TelemetryManager {
     }
 
     getLtvErrorByCode(code: string): ErrorProcedure | null {
-        return (
-            this.data?.ltv_errors.error_procedures.find((e) => e.code === code) ?? null
-        );
+        return this.data?.ltv_errors.error_procedures.find((e) => e.code === code) ?? null;
     }
 }
 

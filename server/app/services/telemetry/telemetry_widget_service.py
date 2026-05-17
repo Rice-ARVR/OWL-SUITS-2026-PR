@@ -1,24 +1,15 @@
 from typing import Any
+from app.services.telemetry.replacements import get_replacements
 
 
 def _format_label(key: str) -> str:
-    replacements = {
-        "eva1": "EVA 1",
-        "eva2": "EVA 2",
-        "pr": "Rover",
-        "oxy": "oxygen",
-        "o2": "oxygen",
-        "pri": "primary",
-        "sec": "secondary",
-        "co2": "carbon dioxide",
-        "temp": "temperature",
-        "rpm": "RPM",
-        "pos": "position",
-    }
-
-    parts = key.replace("_", " ").split()
-
-    return " ".join(replacements.get(part.lower(), part) for part in parts).title()
+    replacements = get_replacements()
+    parts = key.lower().split("_")
+    for i in range(len(parts)):
+        candidate = "_".join(parts[i:])
+        if candidate in replacements:
+            return replacements[candidate]
+    return " ".join(parts).title()
 
 
 def _infer_unit(key: str) -> str | None:

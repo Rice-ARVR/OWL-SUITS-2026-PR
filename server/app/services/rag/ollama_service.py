@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _generate_url = f"{settings.OLLAMA_URL.rstrip('/')}/api/generate"
 
 
-async def warmup_model(model: str = "llama3.2") -> None:
+async def warmup_model(model: str = settings.AIA_MODEL) -> None:
     """Load the model into Ollama memory at startup so the first user request is instant."""
     url = f"{settings.OLLAMA_URL.rstrip('/')}/api/generate"
     payload = {

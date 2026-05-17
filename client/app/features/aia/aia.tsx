@@ -20,7 +20,7 @@ export function AiaChat() {
 
     const [dismissedActionIds, setDismissedActionIds] = useState<Set<string>>(new Set());
 
-    const { chat, messages, loading, error, connected, clearHistory } = useOllama("llama3.2");
+    const { chat, messages, loading, error, connected, clearHistory } = useOllama();
 
     const { isRecording, transcribing, transcript, voiceError, startRecording, stopRecording } =
         useVoice();

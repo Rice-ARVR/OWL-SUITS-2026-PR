@@ -1,0 +1,224 @@
+{
+    "primary_battery_level": {
+        "low": "PRI battery critically low — return to HAB or switch to SEC battery IMMEDIATELY.",
+        "below_nominal": "PRI battery below nominal — monitor consumption & plan for swap/recharge.",
+        "above_nominal": "PRI battery above nominal — no action needed.",
+        "high": "PRI battery reading unexpectedly high — verify sensor calibration."
+    },
+    "secondary_battery_level": {
+        "low": "SEC battery critically low — return to HAB or switch to PRI battery IMMEDIATELY.",
+        "below_nominal": "SEC battery below nominal — monitor consumption & plan for swap/recharge.",
+        "above_nominal": "SEC battery above nominal — no action needed.",
+        "high": "SEC battery reading unexpectedly high — verify sensor calibration."
+    },
+    "battery_level": {
+        "low": "Battery critically low — return to HAB or connect to external power source immediately.",
+        "below_nominal": "Battery below nominal — monitor consumption & plan for recharge.",
+        "above_nominal": "Battery above nominal — no action needed.",
+        "high": "Battery reading unexpectedly high — verify sensor calibration."
+    },
+    "oxy_pri_storage": {
+        "low": "PRI O2 storage critically low — switch to SEC supply & terminate EVA.",
+        "below_nominal": "PRI O2 storage below nominal — monitor consumption & prepare contingency.",
+        "above_nominal": "PRI O2 storage above nominal — no action needed.",
+        "high": "PRI O2 storage unexpectedly high — verify sensor calibration."
+    },
+    "oxy_sec_storage": {
+        "low": "SEC O2 storage critically low — terminate EVA or switch to PRI supply IMMEDIATELY.",
+        "below_nominal": "SEC O2 storage below nominal — monitor consumption & prepare to terminate EVA.",
+        "above_nominal": "SEC O2 storage above nominal — no action needed.",
+        "high": "SEC O2 storage unexpectedly high — verify sensor calibration."
+    },
+    "oxy_pri_pressure": {
+        "low": "PRI O2 pressure critically low — switch to SEC O2 & terminate EVA.",
+        "below_nominal": "PRI O2 pressure below nominal — monitor & prepare to switch to SEC supply.",
+        "above_nominal": "PRI O2 pressure above nominal — no action needed.",
+        "high": "PRI O2 pressure dangerously high — risk of regulator failure; switch to SEC supply immediately."
+    },
+    "oxy_sec_pressure": {
+        "low": "SEC O2 pressure critically low — switch to PRI O2 & terminate EVA.",
+        "below_nominal": "SEC O2 pressure below nominal — inspect SEC regulator.",
+        "above_nominal": "SEC O2 pressure above nominal — no action needed.",
+        "high": "SEC O2 pressure dangerously high — risk of regulator failure; do not use SEC supply."
+    },
+    "suit_pressure_oxy": {
+        "low": "Suit O2 pressure critically low — swap to PRI/SEC O2 tank & return to PR IMMEDIATELY.",
+        "below_nominal": "Suit O2 pressure below nominal — monitor breathing comfort & check O2 flow.",
+        "above_nominal": "Suit O2 pressure above nominal — check O2 regulator for over-delivery.",
+        "high": "Suit O2 partial pressure dangerously high — swap to PRI/SEC O2 tank & return to PR IMMEDIATELY."
+    },
+    "suit_pressure_co2": {
+        "low": "Suit CO2 pressure below range — verify scrubber function & sensor calibration.",
+        "below_nominal": "Suit CO2 pressure below nominal — verify scrubber is not over-performing.",
+        "above_nominal": "Suit CO2 pressure above nominal — monitor scrubber efficiency & metabolic rate.",
+        "high": "Suit CO2 pressure critically high — vent scrubber IMMEDIATELY."
+    },
+    "suit_pressure_other": {
+        "low": "Suit other gas pressure below range — check suit integrity & sensor calibration.",
+        "below_nominal": "Suit other gas pressure below nominal — monitor suit atmosphere composition.",
+        "above_nominal": "Suit other gas pressure above nominal — prepare for decompress sequence.",
+        "high": "Suit other gas pressure critically high — begin decompress sequence; if still high, return to PR IMMEDIATELY."
+    },
+    "suit_pressure_total": {
+        "low": "Total suit pressure critically low — O2 tank or scrubber problem; return to PR IMMEDIATELY.",
+        "below_nominal": "Total suit pressure slightly below nominal — possible suit breach; investigate O2 tank or scrubber.",
+        "above_nominal": "Total suit pressure above nominal — check pressure regulation system.",
+        "high": "Total suit pressure dangerously high — O2 tank or scrubber problem; return to PR IMMEDIATELY."
+    },
+    "helmet_pressure_co2": {
+        "low": "Helmet CO2 pressure below range — verify sensor calibration.",
+        "below_nominal": "Helmet CO2 pressure below nominal — fan(s) over-performing; verify sensor.",
+        "above_nominal": "Helmet CO2 pressure above nominal — increase fan RPM(s) & monitor scrubber performance.",
+        "high": "Helmet CO2 pressure critically high — hypercapnia risk; fan failure; return to PR IMMEDIATELY."
+    },
+    "fan_pri_rpm": {
+        "low": "PRI fan RPM critically low — fan failure or ventilation compromised; switch to SEC fan; return to PR IMMEDIATELY.",
+        "below_nominal": "PRI fan RPM below nominal — check PRI fan motor & power supply.",
+        "above_nominal": "PRI fan RPM above nominal — fan running faster than expected; monitor for overheating.",
+        "high": "PRI fan RPM dangerously high — PRI fan failure; switch to SEC fan; return to PR IMMEDIATELY."
+    },
+    "fan_sec_rpm": {
+        "low": "SEC fan RPM critically low — fan failure or ventilation compromised; switch to PRI fan; return to PR IMMEDIATELY.",
+        "below_nominal": "SEC fan RPM below nominal — check SEC fan motor & power supply.",
+        "above_nominal": "SEC fan RPM above nominal — fan running faster than expected; monitor for overheating.",
+        "high": "SEC fan RPM dangerously high — SEC fan failure; switch to PRI fan; return to PR IMMEDIATELY."
+    },
+    "scrubber_a_co2_storage": {
+        "low": "Scrubber A CO2 storage below range — verify sensor calibration.",
+        "below_nominal": "Scrubber A CO2 storage below nominal — no action needed.",
+        "above_nominal": "Scrubber A CO2 storage above nominal — prepare to vent Scrubber A CO2.",
+        "high": "Scrubber A CO2 storage at capacity — switch to Scrubber B & replace Scrubber A immediately."
+    },
+    "scrubber_b_co2_storage": {
+        "low": "Scrubber B CO2 storage below range — verify sensor calibration.",
+        "below_nominal": "Scrubber B CO2 storage below nominal — no action needed.",
+        "above_nominal": "Scrubber B CO2 storage above nominal — prepare to vent Scrubber B CO2.",
+        "high": "Scrubber B CO2 storage at capacity — switch to Scrubber A & replace Scrubber B immediately."
+    },
+    "temperature": {
+        "low": "Suit temperature critically low — risk of hypothermia; increase heating IMMEDIATELY.",
+        "below_nominal": "Suit temperature below nominal — check heater settings & increase if needed.",
+        "above_nominal": "Suit temperature above nominal — reduce physical actvity or increase cooling.",
+        "high": "Suit temperature dangerously high — risk of heat stroke; reduce physical activity & increase cooling IMMEDIATELY."
+    },
+    "coolant_storage": {
+        "low": "Coolant storage critically low — thermal regulation at risk; reduce activity & return to PR.",
+        "below_nominal": "Coolant storage below nominal — monitor coolant consumption rate.",
+        "above_nominal": "Coolant storage above nominal — no action needed.",
+        "high": "Coolant storage unexpectedly high — verify sensor calibration."
+    },
+    "coolant_gas_pressure": {
+        "low": "Coolant gas pressure below range — check coolant system integrity.",
+        "below_nominal": "Coolant gas pressure below nominal — verify coolant gas reservoir.",
+        "above_nominal": "Coolant gas pressure above nominal — check for blockage in coolant gas lines.",
+        "high": "Coolant gas pressure dangerously high — risk of line rupture; reduce pressure immediately."
+    },
+    "coolant_liquid_pressure": {
+        "low": "Coolant liquid pressure critically low — pump may be failing; thermal regulation at risk.",
+        "below_nominal": "Coolant liquid pressure below nominal — check coolant pump & lines for leaks.",
+        "above_nominal": "Coolant liquid pressure above nominal — check for blockage in coolant liquid lines.",
+        "high": "Coolant liquid pressure dangerously high — risk of line rupture; check coolant pump & valves."
+    },
+    "heart_rate": {
+        "low": "Heart rate critically low — possible medical emergency; halt EVA & prepare for EV rescue.",
+        "below_nominal": "Heart rate below nominal — monitor EV condition.",
+        "above_nominal": "Heart rate above nominal — monitor EV condition & reduce physical activity.",
+        "high": "Heart rate dangerously high — possible medical emergency; halt EVA & prepare for EV rescue."
+    },
+    "oxy_consumption": {
+        "low": "Oxygen consumption rate below range — verify sensor & check EV is breathing normally.",
+        "below_nominal": "Oxygen consumption below nominal — monitor EV activity level.",
+        "above_nominal": "Oxygen consumption above nominal — high metabolic rate; reduce activity.",
+        "high": "Oxygen consumption critically high — O2 supply will deplete faster; reduce activity & plan return to PR."
+    },
+    "co2_production": {
+        "low": "CO2 production rate below range — verify sensor calibration.",
+        "below_nominal": "CO2 production below nominal — monitor EV activity level.",
+        "above_nominal": "CO2 production above nominal — high metabolic rate; reduce activity & monitor scrubber performance.",
+        "high": "CO2 production critically high — scrubber may be overwhelmed; reduce activity & monitor helmet CO2 levels."
+    },
+    "throttle": {
+        "low": "Rover throttle below range — verify throttle control system.",
+        "below_nominal": "Rover throttle below nominal — no action needed unless unexpected.",
+        "above_nominal": "Rover throttle above nominal — monitor speed & terrain conditions.",
+        "high": "Rover throttle at maximum — reduce speed for uneven terrain or present obstacles."
+    },
+    "steering": {
+        "low": "Rover steering at full left lock — verify intentional & check for steering system faults.",
+        "below_nominal": "Rover steering left of nominal — verify intentional.",
+        "above_nominal": "Rover steering right of nominal — verify intentional.",
+        "high": "Rover steering at full right lock — verify intentional & check for steering system faults."
+    },
+    "pitch": {
+        "low": "Rover pitch critically negative — steep downhill grade; reduce speed to prevent tipping.",
+        "below_nominal": "Rover pitch below nominal — monitor terrain slope.",
+        "above_nominal": "Rover pitch above nominal — monitor terrain slope.",
+        "high": "Rover pitch critically positive — steep uphill grade; reduce speed & check traction."
+    },
+    "roll": {
+        "low": "Rover roll below range — verify sensor calibration.",
+        "below_nominal": "Rover roll below nominal — terrain is level; no action needed.",
+        "above_nominal": "Rover roll above nominal — monitor lateral stability on uneven terrain.",
+        "high": "Rover roll critically high — risk of rollover; reduce speed & steer toward level ground immediately."
+    },
+    "distance_traveled": {
+        "low": "Rover distance traveled below range — verify odometer sensor.",
+        "below_nominal": "Rover distance traveled below nominal — no action needed.",
+        "above_nominal": "Rover distance traveled above nominal — monitor mission timeline.",
+        "high": "Rover distance traveled at limit — evaluate PR battery & O2 before continuing."
+    },
+    "speed": {
+        "low": "Rover speed below range — verify speed sensor calibration.",
+        "below_nominal": "Rover speed below nominal — no action needed.",
+        "above_nominal": "Rover speed above nominal — monitor terrain conditions.",
+        "high": "Rover speed critically high — reduce speed immediately; risk of loss of control on lunar terrain."
+    },
+    "surface_incline": {
+        "low": "Surface incline critically steep downward — reduce speed immediately to prevent loss of control.",
+        "below_nominal": "Surface incline below nominal — monitor terrain descent.",
+        "above_nominal": "Surface incline above nominal — monitor terrain ascent.",
+        "high": "Surface incline critically steep upward — rover may lose traction; reduce speed & assess route."
+    },
+    "oxygen_storage": {
+        "low": "Rover O2 storage critically low — return to HAB IMMEDIATELY to resupply.",
+        "below_nominal": "Rover O2 storage below nominal — monitor consumption & plan HAB return timeline.",
+        "above_nominal": "Rover O2 storage above nominal — no action needed.",
+        "high": "Rover O2 storage unexpectedly high — verify sensor calibration."
+    },
+    "oxygen_pressure": {
+        "low": "Rover O2 pressure critically low — O2 regulator may be failing.",
+        "below_nominal": "Rover O2 pressure below nominal — inspect O2 regulator & lines.",
+        "above_nominal": "Rover O2 pressure above nominal — check regulator for over-pressure.",
+        "high": "Rover O2 pressure dangerously high — risk of regulator failure; reduce pressure immediately."
+    },
+    "cabin_pressure": {
+        "low": "Rover cabin pressure critically low — possible breach; don suits & begin emergency protocol.",
+        "below_nominal": "Rover cabin pressure slightly below nominal — inspect cabin seals.",
+        "above_nominal": "Rover cabin pressure above nominal — check pressure regulation system.",
+        "high": "Rover cabin pressure dangerously high — risk of structural failure; vent pressure immediately."
+    },
+    "cabin_temperature": {
+        "low": "Rover cabin temperature critically low — risk of hypothermia; activate cabin heating.",
+        "below_nominal": "Rover cabin temperature below nominal — increase heating.",
+        "above_nominal": "Rover cabin temperature above nominal — no action needed unless approaching limit.",
+        "high": "Rover cabin temperature critically high — risk of heat exhaustion; activate cabin cooling."
+    },
+    "coolant_pressure": {
+        "low": "Rover coolant pressure critically low — coolant pump may be failing; reduce system load.",
+        "below_nominal": "Rover coolant pressure below nominal — check coolant pump & inspect for leaks.",
+        "above_nominal": "Rover coolant pressure above nominal — check for blockage in coolant lines.",
+        "high": "Rover coolant pressure dangerously high — risk of line rupture; shut down coolant pump & investigate."
+    },
+    "distance_from_base": {
+        "low": "Rover distance from HAB below range — verify GPS sensor.",
+        "below_nominal": "Rover distance from HAB below nominal — no action needed.",
+        "above_nominal": "Rover distance from HAB above nominal — monitor return route feasibility.",
+        "high": "Rover distance from HAB at limit — turn back immediately to ensure safe return with remaining resources."
+    },
+    "oxygen_tank": {
+        "low": "Rover O2 tank critically low — return to HAB for resupply immediately.",
+        "below_nominal": "Rover O2 tank below nominal — monitor O2 usage rate & adjust mission timeline.",
+        "above_nominal": "Rover O2 tank above nominal — no action needed.",
+        "high": "Rover O2 tank unexpectedly high — verify sensor calibration."
+    }
+}

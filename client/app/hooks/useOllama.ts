@@ -19,7 +19,7 @@ function cleanAssistantText(text: string) {
         .trim();
 }
 
-export function useOllama(model = "llama3.2") {
+export function useOllama() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,6 @@ export function useOllama(model = "llama3.2") {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model,
                     question: prompt,
                     stream: true,
                     chat_history: historyToSend,

@@ -1,3 +1,43 @@
+.confirmOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+.confirmBox {
+    background: #2a2a2e;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 320px;
+}
+.confirmText {
+    color: #ccc;
+    margin-bottom: 16px;
+}
+.confirmActions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+.confirmCancelBtn,
+.confirmStopBtn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+.confirmCancelBtn {
+    background: #3a3a3e;
+    color: #ccc;
+}
+.confirmStopBtn {
+    background: #e74c3c;
+    color: white;
+}
 .bottomBar {
     display: flex;
     align-items: center;
