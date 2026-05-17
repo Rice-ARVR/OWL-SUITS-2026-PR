@@ -55,21 +55,6 @@ VERBOSE_LOGGING = True
 ## System Settings ##
 #####################
 
-# Goal / Completition Thresholds
-ARRIVAL_THRESHOLD_M = 5.0
-TRAVEL_TIMEOUT_S = 600.0
-
-# Pacing — pause + brake-pulse after every command so TSS state catches up.
-COMMAND_PAUSE_S = 0.5
-BRAKE_PULSE_S = 0.5
-TELEMETRY_FRESH_WAIT_S = 0.5
-
-# Speed / throttle (throttle ±100, speed m/s)
-MAX_SPEED = 6.0
-THROTTLE_NORMAL = 35
-THROTTLE_SLOW = 30
-THROTTLE_BOOST = 60
-THROTTLE_REVERSE = -30
 # Speed / throttle (throttle ±100) — boost is lidar-only (crater climb-out).
 THROTTLE_BOOST = 60
 
@@ -409,55 +394,6 @@ def _in_crater(lidar: List[float], pitch: Optional[float]) -> bool:
     side_overshoot = s7 >= LIDAR_NO_HIT - 1 or s8 >= LIDAR_NO_HIT - 1
     nose_down = pitch is not None and pitch < CRATER_PITCH_DEG
     return front_overshoot or side_overshoot or nose_down
-
-
-# ─── Low-level command primitives ────────────────────────────────────────────
-
-
-async def _send_throttle(v: float) -> None:
-    """Forward throttle command through tss_client."""
-    await asyncio.to_thread(tss_client.send_throttle, float(v))
-
-
-async def _send_steering(v: float) -> None:
-    """Forward steering command through tss_client."""
-    await asyncio.to_thread(tss_client.send_steering, float(v))
-
-
-async def _send_brakes(v: float) -> None:
-    """Forward brake command through tss_client."""
-    await asyncio.to_thread(tss_client.send_brakes, float(v))
-
-
-async def _send_drive(throttle: float, steering: float, brakes: float = 0.0) -> None:
-    """Apply brakes, steering, and throttle."""
-    await _send_brakes(brakes)
-    await _send_steering(steering)
-    await _send_throttle(throttle)
-
-
-async def _full_stop() -> None:
-    """Throttle 0, steering centered, full brake."""
-    await _send_throttle(0.0)
-    await _send_steering(0.0)
-    await _send_brakes(1.0)
-
-
-async def _brake_pulse() -> None:
-    """Briefly engage and release brakes so TSS state catches up to the last command."""
-    await _send_brakes(1.0)
-    await asyncio.sleep(BRAKE_PULSE_S)
-    await _send_brakes(0.0)
-    await asyncio.sleep(TELEMETRY_FRESH_WAIT_S)
-
-
-async def _read_telemetry():
-    """Latest rover snapshot's pr_telemetry, or None if unavailable."""
-    rover = telemetry_service.rover_data
-    if rover is None:
-        return None
-    snap = await rover.get_snapshot()
-    return snap.pr_telemetry if snap else None
 
 
 # ─── Mid-level maneuvers ─────────────────────────────────────────────────────
