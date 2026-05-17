@@ -877,16 +877,6 @@ async def start_search_session() -> SearchSession:
     return session
 
 
-async def update_search_phase(new_phase: SearchPhase) -> None:
-    state = await navigation_state.get_snapshot()
-    if state.session:
-        logger.info(
-            f"Phase Transition: {state.session.phase.value} -> {new_phase.value}"
-        )
-        state.session.phase = new_phase
-        await navigation_state.update_session(state.session)
-
-
 async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
     global last_ping_time
     now = datetime.now()
