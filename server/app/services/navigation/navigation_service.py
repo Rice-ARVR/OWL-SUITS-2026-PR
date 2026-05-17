@@ -994,14 +994,16 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
         # We must fetch the coordinates manually so the ping can be mapped!
         if rover_pos is None:
             try:
-                rover_data = await tss_client.fetch_json(tss_client.COMMAND_ROVER)
-                if rover_data:
-                    rover_pos = Position(
-                        x=rover_data.get("pos_x", 0.0),
-                        y=rover_data.get("pos_y", 0.0),
-                        heading=rover_data.get("heading", 0.0),
-                    )
-                    await navigation_state.update_rover_position(rover_pos)
+                if telemetry_service.rover_data:
+                    snap = await telemetry_service.rover_data.get_snapshot()
+                    if snap and snap.pr_telemetry:
+                        tel = snap.pr_telemetry
+                        rover_pos = Position(
+                            x=tel.rover_pos_x,
+                            y=tel.rover_pos_y,
+                            heading=tel.heading,
+                        )
+                        await navigation_state.update_rover_position(rover_pos)
             except Exception as e:
                 logger.error(f"Failed to fetch rover position for manual ping: {e}")
 
