@@ -609,16 +609,13 @@ async def evaluate_phase_and_ping(state: NavigationState):
                     "success",
                 )
 
-                prev_x = (
-                    session.ping_history[-2].rover_position.x
-                    if len(session.ping_history) > 1
-                    else rover_pos.x
-                )
-                prev_y = (
-                    session.ping_history[-2].rover_position.y
-                    if len(session.ping_history) > 1
-                    else rover_pos.y
-                )
+                if len(session.ping_history) >= 2:
+                    prev_x = session.ping_history[-2].rover_position.x
+                    prev_y = session.ping_history[-2].rover_position.y
+                else:
+                    prev_x = rover_pos.x
+                    prev_y = rover_pos.y
+
                 session.success_vector = calculate_bearing(
                     prev_x, prev_y, rover_pos.x, rover_pos.y
                 )
