@@ -418,6 +418,14 @@ class TelemetryManager {
         return this.data?.rover.pr_telemetry.sim_running ?? null;
     }
 
+    getRoverSurfaceIncline(): number | null {
+        return this.data?.rover.pr_telemetry.surface_incline ?? null;
+    }
+
+    getRoverLightsOn(): boolean | null {
+        return this.data?.rover.pr_telemetry.lights_on ?? null;
+    }
+
     // --- LTV ---
 
     getLtvSnapshot(): LtvSnapshot | null {

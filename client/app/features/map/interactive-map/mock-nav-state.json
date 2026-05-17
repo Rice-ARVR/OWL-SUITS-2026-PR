@@ -1,0 +1,65 @@
+{
+    "autonomous_driving": true,
+    "status_message": "Gradient ascent in progress.",
+    "status_level": "info",
+    "session": {
+        "phase": "gradient_ascent",
+        "best_rssi": -45,
+        "search_center": { "x": -6000, "y": -10450 },
+        "success_vector": 0.7,
+        "current_target": {
+            "position": { "x": -5980, "y": -10400 },
+            "description": "Strongest signal bearing",
+            "arrival_threshold_m": 15
+        },
+        "search_area": {
+            "center": { "x": -6000, "y": -10450 },
+            "radius_min_m": 0,
+            "radius_max_m": 200
+        },
+        "ping_history": [
+            {
+                "rover_position": { "x": -6090, "y": -10486 },
+                "rssi": -88,
+                "signal_category": "weak"
+            },
+            {
+                "rover_position": { "x": -6060, "y": -10480 },
+                "rssi": -82,
+                "signal_category": "weak"
+            },
+            {
+                "rover_position": { "x": -6040, "y": -10470 },
+                "rssi": -75,
+                "signal_category": "moderate"
+            },
+            {
+                "rover_position": { "x": -6020, "y": -10455 },
+                "rssi": -70,
+                "signal_category": "moderate"
+            },
+            {
+                "rover_position": { "x": -6000, "y": -10440 },
+                "rssi": -45,
+                "signal_category": "strong"
+            }
+        ],
+        "path_history": [
+            { "x": -6090, "y": -10486 },
+            { "x": -6080, "y": -10484 },
+            { "x": -6070, "y": -10482 },
+            { "x": -6060, "y": -10480 },
+            { "x": -6050, "y": -10476 },
+            { "x": -6040, "y": -10470 },
+            { "x": -6030, "y": -10462 },
+            { "x": -6020, "y": -10455 },
+            { "x": -6010, "y": -10448 },
+            { "x": -6000, "y": -10440 }
+        ],
+        "projected_path": [
+            { "x": -5990, "y": -10430 },
+            { "x": -5985, "y": -10420 },
+            { "x": -5980, "y": -10400 }
+        ]
+    }
+}

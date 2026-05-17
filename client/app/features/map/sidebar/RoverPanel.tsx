@@ -1,29 +1,58 @@
-import { useState, useEffect } from "react";
 import styles from "./RoverPanel.module.css";
 import RoverSvg from "../../../assets/rover.svg?react";
 
 import { useTelemetry } from "~/hooks/useTelemetry";
 
-interface RoverPanelProps {
-    pitch?: number;
-    roll?: number;
-    surfaceIncline?: number;
+// Generate a dynamic arc path + arrowhead based on angle value
+function getArcData(degrees: number, side: "pitch" | "roll") {
+    const absDeg = Math.min(Math.abs(degrees), 45);
+    const isNeg = degrees < 0;
+    const color = isNeg ? "#e74c3c" : "#6ee7b7";
+
+    // Map 0–45° of actual rotation to 30–300° of arc sweep
+    const sweepDeg = Math.max(30, (absDeg / 45) * 300);
+    const sweepRad = (sweepDeg * Math.PI) / 180;
+
+    const cx = 16,
+        cy = 16,
+        r = 11;
+    const startAngle = -Math.PI / 2; // top of circle
+
+    // Positive = counter-clockwise, negative = clockwise
+    const clockwise = isNeg;
+
+    const endAngle = clockwise ? startAngle + sweepRad : startAngle - sweepRad;
+
+    const endX = cx + r * Math.cos(endAngle);
+    const endY = cy + r * Math.sin(endAngle);
+
+    const largeArc = sweepDeg > 180 ? 1 : 0;
+    const sweepFlag = clockwise ? 1 : 0;
+
+    const d = `M 16 5 A 11 11 0 ${largeArc} ${sweepFlag} ${endX.toFixed(1)} ${endY.toFixed(1)}`;
+
+    // Arrowhead tangent to circle at end point
+    const tangentAngle = endAngle + (clockwise ? Math.PI / 2 : -Math.PI / 2);
+    const tipX = endX + 5 * Math.cos(tangentAngle);
+    const tipY = endY + 5 * Math.sin(tangentAngle);
+    const perpAngle = tangentAngle + Math.PI / 2;
+    const b1X = endX + 3 * Math.cos(perpAngle);
+    const b1Y = endY + 3 * Math.sin(perpAngle);
+    const b2X = endX - 3 * Math.cos(perpAngle);
+    const b2Y = endY - 3 * Math.sin(perpAngle);
+
+    const arrow = `${tipX.toFixed(1)},${tipY.toFixed(1)} ${b1X.toFixed(1)},${b1Y.toFixed(1)} ${b2X.toFixed(1)},${b2Y.toFixed(1)}`;
+
+    return { d, arrow, color };
 }
 
-export default function RoverPanel({
-    pitch: pitchProp = 4,
-    roll: rollProp = 10,
-    surfaceIncline: surfaceInclineProp = 0,
-}: RoverPanelProps) {
-    const [pitch, setPitch] = useState(pitchProp);
-    const [roll, setRoll] = useState(rollProp);
-    const [surfaceIncline, setSurfaceIncline] = useState(surfaceInclineProp);
-
-    // Sync with props when they change (e.g. from telemetry)
-    useEffect(() => setPitch(pitchProp), [pitchProp]);
-    useEffect(() => setRoll(rollProp), [rollProp]);
-    useEffect(() => setSurfaceIncline(surfaceInclineProp), [surfaceInclineProp]);
+export default function RoverPanel() {
     const telemetry = useTelemetry();
+    const pitch = telemetry.getRoverPitch() ?? 0;
+    const roll = telemetry.getRoverRoll() ?? 0;
+    const pitchArc = getArcData(pitch, "pitch");
+    const rollArc = getArcData(roll, "roll");
+
     return (
         <div className={styles.container}>
             <div className={styles.roverContainer}>
@@ -49,18 +78,31 @@ export default function RoverPanel({
                 {/* Pitch indicator (left) */}
                 <div className={`${styles.indicator} ${styles.pitchIndicator}`}>
                     <svg width="32" height="32" viewBox="0 0 32 32">
-                        <path
-                            d="M 16 5 A 11 11 0 1 1 7 21"
+                        <circle
+                            cx="16"
+                            cy="16"
+                            r="11"
                             fill="none"
-                            stroke="#6ee7b7"
+                            stroke={pitchArc.color}
+                            strokeWidth="1.5"
+                            strokeDasharray="3 3"
+                            opacity="0.25"
+                        />
+                        <path
+                            d={pitchArc.d}
+                            fill="none"
+                            stroke={pitchArc.color}
                             strokeWidth="3"
                             strokeLinecap="round"
                         />
-                        <polygon points="4,19 10,19 7,25" fill="#6ee7b7" />
+                        <polygon points={pitchArc.arrow} fill={pitchArc.color} />
                     </svg>
                     <div className={styles.indicatorBox}>
-                        <span className={styles.indicatorValue}>
-                            {telemetry.getRoverPitch()?.toFixed(2)}°
+                        <span
+                            className={styles.indicatorValue}
+                            style={{ color: pitch < 0 ? "#e74c3c" : undefined }}
+                        >
+                            {pitch.toFixed(2)}°
                         </span>
                     </div>
                 </div>
@@ -68,24 +110,39 @@ export default function RoverPanel({
                 {/* Roll indicator (right) */}
                 <div className={`${styles.indicator} ${styles.rollIndicator}`}>
                     <svg width="32" height="32" viewBox="0 0 32 32">
-                        <path
-                            d="M 16 5 A 11 11 0 1 0 25 21"
+                        <circle
+                            cx="16"
+                            cy="16"
+                            r="11"
                             fill="none"
-                            stroke="#6ee7b7"
+                            stroke={rollArc.color}
+                            strokeWidth="1.5"
+                            strokeDasharray="3 3"
+                            opacity="0.25"
+                        />
+                        <path
+                            d={rollArc.d}
+                            fill="none"
+                            stroke={rollArc.color}
                             strokeWidth="3"
                             strokeLinecap="round"
                         />
-                        <polygon points="22,19 28,19 25,25" fill="#6ee7b7" />
+                        <polygon points={rollArc.arrow} fill={rollArc.color} />
                     </svg>
                     <div className={styles.indicatorBox}>
-                        <span className={styles.indicatorValue}>
-                            {telemetry.getRoverRoll()?.toFixed(2)}°
+                        <span
+                            className={styles.indicatorValue}
+                            style={{ color: roll < 0 ? "#e74c3c" : undefined }}
+                        >
+                            {roll.toFixed(2)}°
                         </span>
                     </div>
                 </div>
             </div>
 
-            <h5 className="medium">Surface Incline: {surfaceIncline}°</h5>
+            <h5 className="medium">
+                Surface Incline: {telemetry.getRoverSurfaceIncline()?.toFixed(2)}°
+            </h5>
         </div>
     );
 }

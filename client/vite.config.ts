@@ -13,6 +13,9 @@ export default defineConfig({
                 changeOrigin: true,
             },
         },
+        watch: {
+            usePolling: true, // Use polling to detect file changes (works better in Docker)
+        },
     },
     plugins: [tailwindcss(), reactRouter(), tsconfigPaths(), svgr()],
 });
