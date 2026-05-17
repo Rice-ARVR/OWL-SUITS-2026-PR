@@ -401,7 +401,7 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
         else:
             # We have exhausted all waypoints in the concentric rings, and the last one
             # happened to be blocked. We must transition to the next phase (Gradient Ascent).
-            await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+            session.phase = SearchPhase.GRADIENT_ASCENT
 
             # Reset the success vector to North (+Y) as a starting guess
             session.success_vector = 0.0
@@ -522,7 +522,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
     # State Machine Transitions
     if session.phase == SearchPhase.TRANSIT_TO_LNP:
         session.search_center = rover_pos
-        await update_search_phase(SearchPhase.CONCENTRIC_SEARCH)
+        session.phase = SearchPhase.CONCENTRIC_SEARCH
         if success:
             session.best_rssi = rssi
             if ring_waypoints:
@@ -557,7 +557,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
                 )
 
             if rssi >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
-                await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+                session.phase = SearchPhase.GRADIENT_ASCENT
                 session.current_target = NavigationTarget(
                     position=get_gradient_waypoint(
                         rover_pos, session.success_vector, session.search_center
@@ -577,7 +577,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
                         arrival_threshold_m=10.0,
                     )
                 else:
-                    await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+                    session.phase = SearchPhase.GRADIENT_ASCENT
                     session.success_vector = 0.0
                     session.current_target = NavigationTarget(
                         position=get_gradient_waypoint(
@@ -624,7 +624,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
                 )
 
             if rssi >= RSSI_THRESHOLDS[DistanceCategory.STRONG]:
-                await update_search_phase(SearchPhase.TIGHT_SPIRAL)
+                session.phase = SearchPhase.TIGHT_SPIRAL
                 current_spiral_index = 0
                 spiral_points = generate_square_spiral(
                     session.search_center.x, session.search_center.y
@@ -689,7 +689,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
             else None
         )
         if ltv_pos or session.best_rssi > -10.0:
-            await update_search_phase(SearchPhase.FOUND)
+            session.phase = SearchPhase.FOUND
             session.current_target = None
         else:
             spiral_points = generate_square_spiral(
