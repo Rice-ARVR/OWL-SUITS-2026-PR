@@ -7,8 +7,10 @@ from typing import List, Optional, Tuple
 
 # --- NEW IMPORTS FOR ARCHITECTURE SHIFT ---
 import app.services.navigation.obstacle_avoidance.auto_drive as auto_drive
+import app.services.navigation.vision.auto_drive_vision as auto_drive_vision
 import app.services.telemetry.telemetry_service as telemetry_service
 import app.services.telemetry.tss_client as tss_client
+from app.core.config import settings
 from app.models.nav_model import (
     DistanceCategory,
     Hazard,
@@ -39,14 +41,29 @@ logger = logging.getLogger(__name__)
 logger.propagate = False
 
 # --- Constants ---
-LNP_POSITION = Position(x=-600.0, y=-1200.6)
+LNP_POSITION = Position(x=-5669.80, y=-10074.60)
 SEARCH_RADIUS_M = 548.7
 PING_COOLDOWN_S = 20
 GRADIENT_PROJECTION_M = 80.0
 SPIRAL_ARM_SPACING_M = 25.0
 SPIRAL_MAX_RADIUS_M = 100.0
 
+
+async def get_lnp_position() -> Position:
+    """Return the Last Nominal Position from telemetry if available."""
+    if telemetry_service.ltv_data is None:
+        return LNP_POSITION
+
+    x = await telemetry_service.ltv_data.get_location_last_known_x()
+    y = await telemetry_service.ltv_data.get_location_last_known_y()
+    if x is None or y is None:
+        return LNP_POSITION
+
+    return Position(x=x, y=y)
+
+
 RSSI_THRESHOLDS = {
+    DistanceCategory.NOT_IN_RANGE: 1.0,
     DistanceCategory.STRONG: -30.0,
     DistanceCategory.MODERATE: -67.0,
     DistanceCategory.WEAK: -80.0,
@@ -66,6 +83,19 @@ current_spiral_index: int = 0
 # Track the two concurrent background tasks
 _telemetry_task: Optional[asyncio.Task] = None
 _mission_task: Optional[asyncio.Task] = None
+
+
+# --- Travel Algorithm Dispatch ---
+
+
+async def _travel(goal_x: float, goal_y: float) -> int:
+    """Drive to (goal_x, goal_y) using the algorithm selected in config.
+
+    Returns 0 on success, non-zero to hand control back to the operator.
+    """
+    if settings.NAV_TRAVEL_ALGORITHM == "cv":
+        return await auto_drive_vision.travel_vision(goal_x, goal_y)
+    return await auto_drive.travel(goal_x, goal_y)
 
 
 # --- Autonomy Lifecycle ---
@@ -262,8 +292,8 @@ async def autonomous_mission_loop():
                     f"Delegating to auto_drive for waypoint: ({waypoint.x:.1f}, {waypoint.y:.1f})"
                 )
 
-                # Yield control to auto_drive until it arrives or fails
-                result = await auto_drive.travel(waypoint.x, waypoint.y)
+                # Yield control to the configured driver until it arrives or fails
+                result = await _travel(waypoint.x, waypoint.y)
 
                 # TRIGGER THE HAND-OFF TO MANUAL
                 if result != 0:
@@ -744,7 +774,9 @@ def validate_and_nudge_waypoint(
 
 
 def categorize_rssi(rssi_value: float) -> DistanceCategory:
-    if rssi_value >= RSSI_THRESHOLDS[DistanceCategory.STRONG]:
+    if rssi_value > 0:
+        return DistanceCategory.NOT_IN_RANGE
+    elif rssi_value >= RSSI_THRESHOLDS[DistanceCategory.STRONG]:
         return DistanceCategory.STRONG
     elif rssi_value >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
         return DistanceCategory.MODERATE
@@ -827,6 +859,11 @@ def get_gradient_waypoint(
 async def start_search_session() -> SearchSession:
     global ring_waypoints, current_ring_index, current_spiral_index
     session_id = str(uuid.uuid4())
+
+    # Pull the real Last Nominal Position from telemetry so we don't transit
+    # to the (0, 0) origin when the service starts.
+    global LNP_POSITION
+    LNP_POSITION = await get_lnp_position()
 
     session = SearchSession(
         session_id=session_id,
