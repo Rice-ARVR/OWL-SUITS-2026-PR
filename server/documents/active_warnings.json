@@ -101,13 +101,13 @@
   {
     "source": "eva1",
     "field": "temperature",
-    "value": 16.670072555541992,
+    "value": 21.240737915039062,
     "min": 10,
     "max": 32,
     "nominal": 21,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Suit temperature below nominal — check heater settings & increase if needed."
+    "reason": "Suit temperature above nominal — reduce physical actvity or increase cooling."
   },
   {
     "source": "eva1",
@@ -123,7 +123,7 @@
   {
     "source": "eva1",
     "field": "oxy_consumption",
-    "value": 0.14067088067531586,
+    "value": 0.14633850753307343,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -134,7 +134,7 @@
   {
     "source": "eva1",
     "field": "co2_production",
-    "value": 0.14067088067531586,
+    "value": 0.14633850753307343,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -156,18 +156,18 @@
   {
     "source": "eva2",
     "field": "suit_pressure_oxy",
-    "value": 4.01789426803589,
+    "value": 3.925718069076538,
     "min": 3.5,
     "max": 4.1,
     "nominal": 4.0,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Suit O2 pressure above nominal — check O2 regulator for over-delivery."
+    "reason": "Suit O2 pressure below nominal — monitor breathing comfort & check O2 flow."
   },
   {
     "source": "eva2",
     "field": "suit_pressure_co2",
-    "value": 0.010816369205713272,
+    "value": 0.07263831794261932,
     "min": 0.0,
     "max": 0.1,
     "nominal": 0.0,
@@ -222,18 +222,18 @@
   {
     "source": "eva2",
     "field": "temperature",
-    "value": 16.670072555541992,
+    "value": 21.240737915039062,
     "min": 10,
     "max": 32,
     "nominal": 21,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Suit temperature below nominal — check heater settings & increase if needed."
+    "reason": "Suit temperature above nominal — reduce physical actvity or increase cooling."
   },
   {
     "source": "eva2",
     "field": "oxy_consumption",
-    "value": 0.1407281756401062,
+    "value": 0.14645227789878845,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -244,7 +244,7 @@
   {
     "source": "eva2",
     "field": "co2_production",
-    "value": 0.1407281756401062,
+    "value": 0.14645227789878845,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -277,29 +277,29 @@
   {
     "source": "rover",
     "field": "cabin_pressure",
-    "value": 3.9877076148986816,
+    "value": 4.07284116744995,
     "min": 3.5,
     "max": 4.1,
     "nominal": 4.0,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Rover cabin pressure slightly below nominal — inspect cabin seals."
+    "reason": "Rover cabin pressure above nominal — check pressure regulation system."
   },
   {
     "source": "rover",
     "field": "coolant_pressure",
-    "value": 499.01483154296875,
+    "value": 500.5409851074219,
     "min": 495,
     "max": 501,
     "nominal": 500,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Rover coolant pressure below nominal — check coolant pump & inspect for leaks."
+    "reason": "Rover coolant pressure above nominal — check for blockage in coolant lines."
   },
   {
     "source": "rover",
     "field": "primary_battery_level",
-    "value": -56.76359558105469,
+    "value": -105.04689025878906,
     "min": 30,
     "max": 100,
     "nominal": null,

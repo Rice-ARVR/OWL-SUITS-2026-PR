@@ -8,7 +8,4 @@ __pycache__/
 *.egg-info/
 app/services/rag/tss_context.txt
 app/services/rag/chroma_db/
-app/services/rag/chroma_db/
-app/services/rag/chroma_db/
-app/services/rag/chroma_db/
-app/services/rag/chroma_db/
+documents/active_warnings.json

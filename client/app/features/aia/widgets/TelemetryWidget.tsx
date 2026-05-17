@@ -89,7 +89,7 @@ export default function TelemetryWidget({ widget }: Props) {
             </div>
 
             <div className={styles.aiaWidgetValue}>
-                {liveValue}
+                {typeof liveValue === "number" ? liveValue.toFixed(2) : liveValue}
                 {widget.unit && <span className={styles.aiaWidgetUnit}> {widget.unit}</span>}
             </div>
 
