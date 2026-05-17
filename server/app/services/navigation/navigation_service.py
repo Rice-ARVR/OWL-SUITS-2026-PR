@@ -88,14 +88,21 @@ _mission_task: Optional[asyncio.Task] = None
 # --- Travel Algorithm Dispatch ---
 
 
-async def _travel(goal_x: float, goal_y: float) -> int:
+async def _travel(
+    goal_x: float,
+    goal_y: float,
+    arrival_threshold: float,
+    interrupt_event: Optional[asyncio.Event],
+) -> int:
     """Drive to (goal_x, goal_y) using the algorithm selected in config.
 
     Returns 0 on success, non-zero to hand control back to the operator.
     """
     if settings.NAV_TRAVEL_ALGORITHM == "cv":
-        return await auto_drive_vision.travel_vision(goal_x, goal_y)
-    return await auto_drive.travel(goal_x, goal_y)
+        return await auto_drive_vision.travel_vision(
+            goal_x, goal_y, arrival_threshold, interrupt_event
+        )
+    return await auto_drive.travel(goal_x, goal_y, arrival_threshold, interrupt_event)
 
 
 # --- Autonomy Lifecycle ---
@@ -103,6 +110,10 @@ async def _travel(goal_x: float, goal_y: float) -> int:
 
 async def start_autonomous_loop(force_reset: bool = False):
     global _telemetry_task, _mission_task
+
+    # Safely fetch and clear the event via the state manager
+    interrupt_event = navigation_state.get_ping_interrupt_event()
+    interrupt_event.clear()
 
     state = await navigation_state.get_snapshot()
 
@@ -316,10 +327,35 @@ async def autonomous_mission_loop():
                     f"Delegating to auto_drive for waypoint: ({waypoint.x:.1f}, {waypoint.y:.1f})"
                 )
 
-                # Yield control to the configured driver until it arrives or fails
-                result = await _travel(waypoint.x, waypoint.y)
+                # Ensure the event is clear before starting the trip
+                interrupt_event = navigation_state.get_ping_interrupt_event()
+                interrupt_event.clear()
 
-                # TRIGGER THE HAND-OFF TO MANUAL
+                # Yield control to the configured driver until it arrives or fails
+                result = await _travel(
+                    waypoint.x,
+                    waypoint.y,
+                    target.arrival_threshold_m,
+                    interrupt_event,  # Pass the fetched event here
+                )
+
+                # TRIGGER THE MANUAL PING INTERRUPT
+                if result == 2:
+                    # Step 4: Do the ping, recalculate next waypoint, send update msg
+                    await navigation_state.update_status(
+                        "Brakes active. Executing ping and recalculating next waypoint...",
+                        "info",
+                    )
+                    await evaluate_phase_and_ping()
+
+                    # Step 5: Restart autonomous driving and send update msg
+                    await navigation_state.update_status(
+                        "Recalculation complete. Resuming autonomous navigation to next waypoint.",
+                        "success",
+                    )
+                    continue  # Jumps to the start of the 'while True' loop to pathfind the new target!
+
+                # TRIGGER THE HAND-OFF TO MANUAL (Failure)
                 if result != 0:
                     path_success = False
                     break
@@ -1067,3 +1103,29 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
         return True, rssi, category
 
     return False, 0.0, DistanceCategory.VERY_WEAK
+
+
+async def request_autonomous_ping() -> dict:
+    """Handles a manual ping request while the AI is driving."""
+    global last_ping_time
+    now = datetime.now()
+
+    # Step 2: Check the ping cooldown first
+    if last_ping_time:
+        elapsed = (now - last_ping_time).total_seconds()
+        if elapsed < PING_COOLDOWN_S:
+            wait_time = int(PING_COOLDOWN_S - elapsed)
+            msg = f"Sensor recharging. Please wait {wait_time}s before pinging again."
+            await navigation_state.update_status(msg, "warning")
+            return {"success": False, "error": msg}
+
+    # Step 3: Cooldown passed. Send message and trigger brakes via interrupt
+    await navigation_state.update_status(
+        "Manual ping initiated. Applying brakes...", "info"
+    )
+
+    # TRIGGER THE EVENT VIA THE STATE MANAGER
+    interrupt_event = navigation_state.get_ping_interrupt_event()
+    interrupt_event.set()
+
+    return {"success": True, "message": "Interrupt sequence initiated"}

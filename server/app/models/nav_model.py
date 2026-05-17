@@ -155,6 +155,16 @@ class NavigationStateData:
         # An asyncio.Condition inherently acts as a lock AND an event notifier
         self._condition: asyncio.Condition = asyncio.Condition()
 
+        # Internal tracker for the ping interrupt
+        self._ping_interrupt_event: Optional[asyncio.Event] = None
+
+    # Safely grab or create the event
+    def get_ping_interrupt_event(self) -> asyncio.Event:
+        """Lazily instantiate the event to ensure it binds to the active event loop."""
+        if self._ping_interrupt_event is None:
+            self._ping_interrupt_event = asyncio.Event()
+        return self._ping_interrupt_event
+
     async def update_hazards(self, hazards: List[Hazard]) -> None:
         async with self._condition:
             self._data.hazards = hazards

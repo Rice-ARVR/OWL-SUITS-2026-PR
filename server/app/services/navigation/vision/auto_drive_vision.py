@@ -133,9 +133,7 @@ def _proximity(bbox: Tuple[int, int, int, int], width: int, height: int) -> floa
     )
 
 
-def _column_danger(
-    detections: List[Detection], width: int, height: int
-) -> List[float]:
+def _column_danger(detections: List[Detection], width: int, height: int) -> List[float]:
     """Accumulate per-column danger: every column a bbox spans gets += proximity.
 
     All four obstacle classes are treated as solid no-go regions (the rover can
@@ -210,7 +208,12 @@ def _drain_latest(q: "asyncio.Queue[CVResult]") -> Optional[CVResult]:
 # ─── Public entry point ───────────────────────────────────────────────────────
 
 
-async def travel_vision(targetX: float, targetY: float) -> int:
+async def travel_vision(
+    targetX: float,
+    targetY: float,
+    arrival_threshold: float = 5.0,
+    interrupt_event: Optional[asyncio.Event] = None,
+) -> int:
     """Drive within ARRIVAL_THRESHOLD_M of (targetX, targetY) using vision only.
 
     Returns 0 on success, 1 to return manual control (stuck / boxed-in /
@@ -231,6 +234,13 @@ async def travel_vision(targetX: float, targetY: float) -> int:
     try:
         while True:
             now = loop.time()
+
+            # Check for the interrupt signal from the API
+            if interrupt_event and interrupt_event.is_set():
+                logger.warning("travel_vision: interrupted by manual ping")
+                await _full_stop()  # Turn on the brakes!
+                return 2  # Return the special interrupt code
+
             if now - started > TRAVEL_TIMEOUT_S:
                 logger.error("travel_vision: timeout")
                 await _full_stop()

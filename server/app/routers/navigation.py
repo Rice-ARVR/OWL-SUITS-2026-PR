@@ -8,6 +8,7 @@ from app.models.nav_model import Hazard
 from app.services.navigation.navigation_service import (
     execute_ping,
     navigation_state,
+    request_autonomous_ping,
     start_autonomous_loop,
     stop_autonomous_loop,
 )
@@ -76,16 +77,13 @@ async def get_session_status():
 async def execute_navigation_ping():
     """Execute a manual ping."""
     try:
-        # Lockout manual pings during autonomy
         state = await navigation_state.get_snapshot()
-        if state.autonomous_driving:
-            return {
-                "success": False,
-                "error": "Manual ping disabled. Autonomous navigation is currently managing the sensor array.",
-                "rssi_value": 0.0,
-                "category": "idle",
-            }
 
+        # If AI is driving, delegate to the new interrupt handler
+        if state.autonomous_driving:
+            return await request_autonomous_ping()
+
+        # Otherwise, act normally
         success, rssi_value, category = await execute_ping()
         return {
             "success": success,
