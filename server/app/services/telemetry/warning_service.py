@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import pathlib
 from dataclasses import asdict
 
@@ -13,9 +14,14 @@ logger = logging.getLogger(__name__)
 
 manager = WebSocketManager()
 
-# TODO: fix this chopped path construction ngl
 _REASONS_PATH = (
     pathlib.Path(__file__).parent.parent.parent.parent / "data" / "warning_reasons.json"
+)
+
+_WARNINGS_PATH = (
+    pathlib.Path(__file__).parent.parent.parent.parent
+    / "documents"
+    / "active_warnings.json"
 )
 
 
@@ -91,6 +97,16 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
     return warnings
 
 
+def _export_warnings(warnings: list[Warning]) -> None:
+    payload = json.dumps([asdict(w) for w in warnings], indent=2)
+    tmp = _WARNINGS_PATH.with_suffix(".json.tmp")
+    try:
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, _WARNINGS_PATH)
+    except Exception:
+        logger.exception("Failed to write active_warnings.json")
+
+
 async def check_and_broadcast(eva: EvaSchema | None, rover: RoverSchema | None) -> None:
     warnings: list[Warning] = []
 
@@ -101,4 +117,6 @@ async def check_and_broadcast(eva: EvaSchema | None, rover: RoverSchema | None) 
     if rover is not None:
         warnings += _check_model(rover.pr_telemetry, PrTelemetry, "rover")
 
-    await manager.broadcast(json.dumps([asdict(w) for w in warnings]))
+    serialized = [asdict(w) for w in warnings]
+    await manager.broadcast(json.dumps(serialized))
+    _export_warnings(warnings)
