@@ -538,13 +538,21 @@ async def evaluate_phase_and_ping():
                 f"Holding position. Waiting {wait_time:.1f}s for ping cooldown..."
             )
 
-            # Let the driver know we are paused on purpose
-            await navigation_state.update_status(
-                f"Holding for Ping Cooldown ({wait_time:.0f}s)...", "info"
-            )
-
+            # 1. Apply brakes immediately so the rover parks safely
             await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
-            await asyncio.sleep(wait_time)
+
+            # 2. LIVE COUNTDOWN TO FRONTEND
+            while wait_time > 0:
+                # Update the UI every second with the ticking clock
+                await navigation_state.update_status(
+                    f"Waypoint reached. Recharging sensor... Ping in {int(wait_time)}s",
+                    "info",
+                )
+
+                # Sleep in 1-second chunks (or whatever fractional time is left)
+                sleep_chunk = min(1.0, wait_time)
+                await asyncio.sleep(sleep_chunk)
+                wait_time -= sleep_chunk
 
     # Execute Ping
     success, rssi, category = await execute_ping()
