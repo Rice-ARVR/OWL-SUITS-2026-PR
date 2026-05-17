@@ -570,7 +570,9 @@ async def evaluate_phase_and_ping():
         session.search_center = rover_pos
         session.phase = SearchPhase.CONCENTRIC_SEARCH
         if success:
-            session.best_rssi = rssi
+            # Only initialize best_rssi if valid
+            if rssi < 0:
+                session.best_rssi = rssi
             if ring_waypoints:
                 session.current_target = NavigationTarget(
                     position=Position(x=ring_waypoints[0][0], y=ring_waypoints[0][1]),
@@ -582,6 +584,11 @@ async def evaluate_phase_and_ping():
     elif session.phase == SearchPhase.CONCENTRIC_SEARCH:
         if success:
             if rssi > session.best_rssi:
+                if category == DistanceCategory.NOT_IN_RANGE:
+                    session.search_area = SearchArea(
+                        center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
+                    )
+            elif rssi < 0 and rssi > session.best_rssi:
                 session.best_rssi = rssi
                 session.success_vector = calculate_bearing(
                     session.search_center.x,
@@ -635,10 +642,18 @@ async def evaluate_phase_and_ping():
 
     elif session.phase == SearchPhase.GRADIENT_ASCENT:
         if success:
-            improved = rssi > session.best_rssi
+            # Must be a valid negative number to be an improvement
+            improved = (rssi < 0) and (rssi > session.best_rssi)
 
             # If the signal drops significantly, we are moving the wrong way.
-            significant_drop = rssi < (session.best_rssi - 5.0)
+            significant_drop = (rssi < session.best_rssi - 5.0) or (
+                category == DistanceCategory.NOT_IN_RANGE
+            )
+
+            if category == DistanceCategory.NOT_IN_RANGE:
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
+                )
 
             if improved:
                 session.best_rssi = rssi
@@ -848,6 +863,7 @@ def get_distance_range(category: DistanceCategory) -> Tuple[float, float]:
             1200.0,
             2000.0,
         ),  # 2000 acts as an arbitrary outer bound
+        DistanceCategory.NOT_IN_RANGE: (0.0, 0.0),
     }
     return ranges[category]
 
@@ -1020,7 +1036,13 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
                 )
             )
 
-            if rssi > session.best_rssi:
+            # If completely out of range, clear the search donut
+            if category == DistanceCategory.NOT_IN_RANGE:
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
+                )
+            # Only update best_rssi if it is a VALID signal (less than 0)
+            elif rssi < 0 and rssi > session.best_rssi:
                 session.best_rssi = rssi
                 r_min, r_max = get_distance_range(category)
                 session.search_area = SearchArea(
