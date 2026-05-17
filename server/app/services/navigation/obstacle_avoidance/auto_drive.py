@@ -29,7 +29,6 @@ from app.services.navigation.navigation_helpers import (
     THROTTLE_REVERSE,
     THROTTLE_SLOW,
     TRAVEL_TIMEOUT_S,
-    _apply_speed_cap,
     _bound,
     _brake_pulse,
     _distance_to,
@@ -126,7 +125,7 @@ MAX_RECOVERY_ATTEMPTS = 4
 REVERSE_DURATION_S = 5.0
 REORIENT_DURATION_S = 2.5
 
-# Crater escape 
+# Crater escape
 CRATER_ESCAPE_DURATION_S = 5.0
 CRATER_ESCAPE_COOLDOWN_S = 15.0
 CRATER_PITCH_DEG = -10.0  # nose-down beyond this => sitting in a pit
@@ -136,7 +135,7 @@ CRATER_PITCH_DEG = -10.0  # nose-down beyond this => sitting in a pit
 ######################
 
 # Lidar
-LIDAR_NO_HIT = 9999.0 
+LIDAR_NO_HIT = 9999.0
 
 # General Categories
 FRONT_SENSORS = (2, 5, 6)
@@ -543,9 +542,16 @@ async def _drive_step(tel, goalX: float, goalY: float) -> None:
             steering = heading_steer
             throttle = THROTTLE_SLOW if abs(err) > 30 else THROTTLE_NORMAL
 
-    if await _apply_speed_cap(tel, steering):
-        return
-    await _send_drive(throttle, steering)
+    # Apply speed cap dynamically without abandoning the maneuver
+    brakes = 0.0
+    if tel.speed >= MAX_SPEED:
+        throttle = 0.0  # Cut power
+        brakes = (
+            0.5  # Apply soft brakes (0.5 instead of 1.0) to maintain turning traction
+        )
+        _log_info("Speed cap applied: slowing down while maneuvering.")
+
+    await _send_drive(throttle, steering, brakes)
 
 
 async def _wall_follow_step(tel, state: _WallFollow) -> None:
@@ -560,9 +566,17 @@ async def _wall_follow_step(tel, state: _WallFollow) -> None:
     steering, why = _wall_follow_steering(lidar, state.side)
     _log_info("WALL(%s): %s -> steer=%+.2f", state.side, why, steering)
 
-    if await _apply_speed_cap(tel, steering):
-        return
-    await _send_drive(WALL_THROTTLE, steering)
+    # Apply speed cap dynamically without abandoning the maneuver
+    throttle = WALL_THROTTLE
+    brakes = 0.0
+    if tel.speed >= MAX_SPEED:
+        throttle = 0.0  # Cut power
+        brakes = (
+            0.5  # Apply soft brakes (0.5 instead of 1.0) to maintain turning traction
+        )
+        _log_info("Speed cap applied: slowing down while maneuvering.")
+
+    await _send_drive(throttle, steering, brakes)
 
 
 # ─── Public entry point ──────────────────────────────────────────────────────
