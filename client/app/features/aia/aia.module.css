@@ -42,6 +42,33 @@
     text-align: left;
 }
 
+.messageBubble.assistant {
+    white-space: normal;
+}
+
+.markdown p {
+    margin: 0 0 6px;
+}
+
+.markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.markdown ol,
+.markdown ul {
+    margin: 4px 0 6px;
+    padding-left: 18px;
+}
+
+.markdown li {
+    margin-bottom: 4px;
+}
+
+.markdown strong {
+    font-weight: 700;
+    color: #e7edf5;
+}
+
 .messageBubble.user {
     background: #2f4b45;
     color: #dffcef;

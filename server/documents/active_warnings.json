@@ -101,7 +101,7 @@
   {
     "source": "eva1",
     "field": "temperature",
-    "value": 21.240737915039062,
+    "value": 23.994792938232422,
     "min": 10,
     "max": 32,
     "nominal": 21,
@@ -123,7 +123,7 @@
   {
     "source": "eva1",
     "field": "oxy_consumption",
-    "value": 0.14633850753307343,
+    "value": 0.14975354075431824,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -134,7 +134,7 @@
   {
     "source": "eva1",
     "field": "co2_production",
-    "value": 0.14633850753307343,
+    "value": 0.14975354075431824,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -156,7 +156,7 @@
   {
     "source": "eva2",
     "field": "suit_pressure_oxy",
-    "value": 3.925718069076538,
+    "value": 3.982295036315918,
     "min": 3.5,
     "max": 4.1,
     "nominal": 4.0,
@@ -167,7 +167,7 @@
   {
     "source": "eva2",
     "field": "suit_pressure_co2",
-    "value": 0.07263831794261932,
+    "value": 0.05840078368782997,
     "min": 0.0,
     "max": 0.1,
     "nominal": 0.0,
@@ -222,7 +222,7 @@
   {
     "source": "eva2",
     "field": "temperature",
-    "value": 21.240737915039062,
+    "value": 23.994792938232422,
     "min": 10,
     "max": 32,
     "nominal": 21,
@@ -233,7 +233,7 @@
   {
     "source": "eva2",
     "field": "oxy_consumption",
-    "value": 0.14645227789878845,
+    "value": 0.14984667301177979,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -244,7 +244,7 @@
   {
     "source": "eva2",
     "field": "co2_production",
-    "value": 0.14645227789878845,
+    "value": 0.14984667301177979,
     "min": 0.05,
     "max": 0.15,
     "nominal": 0.1,
@@ -277,18 +277,18 @@
   {
     "source": "rover",
     "field": "cabin_pressure",
-    "value": 4.07284116744995,
+    "value": 3.9877076148986816,
     "min": 3.5,
     "max": 4.1,
     "nominal": 4.0,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Rover cabin pressure above nominal — check pressure regulation system."
+    "reason": "Rover cabin pressure slightly below nominal — inspect cabin seals."
   },
   {
     "source": "rover",
     "field": "coolant_pressure",
-    "value": 500.5409851074219,
+    "value": 500.18060302734375,
     "min": 495,
     "max": 501,
     "nominal": 500,
@@ -299,7 +299,7 @@
   {
     "source": "rover",
     "field": "primary_battery_level",
-    "value": -105.04689025878906,
+    "value": -124.13165283203125,
     "min": 30,
     "max": 100,
     "nominal": null,

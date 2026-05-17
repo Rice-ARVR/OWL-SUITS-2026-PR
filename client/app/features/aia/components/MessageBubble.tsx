@@ -1,4 +1,5 @@
 import React from "react";
+import ReactMarkdown from "react-markdown";
 import type { Message } from "~/hooks/useOllama";
 import type { SystemActionWidgetData } from "~/types/aiaWidgets";
 
@@ -18,9 +19,15 @@ export default function MessageBubble({ msg, index, dismissedActionIds, fallback
 
     return (
         <div key={index} className={`${styles.messageBubbleWrapper} ${styles[msg.role]}`}>
-            <span className={`${styles.messageBubble} ${styles[msg.role]}`}>
-                {msg.content || fallbackContent}
-            </span>
+            <div className={`${styles.messageBubble} ${styles[msg.role]}`}>
+                {msg.role === "assistant" ? (
+                    <div className={styles.markdown}>
+                        <ReactMarkdown>{msg.content || ""}</ReactMarkdown>
+                    </div>
+                ) : (
+                    msg.content || fallbackContent
+                )}
+            </div>
 
             {[...( msg.widgets ?? [])]
                 .filter((widget) => !dismissedActionIds.has(widget.id))
