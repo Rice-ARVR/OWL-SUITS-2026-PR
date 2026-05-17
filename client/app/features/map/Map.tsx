@@ -48,8 +48,9 @@ export default function Map() {
                                 category: data.category,
                             });
                             setSignalStatus("success");
+                        } else {
+                            setSignalStatus("not in range");
                         }
-                        setSignalStatus("not in range");
                     } else {
                         setSignalStatus("failed");
                     }

@@ -1086,29 +1086,54 @@ export default function InteractiveMap({
                                         cx="12"
                                         cy="12"
                                         r="2.5"
-                                        fill={signalStatus === "failed" || signalStatus === "not in range" ? "#e74c3c" : "#6ee7b7"}
+                                        fill={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                     />
                                     <path
                                         d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
@@ -1118,7 +1143,9 @@ export default function InteractiveMap({
                                         ? "Signaling LTV"
                                         : signalStatus === "success"
                                           ? "Signal Success"
-                                          : signalStatus === "failed"? "Signal Failed" : "Signal Not In Range"}
+                                          : signalStatus === "failed"
+                                            ? "Signal Failed"
+                                            : "Signal Not In Range"}
                                 </span>
                             </div>
                             {signalStatus === "success" && lastManualPing && (
@@ -1751,7 +1778,9 @@ export default function InteractiveMap({
                 {/* Breadcrumb trail */}
                 {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
                     <polyline
-                        points={navState.session.path_history.map((p) => `${p.x},${-p.y}`).join(" ")}
+                        points={navState.session.path_history
+                            .map((p) => `${p.x},${-p.y}`)
+                            .join(" ")}
                         fill="none"
                         stroke="#6ee7b7"
                         strokeWidth="1.5"
