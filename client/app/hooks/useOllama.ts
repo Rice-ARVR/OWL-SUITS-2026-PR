@@ -25,7 +25,7 @@ export function useOllama() {
     const [error, setError] = useState<string | null>(null);
     const [connected, setConnected] = useState<boolean | null>(null);
 
-    const chat = async (prompt: string, options?: { hidden?: boolean }) => {
+    const chat = async (prompt: string, options?: { hidden?: boolean; suppressWidgetTypes?: string[] }) => {
         setLoading(true);
         setError(null);
 
@@ -103,7 +103,9 @@ export function useOllama() {
                                 updated[updated.length - 1] = {
                                     role: "assistant",
                                     content: cleanAssistantText(fullResponse),
-                                    widgets: parsed.widgets ?? [],
+                                    widgets: (parsed.widgets ?? []).filter(
+                                        (w) => !options?.suppressWidgetTypes?.includes(w.type),
+                                    ),
                                 };
                                 return updated;
                             });
