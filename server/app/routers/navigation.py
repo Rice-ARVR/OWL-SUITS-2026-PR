@@ -33,10 +33,9 @@ async def navigation_stream():
 
     async def event_generator():
         try:
-            while True:
-                state = await navigation_state.get_snapshot()
-                yield f"data: {state.model_dump_json()}\n\n"
-                await asyncio.sleep(0.1)
+            # subscribe_frontend() handles the waiting and the data filtering natively
+            async for state_json in navigation_state.subscribe_frontend():
+                yield f"data: {state_json}\n\n"
         except asyncio.CancelledError:
             pass
 
