@@ -32,6 +32,14 @@ export function AiaChat() {
     >(null);
 
     const bottomRef = useRef<HTMLDivElement>(null);
+    const messagesRef = useRef<HTMLDivElement>(null);
+    const userScrolledUp = useRef(false);
+
+    const handleMessagesScroll = () => {
+        const el = messagesRef.current;
+        if (!el) return;
+        userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 50;
+    };
 
     useEffect(() => {
         const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -53,7 +61,9 @@ export function AiaChat() {
     }, [transcript]);
 
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (!userScrolledUp.current) {
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
     }, [messages]);
 
     async function handleSystemAction(
@@ -85,6 +95,7 @@ export function AiaChat() {
         const trimmed = input.trim();
         if (!trimmed || loading) return;
 
+        userScrolledUp.current = false;
         setInput("");
         chat(trimmed);
     };
@@ -98,7 +109,7 @@ export function AiaChat() {
 
     return (
         <div className={styles.container}>
-            <div className={styles.messages}>
+            <div className={styles.messages} ref={messagesRef} onScroll={handleMessagesScroll}>
                 {messages.length === 0 && (
                     <p className={styles.emptyState}>
                         Ask something about the current mission telemetry...
