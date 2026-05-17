@@ -188,14 +188,21 @@ async def telemetry_monitoring_loop():
             break
 
         try:
-            rover_data = await tss_client.fetch_json(tss_client.COMMAND_ROVER)
-            if not rover_data:
-                rover_data = {}
+            if telemetry_service.rover_data is None:
+                await asyncio.sleep(0.1)
+                continue
 
-            rover_x = rover_data.get("pos_x", 0.0)
-            rover_y = rover_data.get("pos_y", 0.0)
-            rover_heading = rover_data.get("heading", 0.0)
-            lidar_array = rover_data.get("lidar", [1500.0] * 17)
+            snap = await telemetry_service.rover_data.get_snapshot()
+            if not snap or not snap.pr_telemetry:
+                await asyncio.sleep(0.1)
+                continue
+
+            tel = snap.pr_telemetry
+
+            rover_x = tel.rover_pos_x
+            rover_y = tel.rover_pos_y
+            rover_heading = tel.heading
+            lidar_array = tel.lidar if hasattr(tel, "lidar") else [1500.0] * 17
 
             position = Position(x=rover_x, y=rover_y, heading=rover_heading)
             await navigation_state.update_rover_position(position)
