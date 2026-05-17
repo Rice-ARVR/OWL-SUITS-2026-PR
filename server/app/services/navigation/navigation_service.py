@@ -503,6 +503,13 @@ async def evaluate_phase_and_ping(state: NavigationState):
     # Execute Ping
     success, rssi, category = await execute_ping()
 
+    # execute_ping() modified the global session (added a ping to history).
+    # We MUST fetch a fresh snapshot, otherwise we will overwrite and erase that ping!
+    state = await navigation_state.get_snapshot()
+    session = state.session
+    if session is None:
+        return
+
     if success:
         # notify user ping is done
         await navigation_state.update_status(
