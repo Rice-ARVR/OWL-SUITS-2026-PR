@@ -352,7 +352,6 @@ async def travel_vision(
             await asyncio.sleep(COMMAND_PAUSE_S)
             await _brake_pulse()
     except asyncio.CancelledError:
-        await _full_stop()
         raise
     finally:
         await cv_service.unsubscribe(q)

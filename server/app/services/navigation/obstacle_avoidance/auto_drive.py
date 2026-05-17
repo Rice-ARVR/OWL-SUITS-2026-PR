@@ -715,5 +715,4 @@ async def travel(
             await asyncio.sleep(COMMAND_PAUSE_S)
             await _brake_pulse()
     except asyncio.CancelledError:
-        await _full_stop()
         raise
