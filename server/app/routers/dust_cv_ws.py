@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.services.navigation.vision.cv_service import manager
+from app.services.navigation.vision.cv_stream_service import manager
 
 router = APIRouter()
 

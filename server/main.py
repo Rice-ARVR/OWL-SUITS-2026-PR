@@ -2,22 +2,22 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
-from app.db.database import connect, disconnect
+from app.routers.dust_cv_ws import router as dust_cv_ws_router
 from app.routers.estimation import router as estimation_router
 from app.routers.locations import router as locations_router
 from app.routers.navigation import router as navigation_router
 from app.routers.ollama import router as ollama_router
-from app.routers.dust_cv_ws import router as dust_cv_ws_router
 from app.routers.rover_control_ws import router as rover_control_ws_router
 from app.routers.speech import router as speech_router
 from app.routers.telemetry_ws import router as telemetry_ws_router
 from app.routers.tss_example import router as tss_example_router
 from app.routers.warnings import router as warnings_router
-from app.services.rag.document_service import ingest_documents
 from app.services.navigation.dust_stream_service import start as start_dust_stream
 from app.services.navigation.dust_stream_service import stop as stop_dust_stream
 from app.services.navigation.vision.cv_service import start as start_cv_service
 from app.services.navigation.vision.cv_service import stop as stop_cv_service
+from app.services.navigation.vision.cv_stream_service import start as start_cv_stream
+from app.services.navigation.vision.cv_stream_service import stop as stop_cv_stream
 from app.services.telemetry.telemetry_service import start_polling, stop_polling
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,18 +38,20 @@ async def lifespan(app: FastAPI):
         if isinstance(path, str) and path.startswith("/ollama"):
             methods = sorted(getattr(route, "methods", []) or [])
             logger.info("Route registered: %s methods=%s", path, methods)
-    connect()
+    # connect()
 
     # await ingest_documents()
     # await warmup_model(settings.AIA_MODEL)
     await start_polling()
     await start_dust_stream()
     await start_cv_service()
+    await start_cv_stream()
     yield
+    await stop_cv_stream()
     await stop_cv_service()
     await stop_dust_stream()
     await stop_polling()
-    disconnect()
+    # disconnect()
 
 
 app = FastAPI(lifespan=lifespan)
