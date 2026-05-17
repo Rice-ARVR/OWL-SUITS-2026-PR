@@ -185,7 +185,9 @@ async def telemetry_monitoring_loop():
             )
             await navigation_state.update_lidar(lidar_scan)
 
-            session = state.session
+            fresh_state = await navigation_state.get_snapshot()
+            session = fresh_state.session
+
             if session is not None:
                 if not session.path_history:
                     session.path_history.append(position)
