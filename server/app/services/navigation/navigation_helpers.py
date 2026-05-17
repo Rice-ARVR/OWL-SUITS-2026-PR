@@ -100,9 +100,9 @@ async def _send_brakes(v: float) -> None:
     await asyncio.to_thread(tss_client.send_brakes, float(v))
 
 
-async def _send_drive(throttle: float, steering: float) -> None:
-    """Brake off, then apply steering and throttle."""
-    await _send_brakes(0.0)
+async def _send_drive(throttle: float, steering: float, brakes: float = 0.0) -> None:
+    """Apply brakes, steering, and throttle."""
+    await _send_brakes(brakes)
     await _send_steering(steering)
     await _send_throttle(throttle)
 

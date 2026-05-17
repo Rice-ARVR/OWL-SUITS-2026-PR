@@ -129,11 +129,21 @@ async def start_autonomous_loop(force_reset: bool = False):
             resumed_phase, resumed_phase.value.replace("_", " ").title()
         )
 
-        # 3. Inject the dynamic phase name into the description
+        # conditional wake-up target
+        if resumed_phase == SearchPhase.TRANSIT_TO_LNP:
+            # Must drive to the actual LNP, not its current spot!
+            resume_target = state.session.lnp
+            threshold = 50.0
+        else:
+            # Active search: wake up exactly where the human left it
+            resume_target = state.rover_position or state.session.lnp
+            threshold = 5.0
+
+        # 3. Inject the dynamic phase name AND the correct targets
         state.session.current_target = NavigationTarget(
-            position=state.rover_position or LNP_POSITION,
+            position=resume_target,
             description=f"Resuming: {phase_name}",
-            arrival_threshold_m=5.0,
+            arrival_threshold_m=threshold,
         )
         await navigation_state.update_session(state.session)
 
@@ -205,7 +215,9 @@ async def telemetry_monitoring_loop():
             )
             await navigation_state.update_lidar(lidar_scan)
 
-            session = state.session
+            fresh_state = await navigation_state.get_snapshot()
+            session = fresh_state.session
+
             if session is not None:
                 if not session.path_history:
                     session.path_history.append(position)
@@ -285,8 +297,11 @@ async def autonomous_mission_loop():
             path_success = True
             for i, waypoint in enumerate(safe_path):
                 # Update the projected path so the frontend UI line adjusts dynamically
-                session.projected_path = safe_path[i:]
-                await navigation_state.update_session(session)
+                # Fetch fresh state to prevent overwriting telemetry
+                fresh_state = await navigation_state.get_snapshot()
+                if fresh_state.session:
+                    fresh_state.session.projected_path = safe_path[i:]
+                    await navigation_state.update_session(fresh_state.session)
 
                 logger.info(
                     f"Delegating to auto_drive for waypoint: ({waypoint.x:.1f}, {waypoint.y:.1f})"
@@ -321,7 +336,7 @@ async def autonomous_mission_loop():
                 break
 
             # 5. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
-            await evaluate_phase_and_ping(state)
+            await evaluate_phase_and_ping()
 
     except asyncio.CancelledError:
         pass
@@ -418,7 +433,7 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
         else:
             # We have exhausted all waypoints in the concentric rings, and the last one
             # happened to be blocked. We must transition to the next phase (Gradient Ascent).
-            await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+            session.phase = SearchPhase.GRADIENT_ASCENT
 
             # Reset the success vector to North (+Y) as a starting guess
             session.success_vector = 0.0
@@ -490,10 +505,12 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
     return False
 
 
-async def evaluate_phase_and_ping(state: NavigationState):
+async def evaluate_phase_and_ping():
     """Called when auto_drive successfully reaches a target. Pings and decides next phase."""
     global ring_waypoints, current_ring_index, current_spiral_index
 
+    # 1. Grab FRESH state immediately after arriving
+    state = await navigation_state.get_snapshot()
     session = state.session
     rover_pos = state.rover_position
     lidar = state.latest_lidar
@@ -523,6 +540,16 @@ async def evaluate_phase_and_ping(state: NavigationState):
     # Execute Ping
     success, rssi, category = await execute_ping()
 
+    # 2. execute_ping() modified the global session (added a ping to history).
+    # We MUST fetch a fresh snapshot and refresh our locals!
+    state = await navigation_state.get_snapshot()
+    session = state.session
+    rover_pos = state.rover_position
+    lidar = state.latest_lidar
+
+    if session is None or rover_pos is None:
+        return
+
     if success:
         # notify user ping is done
         await navigation_state.update_status(
@@ -532,7 +559,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
     # State Machine Transitions
     if session.phase == SearchPhase.TRANSIT_TO_LNP:
         session.search_center = rover_pos
-        await update_search_phase(SearchPhase.CONCENTRIC_SEARCH)
+        session.phase = SearchPhase.CONCENTRIC_SEARCH
         if success:
             session.best_rssi = rssi
             if ring_waypoints:
@@ -567,7 +594,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
                 )
 
             if rssi >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
-                await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+                session.phase = SearchPhase.GRADIENT_ASCENT
                 session.current_target = NavigationTarget(
                     position=get_gradient_waypoint(
                         rover_pos, session.success_vector, session.search_center
@@ -587,7 +614,7 @@ async def evaluate_phase_and_ping(state: NavigationState):
                         arrival_threshold_m=10.0,
                     )
                 else:
-                    await update_search_phase(SearchPhase.GRADIENT_ASCENT)
+                    session.phase = SearchPhase.GRADIENT_ASCENT
                     session.success_vector = 0.0
                     session.current_target = NavigationTarget(
                         position=get_gradient_waypoint(
@@ -619,22 +646,19 @@ async def evaluate_phase_and_ping(state: NavigationState):
                     "success",
                 )
 
-                prev_x = (
-                    session.ping_history[-2].rover_position.x
-                    if len(session.ping_history) > 1
-                    else rover_pos.x
-                )
-                prev_y = (
-                    session.ping_history[-2].rover_position.y
-                    if len(session.ping_history) > 1
-                    else rover_pos.y
-                )
+                if len(session.ping_history) >= 2:
+                    prev_x = session.ping_history[-2].rover_position.x
+                    prev_y = session.ping_history[-2].rover_position.y
+                else:
+                    prev_x = rover_pos.x
+                    prev_y = rover_pos.y
+
                 session.success_vector = calculate_bearing(
                     prev_x, prev_y, rover_pos.x, rover_pos.y
                 )
 
             if rssi >= RSSI_THRESHOLDS[DistanceCategory.STRONG]:
-                await update_search_phase(SearchPhase.TIGHT_SPIRAL)
+                session.phase = SearchPhase.TIGHT_SPIRAL
                 current_spiral_index = 0
                 spiral_points = generate_square_spiral(
                     session.search_center.x, session.search_center.y
@@ -693,13 +717,33 @@ async def evaluate_phase_and_ping(state: NavigationState):
                 )
 
     elif session.phase == SearchPhase.TIGHT_SPIRAL:
-        ltv_pos = (
-            check_for_ltv_proximity(session.best_rssi, lidar)
-            if lidar is not None
-            else None
-        )
-        if ltv_pos or session.best_rssi > -10.0:
-            await update_search_phase(SearchPhase.FOUND)
+        found_ltv = False
+
+        # 1. Vision Check (if CV is enabled)
+        if settings.NAV_TRAVEL_ALGORITHM == "cv":
+            # Safely fetch the latest CV detections from state
+            cv_detections = getattr(state, "latest_cv_detections", [])
+            for det in cv_detections:
+                label = det.label if hasattr(det, "label") else det.get("label", "")
+                if label == "Lunar Terrain Vehicle":
+                    found_ltv = True
+                    logger.info("LTV Found via Computer Vision!")
+                    break
+
+        # 2. Lidar/RSSI Check (Fallback or primary if not CV)
+        if not found_ltv:
+            ltv_pos = (
+                check_for_ltv_proximity(session.best_rssi, lidar)
+                if lidar is not None
+                else None
+            )
+            if ltv_pos or session.best_rssi > -10.0:
+                found_ltv = True
+                logger.info("LTV Found via Lidar / RSSI proximity!")
+
+        # 3. Transition based on findings
+        if found_ltv:
+            session.phase = SearchPhase.FOUND
             session.current_target = None
         else:
             spiral_points = generate_square_spiral(
@@ -895,16 +939,6 @@ async def start_search_session() -> SearchSession:
     )
 
     return session
-
-
-async def update_search_phase(new_phase: SearchPhase) -> None:
-    state = await navigation_state.get_snapshot()
-    if state.session:
-        logger.info(
-            f"Phase Transition: {state.session.phase.value} -> {new_phase.value}"
-        )
-        state.session.phase = new_phase
-        await navigation_state.update_session(state.session)
 
 
 async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
