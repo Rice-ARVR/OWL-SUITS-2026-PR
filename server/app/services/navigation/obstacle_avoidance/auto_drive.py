@@ -1,5 +1,9 @@
 """Simple autonomous drive: travel(goalX, goalY) -> int (0 = success).
 
+Lidar-based driver. Shared geometry, control primitives, and pacing/stuck
+constants live in `..navigation_helpers`; only the lidar-specific
+classification, wall-following, and escape logic lives here.
+
 Conventions:
 - Steering: positive = right (CW), negative = left (CCW); magnitude in [-1, 1].
 - Heading: 0° = +Y, 90° = +X (CW from +Y). `_bearing_to` returns this frame.
@@ -14,8 +18,25 @@ import math
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-import app.services.telemetry.telemetry_service as telemetry_service
-import app.services.telemetry.tss_client as tss_client
+from app.services.navigation.navigation_helpers import (
+    ARRIVAL_THRESHOLD_M,
+    COMMAND_PAUSE_S,
+    STEERING_SIGN,
+    STUCK_DIST_M,
+    STUCK_WINDOW_S,
+    TELEMETRY_FRESH_WAIT_S,
+    THROTTLE_NORMAL,
+    THROTTLE_REVERSE,
+    THROTTLE_SLOW,
+    TRAVEL_TIMEOUT_S,
+    _bound,
+    _brake_pulse,
+    _distance_to,
+    _full_stop,
+    _goal_steering,
+    _read_telemetry,
+    _send_drive,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +45,11 @@ VERBOSE_LOGGING = True
 
 
 # ─── Tunables ─────────────────────────────────────────────────────────────────
+#
+# Shared tunables (ARRIVAL_THRESHOLD_M, TRAVEL_TIMEOUT_S, COMMAND_PAUSE_S,
+# BRAKE_PULSE_S, TELEMETRY_FRESH_WAIT_S, MAX_SPEED, THROTTLE_NORMAL/SLOW/REVERSE,
+# STEERING_GAIN_DEG, STEERING_SIGN, STUCK_DIST_M, STUCK_WINDOW_S) are imported
+# from navigation_helpers. Only lidar-specific tunables are defined here.
 
 #####################
 ## System Settings ##
@@ -44,10 +70,10 @@ THROTTLE_NORMAL = 35
 THROTTLE_SLOW = 30
 THROTTLE_BOOST = 60
 THROTTLE_REVERSE = -30
+# Speed / throttle (throttle ±100) — boost is lidar-only (crater climb-out).
+THROTTLE_BOOST = 60
 
 # Steering
-STEERING_GAIN_DEG = 60.0  # Higher = aggressive reorientation to target
-STEERING_SIGN = 1.0  # set to -1.0 if the platform inverts turn direction
 AVOID_STEER = 0.8
 SIDE_BIAS_MARGIN_CM = 50.0  # min clearance delta to commit to a side
 CRATER_BIAS_WEIGHT = 0.3
@@ -109,9 +135,7 @@ WALL_LEFT_SIDE_SENSOR = 4  # 30°L at left wheel hub
 ## Escape Protocols ##
 ######################
 
-# Stuck detection / recovery
-STUCK_DIST_M = 1.0
-STUCK_WINDOW_S = 5.0
+# Stuck detection / recovery (STUCK_DIST_M, STUCK_WINDOW_S from navigation_helpers)
 MAX_RECOVERY_ATTEMPTS = 4
 REVERSE_DURATION_S = 5.0
 REORIENT_DURATION_S = 2.5
@@ -163,34 +187,6 @@ def _clean(value: float) -> float:
 def _preprocess_lidar(lidar: List[float]) -> List[float]:
     """Apply `_clean` to every return."""
     return [_clean(v) for v in lidar]
-
-
-def _bound(x: float, lo: float, hi: float) -> float:
-    """Clamp x to [lo, hi]."""
-    return max(lo, min(hi, x))
-
-
-def _bearing_to(goalX: float, goalY: float, posX: float, posY: float) -> float:
-    """Bearing from (posX,posY) to (goalX,goalY) in degrees; 0°=+Y, 90°=+X."""
-    return math.degrees(math.atan2(goalX - posX, goalY - posY))
-
-
-def _distance_to(goalX: float, goalY: float, posX: float, posY: float) -> float:
-    """Euclidean distance between (posX,posY) and (goalX,goalY) in meters."""
-    return math.hypot(goalX - posX, goalY - posY)
-
-
-def _heading_error(target_deg: float, current_deg: float) -> float:
-    """Signed angle from current to target, normalized to (-180, 180]."""
-    return (target_deg - current_deg + 180.0) % 360.0 - 180.0
-
-
-def _goal_steering(tel, goalX: float, goalY: float) -> Tuple[float, float]:
-    """Return (steering, heading_error_deg) for pointing at the goal."""
-    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-    err = _heading_error(bearing, tel.heading)
-    steer = _bound(STEERING_SIGN * err / STEERING_GAIN_DEG, -1.0, 1.0)
-    return steer, err
 
 
 def _side_clearance(lidar: List[float], indices: Tuple[int, ...]) -> float:
