@@ -18,6 +18,7 @@ class SearchPhase(Enum):
 
 
 class DistanceCategory(Enum):
+    NOT_IN_RANGE = "not_in_range"  # > 0 dBm → Not a valid RSSI, indicates no signal
     STRONG = "strong"  # 0 to -30 dBm → 0-100m
     MODERATE = "moderate"  # -30 to -67 dBm → 100-462m
     WEAK = "weak"  # -67 to -80 dBm → 462-1200m

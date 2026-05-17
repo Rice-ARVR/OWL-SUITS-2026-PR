@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings
 
 
@@ -6,6 +8,10 @@ class Settings(BaseSettings):
     TSS_PORT: int = 14141
     TSS_TIMEOUT: float = 2.0
     POLL_INTERVAL: float = 1.0
+
+    # Obstacle-avoidance algorithm used by the autonomous mission loop's
+    # waypoint traversal: "lidar" (auto_drive) or "cv" (auto_drive_vision).
+    NAV_TRAVEL_ALGORITHM: Literal["lidar", "cv"] = "cv"
     OLLAMA_URL: str = "http://host.docker.internal:11434"
     EMBED_MODEL: str = "nomic-embed-text"
     AIA_MODEL: str = "llama3.2"

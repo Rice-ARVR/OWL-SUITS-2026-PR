@@ -39,7 +39,7 @@ interface InteractiveMapProps {
     onCurrentTargetChange?: (pos: { x: number; y: number } | null) => void;
     stopAutonomyRef?: React.MutableRefObject<(() => void) | undefined>;
     isSignaling?: boolean;
-    signalStatus?: "pending" | "success" | "failed";
+    signalStatus?: "pending" | "success" | "failed" | "not in range";
     lastManualPing?: ManualPingResult;
     headlightNotice?: "on" | "off" | null;
 }
@@ -253,7 +253,7 @@ export default function InteractiveMap({
             const scaleY = viewBox.h / rect.height;
             return {
                 x: (e.clientX - rect.left) * scaleX + viewBox.x,
-                y: (e.clientY - rect.top) * scaleY + viewBox.y,
+                y: viewBox.y + viewBox.h - (e.clientY - rect.top) * scaleY,
             };
         },
         [viewBox],
@@ -353,7 +353,7 @@ export default function InteractiveMap({
             setViewBox((prev) => ({
                 ...prev,
                 x: panStart.current.vx - dx * scaleX,
-                y: panStart.current.vy - dy * scaleY,
+                y: panStart.current.vy + dy * scaleY,
             }));
             return;
         }
@@ -1086,29 +1086,29 @@ export default function InteractiveMap({
                                         cx="12"
                                         cy="12"
                                         r="2.5"
-                                        fill={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        fill={signalStatus === "failed" || signalStatus === "not in range" ? "#e74c3c" : "#6ee7b7"}
                                     />
                                     <path
                                         d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
-                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
-                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
-                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
-                                        stroke={signalStatus === "failed" ? "#e74c3c" : "#6ee7b7"}
+                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
@@ -1118,7 +1118,7 @@ export default function InteractiveMap({
                                         ? "Signaling LTV"
                                         : signalStatus === "success"
                                           ? "Signal Success"
-                                          : "Signal Failed"}
+                                          : signalStatus === "failed"? "Signal Failed" : "Signal Not In Range"}
                                 </span>
                             </div>
                             {signalStatus === "success" && lastManualPing && (
@@ -1674,7 +1674,7 @@ export default function InteractiveMap({
             <svg
                 ref={svgRef}
                 className={`${styles.canvas} ${cursorClass}`}
-                viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+                viewBox={`${viewBox.x} ${-viewBox.y - viewBox.h} ${viewBox.w} ${viewBox.h}`}
                 onClick={handleCanvasClick}
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
@@ -1699,7 +1699,7 @@ export default function InteractiveMap({
                         {/* Outer circle (max radius) */}
                         <circle
                             cx={savedSearchArea.center.x}
-                            cy={savedSearchArea.center.y}
+                            cy={-savedSearchArea.center.y}
                             r={savedSearchArea.radius_max_m}
                             fill="rgba(110, 231, 183, 0.06)"
                             stroke="#6ee7b7"
@@ -1711,7 +1711,7 @@ export default function InteractiveMap({
                         {savedSearchArea.radius_min_m > 0 && (
                             <circle
                                 cx={savedSearchArea.center.x}
-                                cy={savedSearchArea.center.y}
+                                cy={-savedSearchArea.center.y}
                                 r={savedSearchArea.radius_min_m}
                                 fill="#1e1e22"
                                 stroke="#6ee7b7"
@@ -1723,7 +1723,7 @@ export default function InteractiveMap({
                         {/* Center crosshair */}
                         <circle
                             cx={savedSearchArea.center.x}
-                            cy={savedSearchArea.center.y}
+                            cy={-savedSearchArea.center.y}
                             r="4"
                             fill="none"
                             stroke="#6ee7b7"
@@ -1733,7 +1733,7 @@ export default function InteractiveMap({
                         {/* Label */}
                         <text
                             x={savedSearchArea.center.x}
-                            y={savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
+                            y={-savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
                             textAnchor="middle"
                             fill="#6ee7b7"
                             fontSize="10"
@@ -1751,7 +1751,7 @@ export default function InteractiveMap({
                 {/* Breadcrumb trail */}
                 {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
                     <polyline
-                        points={navState.session.path_history.map((p) => `${p.x},${p.y}`).join(" ")}
+                        points={navState.session.path_history.map((p) => `${p.x},${-p.y}`).join(" ")}
                         fill="none"
                         stroke="#6ee7b7"
                         strokeWidth="1.5"
@@ -1765,8 +1765,8 @@ export default function InteractiveMap({
                     navState.session.projected_path.length >= 1 && (
                         <polyline
                             points={[
-                                `${roverPosition.x},${roverPosition.y}`,
-                                ...navState.session.projected_path.map((p) => `${p.x},${p.y}`),
+                                `${roverPosition.x},${-roverPosition.y}`,
+                                ...navState.session.projected_path.map((p) => `${p.x},${-p.y}`),
                             ].join(" ")}
                             fill="none"
                             stroke="#6ee7b7"
@@ -1790,7 +1790,7 @@ export default function InteractiveMap({
                         <g key={`ping-${i}`}>
                             <circle
                                 cx={ping.rover_position.x}
-                                cy={ping.rover_position.y}
+                                cy={-ping.rover_position.y}
                                 r="8"
                                 fill="none"
                                 stroke={color}
@@ -1799,14 +1799,14 @@ export default function InteractiveMap({
                             />
                             <circle
                                 cx={ping.rover_position.x}
-                                cy={ping.rover_position.y}
+                                cy={-ping.rover_position.y}
                                 r="3"
                                 fill={color}
                                 opacity="0.8"
                             />
                             <text
                                 x={ping.rover_position.x}
-                                y={ping.rover_position.y - 14}
+                                y={-ping.rover_position.y - 14}
                                 textAnchor="middle"
                                 fill={color}
                                 fontSize="8"
@@ -1823,7 +1823,7 @@ export default function InteractiveMap({
                     <g>
                         <circle
                             cx={navState.session.current_target.position.x}
-                            cy={navState.session.current_target.position.y}
+                            cy={-navState.session.current_target.position.y}
                             r="10"
                             fill="none"
                             stroke="#6ee7b7"
@@ -1845,13 +1845,13 @@ export default function InteractiveMap({
                         </circle>
                         <circle
                             cx={navState.session.current_target.position.x}
-                            cy={navState.session.current_target.position.y}
+                            cy={-navState.session.current_target.position.y}
                             r="3"
                             fill="#6ee7b7"
                         />
                         <text
                             x={navState.session.current_target.position.x}
-                            y={navState.session.current_target.position.y + 20}
+                            y={-navState.session.current_target.position.y + 20}
                             textAnchor="middle"
                             fill="#6ee7b7"
                             fontSize="9"
@@ -1871,9 +1871,9 @@ export default function InteractiveMap({
                                 <line
                                     key={`route-${i}`}
                                     x1={routePath[i - 1].x}
-                                    y1={routePath[i - 1].y}
+                                    y1={-routePath[i - 1].y}
                                     x2={p.x}
-                                    y2={p.y}
+                                    y2={-p.y}
                                     stroke="#6ee7b7"
                                     strokeWidth="2.5"
                                     strokeDasharray="10 6"
@@ -1885,7 +1885,7 @@ export default function InteractiveMap({
                             <circle
                                 key={`route-dot-${i}`}
                                 cx={p.x}
-                                cy={p.y}
+                                cy={-p.y}
                                 r="4"
                                 fill="#6ee7b7"
                                 stroke="#1e1e22"
@@ -1899,13 +1899,13 @@ export default function InteractiveMap({
                 {pendingHazard && (
                     <g>
                         <polygon
-                            points={pendingHazard.points.map((p) => `${p.x},${p.y}`).join(" ")}
+                            points={pendingHazard.points.map((p) => `${p.x},${-p.y}`).join(" ")}
                             fill="rgba(255, 138, 117, 0.12)"
                             stroke="#ff8a75"
                             strokeWidth="2"
                         />
                         {pendingHazard.points.map((p, i) => (
-                            <circle key={i} cx={p.x} cy={p.y} r="5" fill="#ff8a75" />
+                            <circle key={i} cx={p.x} cy={-p.y} r="5" fill="#ff8a75" />
                         ))}
                     </g>
                 )}
@@ -1914,7 +1914,7 @@ export default function InteractiveMap({
                 {activeHazard && (
                     <g>
                         <polyline
-                            points={activeHazard.points.map((p) => `${p.x},${p.y}`).join(" ")}
+                            points={activeHazard.points.map((p) => `${p.x},${-p.y}`).join(" ")}
                             fill="none"
                             stroke="#ff8a75"
                             strokeWidth="2"
@@ -1923,9 +1923,9 @@ export default function InteractiveMap({
                         {mousePos && activeHazard.points.length > 0 && (
                             <line
                                 x1={activeHazard.points[activeHazard.points.length - 1].x}
-                                y1={activeHazard.points[activeHazard.points.length - 1].y}
+                                y1={-activeHazard.points[activeHazard.points.length - 1].y}
                                 x2={mousePos.x}
-                                y2={mousePos.y}
+                                y2={-mousePos.y}
                                 stroke="#ff8a75"
                                 strokeWidth="1.5"
                                 strokeDasharray="4 4"
@@ -1936,9 +1936,9 @@ export default function InteractiveMap({
                         {activeHazard.points.length >= 3 && (
                             <line
                                 x1={activeHazard.points[activeHazard.points.length - 1].x}
-                                y1={activeHazard.points[activeHazard.points.length - 1].y}
+                                y1={-activeHazard.points[activeHazard.points.length - 1].y}
                                 x2={activeHazard.points[0].x}
-                                y2={activeHazard.points[0].y}
+                                y2={-activeHazard.points[0].y}
                                 stroke="#ff8a75"
                                 strokeWidth="1.5"
                                 strokeDasharray="6 4"
@@ -1946,7 +1946,7 @@ export default function InteractiveMap({
                             />
                         )}
                         {activeHazard.points.map((p, i) => (
-                            <circle key={i} cx={p.x} cy={p.y} r="5" fill="#ff8a75" />
+                            <circle key={i} cx={p.x} cy={-p.y} r="5" fill="#ff8a75" />
                         ))}
                     </g>
                 )}
@@ -1987,7 +1987,7 @@ export default function InteractiveMap({
                                 <circle
                                     key={`hit-${p.id}`}
                                     cx={p.x}
-                                    cy={p.y - 13}
+                                    cy={-p.y - 13}
                                     r={Math.max(20, viewBox.w * 0.025)}
                                     fill="transparent"
                                     style={{ cursor: "pointer" }}
@@ -1997,7 +1997,7 @@ export default function InteractiveMap({
                                 <circle
                                     key={`hit-ping-${i}`}
                                     cx={ping.rover_position.x}
-                                    cy={ping.rover_position.y}
+                                    cy={-ping.rover_position.y}
                                     r={Math.max(15, viewBox.w * 0.02)}
                                     fill="transparent"
                                     style={{ cursor: "pointer" }}
@@ -2010,18 +2010,18 @@ export default function InteractiveMap({
                 {pendingPOI && (
                     <g opacity="0.4">
                         <path
-                            d={`M ${pendingPOI.x} ${pendingPOI.y}
-                  C ${pendingPOI.x - 4} ${pendingPOI.y - 6}, ${pendingPOI.x - 14} ${pendingPOI.y - 16}, ${pendingPOI.x - 14} ${pendingPOI.y - 26}
-                  A 14 14 0 1 1 ${pendingPOI.x + 14} ${pendingPOI.y - 26}
-                  C ${pendingPOI.x + 14} ${pendingPOI.y - 16}, ${pendingPOI.x + 4} ${pendingPOI.y - 6}, ${pendingPOI.x} ${pendingPOI.y} Z`}
+                            d={`M ${pendingPOI.x} ${-pendingPOI.y}
+                  C ${pendingPOI.x - 4} ${-pendingPOI.y - 6}, ${pendingPOI.x - 14} ${-pendingPOI.y - 16}, ${pendingPOI.x - 14} ${-pendingPOI.y - 26}
+                  A 14 14 0 1 1 ${pendingPOI.x + 14} ${-pendingPOI.y - 26}
+                  C ${pendingPOI.x + 14} ${-pendingPOI.y - 16}, ${pendingPOI.x + 4} ${-pendingPOI.y - 6}, ${pendingPOI.x} ${-pendingPOI.y} Z`}
                             fill="#6ee7b7"
                             stroke="#1e1e22"
                             strokeWidth="2"
                         />
-                        <circle cx={pendingPOI.x} cy={pendingPOI.y - 26} r="5" fill="#1e1e22" />
+                        <circle cx={pendingPOI.x} cy={-pendingPOI.y - 26} r="5" fill="#1e1e22" />
                         <text
                             x={pendingPOI.x}
-                            y={pendingPOI.y + 14}
+                            y={-pendingPOI.y + 14}
                             textAnchor="middle"
                             fill="#ccc"
                             fontSize="11"

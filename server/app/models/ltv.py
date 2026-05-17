@@ -50,6 +50,10 @@ class LtvData:
         async with self._lock:
             return self._data.location.last_known_x if self._data else None
 
+    async def get_location_last_known_y(self) -> float | None:
+        async with self._lock:
+            return self._data.location.last_known_y if self._data else None
+
     async def get_consumables_fuel_level(self) -> float | None:
         async with self._lock:
             return self._data.consumables.fuel_level if self._data else None
