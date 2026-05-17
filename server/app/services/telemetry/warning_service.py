@@ -98,7 +98,7 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
 
 
 def _export_warnings(warnings: list[Warning]) -> None:
-    payload = json.dumps([asdict(w) for w in warnings], indent=2)
+    payload = json.dumps([asdict(w) for w in warnings], indent=2, ensure_ascii=False)
     tmp = _WARNINGS_PATH.with_suffix(".json.tmp")
     try:
         tmp.write_text(payload, encoding="utf-8")

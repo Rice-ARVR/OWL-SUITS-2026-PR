@@ -8,7 +8,7 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "PRI O2 pressure critically low \u2014 switch to SEC O2 & terminate EVA."
+    "reason": "PRI O2 pressure critically low — switch to SEC O2 & terminate EVA."
   },
   {
     "source": "eva1",
@@ -19,7 +19,7 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "SEC O2 pressure critically low \u2014 switch to PRI O2 & terminate EVA."
+    "reason": "SEC O2 pressure critically low — switch to PRI O2 & terminate EVA."
   },
   {
     "source": "eva1",
@@ -30,7 +30,7 @@
     "nominal": 4.0,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Suit O2 pressure critically low \u2014 swap to PRI/SEC O2 tank & return to PR IMMEDIATELY."
+    "reason": "Suit O2 pressure critically low — swap to PRI/SEC O2 tank & return to PR IMMEDIATELY."
   },
   {
     "source": "eva1",
@@ -41,7 +41,7 @@
     "nominal": 4.0,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Total suit pressure critically low \u2014 O2 tank or scrubber problem; return to PR IMMEDIATELY."
+    "reason": "Total suit pressure critically low — O2 tank or scrubber problem; return to PR IMMEDIATELY."
   },
   {
     "source": "eva1",
@@ -52,7 +52,7 @@
     "nominal": 30000,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "PRI fan RPM critically low \u2014 fan failure or ventilation compromised; switch to SEC fan; return to PR IMMEDIATELY."
+    "reason": "PRI fan RPM critically low — fan failure or ventilation compromised; switch to SEC fan; return to PR IMMEDIATELY."
   },
   {
     "source": "eva1",
@@ -63,7 +63,7 @@
     "nominal": 21,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Suit temperature above nominal \u2014 reduce physical actvity or increase cooling."
+    "reason": "Suit temperature above nominal — reduce physical actvity or increase cooling."
   },
   {
     "source": "eva1",
@@ -74,7 +74,7 @@
     "nominal": 100,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Coolant storage critically low \u2014 thermal regulation at risk; reduce activity & return to PR."
+    "reason": "Coolant storage critically low — thermal regulation at risk; reduce activity & return to PR."
   },
   {
     "source": "eva1",
@@ -85,7 +85,7 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Heart rate critically low \u2014 possible medical emergency; halt EVA & prepare for EV rescue."
+    "reason": "Heart rate critically low — possible medical emergency; halt EVA & prepare for EV rescue."
   },
   {
     "source": "eva1",
@@ -96,7 +96,7 @@
     "nominal": 0.1,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Oxygen consumption rate below range \u2014 verify sensor & check EV is breathing normally."
+    "reason": "Oxygen consumption rate below range — verify sensor & check EV is breathing normally."
   },
   {
     "source": "eva1",
@@ -107,7 +107,7 @@
     "nominal": 0.1,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "CO2 production rate below range \u2014 verify sensor calibration."
+    "reason": "CO2 production rate below range — verify sensor calibration."
   },
   {
     "source": "eva2",
@@ -118,7 +118,7 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "PRI O2 pressure critically low \u2014 switch to SEC O2 & terminate EVA."
+    "reason": "PRI O2 pressure critically low — switch to SEC O2 & terminate EVA."
   },
   {
     "source": "eva2",
@@ -129,7 +129,7 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "SEC O2 pressure critically low \u2014 switch to PRI O2 & terminate EVA."
+    "reason": "SEC O2 pressure critically low — switch to PRI O2 & terminate EVA."
   },
   {
     "source": "eva2",
@@ -140,7 +140,7 @@
     "nominal": 0.0,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Suit CO2 pressure above nominal \u2014 monitor scrubber efficiency & metabolic rate."
+    "reason": "Suit CO2 pressure above nominal — monitor scrubber efficiency & metabolic rate."
   },
   {
     "source": "eva2",
@@ -151,7 +151,7 @@
     "nominal": 4.0,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Total suit pressure critically low \u2014 O2 tank or scrubber problem; return to PR IMMEDIATELY."
+    "reason": "Total suit pressure critically low — O2 tank or scrubber problem; return to PR IMMEDIATELY."
   },
   {
     "source": "eva2",
@@ -162,7 +162,7 @@
     "nominal": 30000,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "PRI fan RPM critically low \u2014 fan failure or ventilation compromised; switch to SEC fan; return to PR IMMEDIATELY."
+    "reason": "PRI fan RPM critically low — fan failure or ventilation compromised; switch to SEC fan; return to PR IMMEDIATELY."
   },
   {
     "source": "eva2",
@@ -173,7 +173,7 @@
     "nominal": 30000,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "SEC fan RPM critically low \u2014 fan failure or ventilation compromised; switch to PRI fan; return to PR IMMEDIATELY."
+    "reason": "SEC fan RPM critically low — fan failure or ventilation compromised; switch to PRI fan; return to PR IMMEDIATELY."
   },
   {
     "source": "eva2",
@@ -184,7 +184,7 @@
     "nominal": 21,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Suit temperature above nominal \u2014 reduce physical actvity or increase cooling."
+    "reason": "Suit temperature above nominal — reduce physical actvity or increase cooling."
   },
   {
     "source": "eva2",
@@ -195,7 +195,7 @@
     "nominal": 100,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Coolant storage critically low \u2014 thermal regulation at risk; reduce activity & return to PR."
+    "reason": "Coolant storage critically low — thermal regulation at risk; reduce activity & return to PR."
   },
   {
     "source": "eva2",
@@ -206,7 +206,7 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Heart rate critically low \u2014 possible medical emergency; halt EVA & prepare for EV rescue."
+    "reason": "Heart rate critically low — possible medical emergency; halt EVA & prepare for EV rescue."
   },
   {
     "source": "eva2",
@@ -217,7 +217,7 @@
     "nominal": 0.1,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "Oxygen consumption rate below range \u2014 verify sensor & check EV is breathing normally."
+    "reason": "Oxygen consumption rate below range — verify sensor & check EV is breathing normally."
   },
   {
     "source": "eva2",
@@ -228,7 +228,7 @@
     "nominal": 0.1,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "CO2 production rate below range \u2014 verify sensor calibration."
+    "reason": "CO2 production rate below range — verify sensor calibration."
   },
   {
     "source": "rover",
@@ -239,7 +239,7 @@
     "nominal": 4.0,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Rover cabin pressure above nominal \u2014 check pressure regulation system."
+    "reason": "Rover cabin pressure above nominal — check pressure regulation system."
   },
   {
     "source": "rover",
@@ -250,7 +250,7 @@
     "nominal": 500,
     "out_of_range": false,
     "off_nominal": true,
-    "reason": "Rover coolant pressure above nominal \u2014 check for blockage in coolant lines."
+    "reason": "Rover coolant pressure above nominal — check for blockage in coolant lines."
   },
   {
     "source": "rover",
@@ -261,7 +261,7 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "PRI fan RPM critically low \u2014 fan failure or ventilation compromised; switch to SEC fan; return to PR IMMEDIATELY."
+    "reason": "PRI fan RPM critically low — fan failure or ventilation compromised; switch to SEC fan; return to PR IMMEDIATELY."
   },
   {
     "source": "rover",
@@ -272,6 +272,6 @@
     "nominal": null,
     "out_of_range": true,
     "off_nominal": false,
-    "reason": "SEC fan RPM critically low \u2014 fan failure or ventilation compromised; switch to PRI fan; return to PR IMMEDIATELY."
+    "reason": "SEC fan RPM critically low — fan failure or ventilation compromised; switch to PRI fan; return to PR IMMEDIATELY."
   }
 ]
