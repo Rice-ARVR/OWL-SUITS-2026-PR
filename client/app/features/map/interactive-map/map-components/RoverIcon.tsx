@@ -1,10 +1,23 @@
 import type { RoverPosition } from "~/types/map";
 
-export function RoverIcon({ position }: { position: RoverPosition }) {
+export function RoverIcon({
+    position,
+    onHover,
+    onLeave,
+}: {
+    position: RoverPosition;
+    onHover?: () => void;
+    onLeave?: () => void;
+}) {
     // Negate y so world +y (North) maps to SVG -y (visual top).
     // Heading rotation stays clockwise-positive: 0°=North, 90°=East matches the display.
     return (
-        <g transform={`translate(${position.x}, ${-position.y}) rotate(${position.heading})`}>
+        <g
+            transform={`translate(${position.x}, ${-position.y}) rotate(${position.heading})`}
+            onMouseEnter={onHover}
+            onMouseLeave={onLeave}
+            style={{ cursor: "default" }}
+        >
             {/* Shadow */}
             <ellipse cx="0" cy="2" rx="18" ry="6" fill="rgba(0,0,0,0.3)" />
 

@@ -15,7 +15,7 @@
         "search_area": {
             "center": { "x": -6000, "y": -10450 },
             "radius_min_m": 0,
-            "radius_max_m": 200
+            "radius_max_m": 0
         },
         "ping_history": [
             {

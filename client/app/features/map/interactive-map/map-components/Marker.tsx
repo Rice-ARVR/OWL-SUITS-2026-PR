@@ -22,10 +22,13 @@ export function Marker({
     const distance = Math.round(Math.sqrt(dx * dx + dy * dy));
 
     const descText = point.description?.trim() || "";
+    const coordText = `x: ${Math.round(point.x)}, y: ${Math.round(point.y)}`;
     const tooltipW = 180;
+    const coordLineH = 24;
     const charsPerLine = 22;
-    const estimatedLines = Math.ceil(descText.length / charsPerLine);
-    const tooltipH = Math.max(30, estimatedLines * 16 + 14);
+    const estimatedLines = descText ? Math.max(1, Math.ceil(descText.length / charsPerLine)) : 0;
+    const descH = descText ? estimatedLines * 16 + 10 : 0;
+    const tooltipH = coordLineH + descH;
     const tooltipX = point.x - tooltipW / 2;
 
     // Negate y: world +y (North) = SVG -y (visual top).
@@ -90,7 +93,7 @@ export function Marker({
                 </g>
             )}
 
-            {isHovered && descText && (
+            {isHovered && (
                 <g>
                     <rect
                         x={tooltipX}
@@ -116,26 +119,37 @@ export function Marker({
                         stroke="#1e1e22"
                         strokeWidth="2"
                     />
-                    <foreignObject
-                        x={tooltipX + 8}
-                        y={tooltipY + 6}
-                        width={tooltipW - 16}
-                        height={tooltipH - 12}
+                    <text
+                        x={point.x}
+                        y={tooltipY + 16}
+                        textAnchor="middle"
+                        fill="#6ee7b7"
+                        fontSize="11"
                     >
-                        <div
-                            style={{
-                                color: "#ccc",
-                                fontSize: "11px",
-                                lineHeight: "1.4",
-                                overflow: "hidden",
-                                wordWrap: "break-word",
-                                overflowWrap: "break-word",
-                                whiteSpace: "normal",
-                            }}
+                        {coordText}
+                    </text>
+                    {descText && (
+                        <foreignObject
+                            x={tooltipX + 8}
+                            y={tooltipY + coordLineH}
+                            width={tooltipW - 16}
+                            height={descH}
                         >
-                            {descText}
-                        </div>
-                    </foreignObject>
+                            <div
+                                style={{
+                                    color: "#ccc",
+                                    fontSize: "11px",
+                                    lineHeight: "1.4",
+                                    overflow: "hidden",
+                                    wordWrap: "break-word",
+                                    overflowWrap: "break-word",
+                                    whiteSpace: "normal",
+                                }}
+                            >
+                                {descText}
+                            </div>
+                        </foreignObject>
+                    )}
                 </g>
             )}
         </g>

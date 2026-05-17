@@ -21,11 +21,12 @@ import { Grid } from "./map-components/Grid";
 import { Marker } from "./map-components/Marker"; // Pins
 import { HazardShape } from "./map-components/HazardShape";
 import { RoverIcon } from "./map-components/RoverIcon";
+import { AstronautIcon } from "./map-components/AstronautIcon";
 
 import mockNavState from "./mock-nav-state.json";
 
 // Set to true to use mock navigation data instead of the live backend
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 // ── Main map component ─────────────────────────────────
 
@@ -54,6 +55,7 @@ export default function InteractiveMap({
     headlightNotice = null,
 }: InteractiveMapProps) {
     const svgRef = useRef<SVGSVGElement>(null);
+    const coordXInputRef = useRef<HTMLInputElement>(null);
 
     // Only connect to the navigation/stream SSE once the user starts autonomy
     const [autonomyRequested, setAutonomyRequested] = useState(false);
@@ -81,6 +83,9 @@ export default function InteractiveMap({
         ...pos,
         heading: telemetry.getRoverHeading() ?? 0,
     };
+
+    const eva1Imu = telemetry.getEvaImu("eva1");
+    const eva2Imu = telemetry.getEvaImu("eva2");
 
     const isAutonomous = navState?.autonomous_driving ?? false;
 
@@ -219,6 +224,17 @@ export default function InteractiveMap({
     const [poiCoordY, setPoiCoordY] = useState("");
     const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
 
+    // Focus the X coord input whenever a map click autofills it
+    useEffect(() => {
+        if (pendingPOI && poiStep === "placing") {
+            coordXInputRef.current?.focus();
+        }
+    }, [pendingPOI?.id]);
+    const [hoveredPingIndex, setHoveredPingIndex] = useState<number | null>(null);
+    const [isRoverHovered, setIsRoverHovered] = useState(false);
+    const [isEva1Hovered, setIsEva1Hovered] = useState(false);
+    const [isEva2Hovered, setIsEva2Hovered] = useState(false);
+
     // Directions workflow
     const [directionsStep, setDirectionsStep] = useState<DirectionsStep>("selectDestination");
     const [waypoints, setWaypoints] = useState<MapPoint[]>([]);
@@ -277,7 +293,8 @@ export default function InteractiveMap({
             });
             setPoiName(defaultName);
             setPoiDescription("");
-            setPoiStep("naming");
+            setPoiCoordX(String(Math.round(x)));
+            setPoiCoordY(String(Math.round(y)));
         }
 
         if (mode === "plotHazard") {
@@ -633,15 +650,16 @@ export default function InteractiveMap({
         const x = parseFloat(poiCoordX);
         const y = parseFloat(poiCoordY);
         if (isNaN(x) || isNaN(y)) return;
-        const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
-        setPendingPOI({
-            id: crypto.randomUUID(),
+        const defaultName =
+            poiName.trim() || `POI ${points.filter((p) => p.type === "poi").length + 1}`;
+        setPendingPOI((prev) => ({
+            id: prev?.id ?? crypto.randomUUID(),
             x,
             y,
             label: defaultName,
             description: "",
             type: "poi",
-        });
+        }));
         setPoiName(defaultName);
         setPoiDescription("");
         setPoiCoordX("");
@@ -1294,21 +1312,32 @@ export default function InteractiveMap({
                             {mode === "addPOI" && poiStep === "placing" && (
                                 <div>
                                     <p className={styles.panelHint}>
-                                        Click on the map to add a POI
+                                        {pendingPOI
+                                            ? "Confirm location or edit coordinates"
+                                            : "Click on the map to place a POI"}
                                     </p>
-                                    <p
-                                        className={styles.panelHint}
-                                        style={{ opacity: 0.5, margin: "4px 0" }}
-                                    >
-                                        — or enter coordinates —
-                                    </p>
+                                    {!pendingPOI && (
+                                        <p
+                                            className={styles.panelHint}
+                                            style={{ opacity: 0.5, margin: "4px 0" }}
+                                        >
+                                            — or enter coordinates —
+                                        </p>
+                                    )}
                                     <div className={styles.poiForm}>
                                         <input
+                                            ref={coordXInputRef}
                                             type="number"
                                             className={styles.poiInput}
                                             value={poiCoordX}
                                             onChange={(e) => setPoiCoordX(e.target.value)}
                                             placeholder="X coordinate"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    placePOIFromCoords();
+                                                }
+                                            }}
                                         />
                                         <input
                                             type="number"
@@ -1329,7 +1358,7 @@ export default function InteractiveMap({
                                             disabled={!poiCoordX || !poiCoordY}
                                             style={{ opacity: !poiCoordX || !poiCoordY ? 0.4 : 1 }}
                                         >
-                                            Place POI
+                                            {pendingPOI ? "Confirm" : "Place POI"}
                                         </button>
                                     </div>
                                 </div>
@@ -1702,6 +1731,7 @@ export default function InteractiveMap({
                 ref={svgRef}
                 className={`${styles.canvas} ${cursorClass}`}
                 viewBox={`${viewBox.x} ${-viewBox.y - viewBox.h} ${viewBox.w} ${viewBox.h}`}
+                preserveAspectRatio="none"
                 onClick={handleCanvasClick}
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
@@ -1721,59 +1751,60 @@ export default function InteractiveMap({
                 {/* ── Autonomous Nav Overlays ── */}
 
                 {/* Search area donut */}
-                {savedSearchArea && (
-                    <g>
-                        {/* Outer circle (max radius) */}
-                        <circle
-                            cx={savedSearchArea.center.x}
-                            cy={-savedSearchArea.center.y}
-                            r={savedSearchArea.radius_max_m}
-                            fill="rgba(110, 231, 183, 0.06)"
-                            stroke="#6ee7b7"
-                            strokeWidth="1.5"
-                            strokeDasharray="8 4"
-                            opacity="0.4"
-                        />
-                        {/* Inner circle (min radius) — punches out the donut center */}
-                        {savedSearchArea.radius_min_m > 0 && (
+                {savedSearchArea &&
+                    (savedSearchArea.radius_min_m !== 0 || savedSearchArea.radius_max_m !== 0) && (
+                        <g>
+                            {/* Outer circle (max radius) */}
                             <circle
                                 cx={savedSearchArea.center.x}
                                 cy={-savedSearchArea.center.y}
-                                r={savedSearchArea.radius_min_m}
-                                fill="#1e1e22"
+                                r={savedSearchArea.radius_max_m}
+                                fill="rgba(110, 231, 183, 0.06)"
+                                stroke="#6ee7b7"
+                                strokeWidth="1.5"
+                                strokeDasharray="8 4"
+                                opacity="0.4"
+                            />
+                            {/* Inner circle (min radius) — punches out the donut center */}
+                            {savedSearchArea.radius_min_m > 0 && (
+                                <circle
+                                    cx={savedSearchArea.center.x}
+                                    cy={-savedSearchArea.center.y}
+                                    r={savedSearchArea.radius_min_m}
+                                    fill="#1e1e22"
+                                    stroke="#6ee7b7"
+                                    strokeWidth="1"
+                                    strokeDasharray="4 4"
+                                    opacity="0.35"
+                                />
+                            )}
+                            {/* Center crosshair */}
+                            <circle
+                                cx={savedSearchArea.center.x}
+                                cy={-savedSearchArea.center.y}
+                                r="4"
+                                fill="none"
                                 stroke="#6ee7b7"
                                 strokeWidth="1"
-                                strokeDasharray="4 4"
-                                opacity="0.35"
+                                opacity="0.5"
                             />
-                        )}
-                        {/* Center crosshair */}
-                        <circle
-                            cx={savedSearchArea.center.x}
-                            cy={-savedSearchArea.center.y}
-                            r="4"
-                            fill="none"
-                            stroke="#6ee7b7"
-                            strokeWidth="1"
-                            opacity="0.5"
-                        />
-                        {/* Label */}
-                        <text
-                            x={savedSearchArea.center.x}
-                            y={-savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
-                            textAnchor="middle"
-                            fill="#6ee7b7"
-                            fontSize="10"
-                            opacity="0.6"
-                        >
-                            Search Area (
-                            {savedSearchArea.radius_min_m > 0
-                                ? `${Math.round(savedSearchArea.radius_min_m)}–${Math.round(savedSearchArea.radius_max_m)}m`
-                                : `${Math.round(savedSearchArea.radius_max_m)}m radius`}
-                            )
-                        </text>
-                    </g>
-                )}
+                            {/* Label */}
+                            <text
+                                x={savedSearchArea.center.x}
+                                y={-savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
+                                textAnchor="middle"
+                                fill="#6ee7b7"
+                                fontSize="10"
+                                opacity="0.6"
+                            >
+                                Search Area (
+                                {savedSearchArea.radius_min_m > 0
+                                    ? `${Math.round(savedSearchArea.radius_min_m)}–${Math.round(savedSearchArea.radius_max_m)}m`
+                                    : `${Math.round(savedSearchArea.radius_max_m)}m radius`}
+                                )
+                            </text>
+                        </g>
+                    )}
 
                 {/* Breadcrumb trail */}
                 {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
@@ -1816,7 +1847,12 @@ export default function InteractiveMap({
                                 ? "#f97316"
                                 : "#ef4444";
                     return (
-                        <g key={`ping-${i}`}>
+                        <g
+                            key={`ping-${i}`}
+                            onMouseEnter={() => setHoveredPingIndex(i)}
+                            onMouseLeave={() => setHoveredPingIndex(null)}
+                            style={{ cursor: "default" }}
+                        >
                             <circle
                                 cx={ping.rover_position.x}
                                 cy={-ping.rover_position.y}
@@ -1843,6 +1879,53 @@ export default function InteractiveMap({
                             >
                                 {Math.round(ping.rssi)}dBm
                             </text>
+                            {hoveredPingIndex === i &&
+                                (() => {
+                                    const px = ping.rover_position.x;
+                                    const py = -ping.rover_position.y;
+                                    const tw = 160;
+                                    const th = 24;
+                                    const tx = px - tw / 2;
+                                    const ty = py - 36 - th;
+                                    const coordText = `x: ${Math.round(ping.rover_position.x)}, y: ${Math.round(ping.rover_position.y)}`;
+                                    return (
+                                        <g>
+                                            <rect
+                                                x={tx}
+                                                y={ty}
+                                                width={tw}
+                                                height={th}
+                                                rx="6"
+                                                fill="#1e1e22"
+                                                stroke="#444"
+                                                strokeWidth="1"
+                                            />
+                                            <polygon
+                                                points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                                fill="#1e1e22"
+                                                stroke="#444"
+                                                strokeWidth="1"
+                                            />
+                                            <line
+                                                x1={px - 6}
+                                                y1={ty + th}
+                                                x2={px + 6}
+                                                y2={ty + th}
+                                                stroke="#1e1e22"
+                                                strokeWidth="2"
+                                            />
+                                            <text
+                                                x={px}
+                                                y={ty + 16}
+                                                textAnchor="middle"
+                                                fill="#6ee7b7"
+                                                fontSize="11"
+                                            >
+                                                {coordText}
+                                            </text>
+                                        </g>
+                                    );
+                                })()}
                         </g>
                     );
                 })}
@@ -2068,7 +2151,94 @@ export default function InteractiveMap({
                 )}
 
                 {/* Rover */}
-                <RoverIcon position={roverPosition} />
+                <RoverIcon
+                    position={roverPosition}
+                    onHover={() => setIsRoverHovered(true)}
+                    onLeave={() => setIsRoverHovered(false)}
+                />
+                {isRoverHovered &&
+                    (() => {
+                        const px = roverPosition.x;
+                        const py = -roverPosition.y;
+                        const tw = 160;
+                        const th = 24;
+                        const tx = px - tw / 2;
+                        const ty = py - 40 - th;
+                        const coordText = `x: ${Math.round(roverPosition.x)}, y: ${Math.round(roverPosition.y)}`;
+                        return (
+                            <g>
+                                <rect
+                                    x={tx}
+                                    y={ty}
+                                    width={tw}
+                                    height={th}
+                                    rx="6"
+                                    fill="#1e1e22"
+                                    stroke="#444"
+                                    strokeWidth="1"
+                                />
+                                <polygon
+                                    points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                    fill="#1e1e22"
+                                    stroke="#444"
+                                    strokeWidth="1"
+                                />
+                                <line
+                                    x1={px - 6}
+                                    y1={ty + th}
+                                    x2={px + 6}
+                                    y2={ty + th}
+                                    stroke="#1e1e22"
+                                    strokeWidth="2"
+                                />
+                                <text
+                                    x={px}
+                                    y={ty + 16}
+                                    textAnchor="middle"
+                                    fill="#6ee7b7"
+                                    fontSize="11"
+                                >
+                                    {coordText}
+                                </text>
+                            </g>
+                        );
+                    })()}
+
+                {/* EVA astronauts */}
+                {[
+                    { imu: eva1Imu, label: "EVA1" as const, hovered: isEva1Hovered, setHovered: setIsEva1Hovered },
+                    { imu: eva2Imu, label: "EVA2" as const, hovered: isEva2Hovered, setHovered: setIsEva2Hovered },
+                ].map(({ imu, label, hovered, setHovered }) => {
+                    if (!imu) return null;
+                    const px = imu.posx;
+                    const py = -imu.posy;
+                    const tw = 160;
+                    const th = 24;
+                    const tx = px - tw / 2;
+                    const ty = py - 40 - th;
+                    const coordText = `x: ${Math.round(imu.posx)}, y: ${Math.round(imu.posy)}`;
+                    const color = label === "EVA1" ? "#93c5fd" : "#f9a8d4";
+                    return (
+                        <g key={label}>
+                            <AstronautIcon
+                                x={px}
+                                y={imu.posy}
+                                heading={imu.heading}
+                                label={label}
+                                onHover={() => setHovered(true)}
+                                onLeave={() => setHovered(false)}
+                            />
+                            {hovered && (
+                                <g>
+                                    <rect x={tx} y={ty} width={tw} height={th} rx="6" fill="#1e1e22" stroke="#444" strokeWidth="1" />
+                                    <polygon points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`} fill="#1e1e22" stroke="#444" strokeWidth="1" />
+                                    <line x1={px - 6} y1={ty + th} x2={px + 6} y2={ty + th} stroke="#1e1e22" strokeWidth="2" />
+                                    <text x={px} y={ty + 16} textAnchor="middle" fill={color} fontSize="11">{coordText}</text>
+                                </g>
+                            )}
+                        </g>
+                    );
+                })}
             </svg>
 
             {/* ── Virtual Joystick (bottom-left) ── */}
