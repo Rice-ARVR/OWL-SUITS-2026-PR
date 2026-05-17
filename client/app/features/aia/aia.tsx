@@ -77,6 +77,7 @@ export function AiaChat() {
 
         chat(
             `The user confirmed the following action — Title: "${widget.title}". Description: "${widget.description}". Action: "${widget.actionLabel}". Please provide concise guidance on how to carry this out.`,
+            { hidden: true },
         );
     }
 

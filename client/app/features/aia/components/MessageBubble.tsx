@@ -12,6 +12,8 @@ type Props = {
 };
 
 export default function MessageBubble({ msg, index, dismissedActionIds, onSystemAction }: Props) {
+    if (msg.hidden) return null;
+
     return (
         <div key={index} className={`${styles.messageBubbleWrapper} ${styles[msg.role]}`}>
             <span className={`${styles.messageBubble} ${styles[msg.role]}`}>{msg.content}</span>

@@ -5,6 +5,7 @@ export interface Message {
     role: "user" | "assistant";
     content: string;
     widgets?: AIAWidgetData[];
+    hidden?: boolean;
 }
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -24,13 +25,13 @@ export function useOllama(model = "llama3.2") {
     const [error, setError] = useState<string | null>(null);
     const [connected, setConnected] = useState<boolean | null>(null);
 
-    const chat = async (prompt: string) => {
+    const chat = async (prompt: string, options?: { hidden?: boolean }) => {
         setLoading(true);
         setError(null);
 
         // Snapshot history before this turn, then immediately show the user message
         const historyToSend = [...messages];
-        setMessages((prev) => [...prev, { role: "user", content: prompt }]);
+        setMessages((prev) => [...prev, { role: "user", content: prompt, hidden: options?.hidden }]);
 
         let fullResponse = "";
 
