@@ -99,11 +99,21 @@ async def start_autonomous_loop(force_reset: bool = False):
             resumed_phase, resumed_phase.value.replace("_", " ").title()
         )
 
-        # 3. Inject the dynamic phase name into the description
+        # conditional wake-up target
+        if resumed_phase == SearchPhase.TRANSIT_TO_LNP:
+            # Must drive to the actual LNP, not its current spot!
+            resume_target = state.session.lnp
+            threshold = 50.0
+        else:
+            # Active search: wake up exactly where the human left it
+            resume_target = state.rover_position or state.session.lnp
+            threshold = 5.0
+
+        # 3. Inject the dynamic phase name AND the correct targets
         state.session.current_target = NavigationTarget(
-            position=state.rover_position or LNP_POSITION,
+            position=resume_target,
             description=f"Resuming: {phase_name}",
-            arrival_threshold_m=5.0,
+            arrival_threshold_m=threshold,
         )
         await navigation_state.update_session(state.session)
 
