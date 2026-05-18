@@ -1,60 +1,251 @@
-.container {
+/* ── Section 1: shell ─────────────────────────────────────────────
+   Fixed 1920×1080 canvas for a single target monitor. No transform
+   scaling — pixel values come straight from Figma Dev Mode. */
+
+.root {
+    /* Shared Figma tokens — every card uses these, no per-spot literals. */
+    --card-gap: 16px;      /* Figma "In-between-card-spacing" */
+    --card-padding: 20px;  /* internal padding, all cards */
+    --card-radius: 12px;   /* corner radius, all cards */
+
     display: flex;
+    width: 1920px;
+    height: 1080px;
+    padding: 30px;
     flex-direction: column;
-    width: 100%;
-    height: 100vh;
-    padding: 16px;
+    align-items: flex-start;
     box-sizing: border-box;
-    overflow: auto;
+    background: #29292C;
 }
-.container > div {
+
+/* Houses the rover frame and the eva frame, side by side. */
+.inner {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    align-self: stretch;
     flex: 1;
     min-height: 0;
 }
-.section {
+
+/* ── Section 2: rover & eva frames ───────────────────────────────
+   Rover is fixed 675px; eva flexes to fill the remaining 1153px. */
+
+.roverFrame {
     display: flex;
+    width: 675px;
     flex-direction: column;
-    gap: 1rem;
+    align-items: flex-start;
+    gap: var(--card-gap);
+    align-self: stretch;
 }
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
+
+.evaFrame {
+    display: flex;
+    flex: 1 0 0;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--card-gap);
+    align-self: stretch;
 }
-.title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
+
+/* ── Section 3: Rover Row 1 — Summary + Temperature ──────────────── */
+
+.roverRow1 {
+    display: flex;
+    height: 384px;
+    align-items: flex-start;
+    gap: var(--card-gap);
+    align-self: stretch;
 }
-.table {
-    width: 100%;
-    border-collapse: collapse;
+
+/* Summary card: fixed 314px, content bottom-aligned & centered. */
+.summaryCard {
+    display: flex;
+    width: 314px;
+    height: 384px;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 14px;
 }
-.table td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
+
+/* Temperature card: fills remaining width, content right-aligned. */
+.temperatureCard {
+    display: flex;
+    height: 384px;
+    flex: 1 0 0;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 27px;
 }
-.table td:first-child {
-    color: #6b7280;
-    white-space: nowrap;
+
+/* ── Section 4: Rover Row 2 ──────────────────────────────────────
+   Fills the rover frame below Row 1. Left = Oxygen/Battery stack
+   (fixed 240px); right = Pressure/Coolant stack (section 4b). */
+
+.roverRow2 {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--card-gap);
+    flex: 1 0 0;
+    align-self: stretch;
 }
-.table td:last-child {
-    font-variant-numeric: tabular-nums;
-    text-align: right;
+
+.roverRow2LeftStack {
+    display: flex;
+    width: 240px;
+    height: 619px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--card-gap);
 }
+
+/* Oxygen card: 240px, content centered, 22px internal gap. */
+.oxygenCard {
+    width: 240px;
+    align-items: center;
+    gap: 22px;
+}
+
+/* Battery card: 240px, centered. padding 25/20 set via Card prop. */
+.batteryCard {
+    width: 240px;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ── Section 4b: Rover Row 2 right — Pressure + Coolant stack ───── */
+
+.roverRow2RightStack {
+    display: flex;
+    height: 624px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--card-gap);
+    flex: 1 0 0;
+    min-width: 0; /* clamp to the 419px slot, not inner widget width */
+}
+
+/* Pressure card: gauge + inner graph card. padding via Card prop. */
+.pressureCard {
+    align-items: center;
+    gap: 17px;
+    align-self: stretch;
+}
+
+/* Coolant card: coolant inner card + fan inner card stacked. */
+.coolantCard {
+    align-items: flex-start;
+    gap: 12px;
+    align-self: stretch;
+}
+
+/* ── Section 5: EVA Row 1 — EVA Summary + Moon ──────────────────── */
+
+.evaRow1 {
+    display: flex;
+    height: 384px;
+    align-items: flex-start;
+    gap: var(--card-gap);
+    align-self: stretch;
+}
+
+/* EVA summary: fixed 314×384, content space-between. padding via prop. */
+.evaSummaryCard {
+    width: 314px;
+    height: 384px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Moon card: fills remaining width, holds one image. */
+.moonCard {
+    flex: 1 0 0;
+    align-items: flex-start;
+    gap: 20px;
+    align-self: stretch;
+    min-width: 0;
+}
+
+/* ── Section 6: EVA Row 2 — Oxy/Bat | Suit Pressure | Health/CO2/Coolant */
+
+.evaRow2 {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--card-gap);
+    align-self: stretch;
+    flex: 1 0 0;
+    min-width: 0;
+}
+
+/* Substack 1: EVA Oxygen + Battery (reuses .oxygenCard / .batteryCard). */
+.evaRow2Stack1 {
+    display: flex;
+    width: 240px;
+    height: 620px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--card-gap);
+}
+
+/* Substack 2: Suit Pressure card — fills the middle. */
+.suitPressureCard {
+    flex: 1 0 0;
+    align-items: center;
+    gap: 17px; /* Figma — clean card-to-card spacing (no padding added) */
+    align-self: stretch;
+    min-width: 0;
+}
+
+/* Suit pressure: gauge wrapper. Hugs the gauge — Figma's fixed 142px
+   assumed the mock gauge; our Pressure widget is shorter (the dead
+   space it leaves is deferred widget-internal). */
+.suitPressureGauge {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+/* The card grouping the 3 stacked graphs. */
+.suitGraphsCard {
+    display: flex;
+    width: 384px;
+    padding: 0 20px; /* no vertical pad — gap to siblings = the 17px flex gap */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px; /* Figma 16 — user-approved tighten (Graph has own padding) */
+    box-sizing: border-box;
+}
+
+/* "Other pressure" row card. */
+.otherPressureCard {
+    display: flex;
+    padding: 12px 20px;
+    justify-content: space-between;
+    align-items: center;
+    align-self: stretch;
+    box-sizing: border-box;
+}
+
+/* Substack 3: Health / CO2+Fans / Coolant. */
+.evaRow2Stack3 {
+    display: flex;
+    width: 453px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--card-gap);
+}
+
+/* Shared by all 3 substack-3 cards; padding differs per card (Card prop). */
+.evaStack3Card {
+    width: 453px;
+    align-items: flex-start;
+    gap: 12px;
+}
+
 .loading {
     padding: 2rem;
     color: #6b7280;
-}
-.error {
-    padding: 2rem;
-    color: #dc2626;
-}
-
-.scaleWrapper {
-    width: 1800px;
-    height: 900px;
-    transform-origin: top left;
 }

@@ -49,11 +49,7 @@ export default function Temperature({
     return (
         <div
             style={{
-                background: "#3a3a41",
-                borderRadius: 12,
-                padding: 20,
                 width: "100%",
-                maxWidth: 240,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
