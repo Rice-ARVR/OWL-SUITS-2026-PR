@@ -48,7 +48,7 @@ STEERING_SIGN = 1.0  # set to -1.0 if the platform inverts turn direction
 
 # Stuck detection / recovery (rolling-window no-progress check)
 STUCK_DIST_M = 1.0
-STUCK_WINDOW_S = 5.0
+STUCK_WINDOW_S = 10.0
 
 
 # ─── Pure helpers: geometry ───────────────────────────────────────────────────

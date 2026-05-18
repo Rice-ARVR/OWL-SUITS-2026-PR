@@ -64,11 +64,11 @@ VERBOSE_LOGGING = True
 # 12-column scan
 N_COLUMNS = 12
 CENTER_COLS = (4, 5, 6, 7)  # "directly in front" band, for blockage test
-EDGE_WEIGHT = 0.20  # column weight at the frame edges (center weight = 1.0)
+EDGE_WEIGHT = 0.35  # column weight at the frame edges (center weight = 1.0)
 
 # Proximity proxy (depth-free): blend of bbox area and bbox bottom edge.
-PROX_AREA_WEIGHT = 0.5
-PROX_BOTTOM_WEIGHT = 0.5
+PROX_AREA_WEIGHT = 0.3
+PROX_BOTTOM_WEIGHT = 0.7
 # A bbox covering this fraction of the frame counts as maximally close on the
 # area axis (so a moderately-sized box already reads as a real threat).
 AREA_FULL_FRAC = 0.20
@@ -81,7 +81,7 @@ HEADING_BLEND = 0.25  # how much goal-heading leaks through during avoidance
 # Engagement / blockage thresholds (units: Σ proximity·weight)
 AVOID_TRIGGER = 0.12  # total weighted danger above which avoidance engages
 CENTER_BLOCK_DANGER = 0.55  # center-band danger above this = path blocked
-BOXED_IN_STEPS = 4  # consecutive blocked-both-sides steps before giving up
+BOXED_IN_STEPS = 8  # consecutive blocked-both-sides steps before giving up
 
 # Vision feed health
 NO_FRAME_TIMEOUT_S = 10.0  # no CVResult for this long => hand back to user
