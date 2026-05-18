@@ -170,7 +170,7 @@ export default function Telemetry() {
                         <Card
                             style={{
                                 width: 240,
-                                height: 275,
+                                height: 305,
                                 flexShrink: 0,
                                 overflow: "hidden",
                             }}
@@ -197,7 +197,7 @@ export default function Telemetry() {
                         <Card
                             style={{
                                 width: 240,
-                                height: 335,
+                                height: 419,
                                 flexShrink: 0,
                                 overflow: "hidden",
                             }}
@@ -241,7 +241,7 @@ export default function Telemetry() {
                                     flexDirection: "column",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    gap: 30,
+                                    gap: 8,
                                 }}
                             >
                                 <Pressure
@@ -262,7 +262,7 @@ export default function Telemetry() {
                         <Card
                             style={{
                                 width: 419,
-                                height: 275,
+                                height: 305,
                                 flexShrink: 0,
                                 overflow: "hidden",
                             }}
@@ -316,7 +316,7 @@ export default function Telemetry() {
                         <Card
                             style={{
                                 width: 240,
-                                height: 275,
+                                height: 305,
                                 flexShrink: 0,
                                 overflow: "hidden",
                             }}
@@ -343,7 +343,7 @@ export default function Telemetry() {
                         <Card
                             style={{
                                 width: 240,
-                                height: 335,
+                                height: 419,
                                 flexShrink: 0,
                                 overflow: "hidden",
                             }}
@@ -373,7 +373,7 @@ export default function Telemetry() {
                     <Card
                         style={{
                             width: 424,
-                            height: 626,
+                            height: 740,
                             flexShrink: 0,
                             overflow: "hidden",
                         }}
@@ -385,7 +385,8 @@ export default function Telemetry() {
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
-                                justifyContent: "center",
+                                justifyContent: "flex-start",
+                                paddingTop: 12,
                             }}
                         >
                             <Pressure
@@ -393,7 +394,7 @@ export default function Telemetry() {
                                 {...EVA_LIMITS.suit_pressure_total}
                                 label={getTelemetryLabel("suit_pressure_total")}
                             />
-                            <div style={{ height: "34px" }} />
+                            <div style={{ height: "24px" }} />
                             <Graph
                                 value={eva1.suit_pressure_oxy}
                                 label="O2 Pressure"
@@ -436,7 +437,7 @@ export default function Telemetry() {
                         <Card
                             style={{
                                 width: 453,
-                                height: 124,
+                                height: 244,
                                 flexShrink: 0,
                                 overflow: "hidden",
                                 padding: "0 16px",
