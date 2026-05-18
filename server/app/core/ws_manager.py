@@ -32,3 +32,18 @@ class WebSocketManager:
                 for ws in disconnected:
                     if ws in self._clients:
                         self._clients.remove(ws)
+
+    async def broadcast_bytes(self, data: bytes) -> None:
+        async with self._lock:
+            clients = list(self._clients)
+        disconnected = []
+        for ws in clients:
+            try:
+                await ws.send_bytes(data)
+            except Exception:
+                disconnected.append(ws)
+        if disconnected:
+            async with self._lock:
+                for ws in disconnected:
+                    if ws in self._clients:
+                        self._clients.remove(ws)

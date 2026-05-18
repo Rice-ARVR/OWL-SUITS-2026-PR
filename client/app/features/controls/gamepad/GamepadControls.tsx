@@ -1,9 +1,8 @@
-import { useGamepad } from "~/hooks/useGamepad";
+import { useGamepadContext } from "~/contexts/GamepadContext";
 import styles from "../../examples/TssExample.module.css";
 
 export default function GamepadControls() {
-    const { throttle, steering, brakes, cabinHeating, cabinCooling, headlights, connected } =
-        useGamepad();
+    const { throttle, steering, brakes, cabinHeating, cabinCooling, headlights, connected } = useGamepadContext();
 
     return (
         <div className={styles.container}>

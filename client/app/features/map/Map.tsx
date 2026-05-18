@@ -15,7 +15,9 @@ export default function Map() {
     const stopAutonomyRef = useRef<(() => void) | undefined>(undefined);
 
     const [isSignaling, setIsSignaling] = useState(false);
-    const [signalStatus, setSignalStatus] = useState<"pending" | "success" | "failed">("pending");
+    const [signalStatus, setSignalStatus] = useState<
+        "pending" | "success" | "failed" | "not in range"
+    >("pending");
     const [lastManualPing, setLastManualPing] = useState<ManualPingResult>(null);
     const signalingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -40,11 +42,15 @@ export default function Map() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.success) {
-                        setLastManualPing({
-                            rssi_value: data.rssi_value,
-                            category: data.category,
-                        });
-                        setSignalStatus("success");
+                        if (data.rssi_value != 1) {
+                            setLastManualPing({
+                                rssi_value: data.rssi_value,
+                                category: data.category,
+                            });
+                            setSignalStatus("success");
+                        } else {
+                            setSignalStatus("not in range");
+                        }
                     } else {
                         setSignalStatus("failed");
                     }

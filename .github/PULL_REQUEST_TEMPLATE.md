@@ -1,6 +1,6 @@
 ---
-name: Pull Request
-title: "type: (#issue)"
+name: Your Name
+title: "issue type: title of pull request (#issue)"
 ---
 
 ## Summary
@@ -30,7 +30,7 @@ Closes #
 <!-- Note any deployment requirements this PR introduces -->
 <!-- Leave N/A if none -->
 
-- [ ] Environment variables added or changed
+- [ ] Environment variables added or changed (if so document how to set up)
 - [ ] Database migrations required
 - [ ] Dependencies added or updated
 - [ ] Config or infrastructure changes required
@@ -38,7 +38,7 @@ Closes #
 ## Checklist
 
 - [ ] PR title follows naming convention (`type: short description`)
-- [ ] Rebased off of latest `main` before opening PR
+- [ ] Merged `main` before opening PR
 - [ ] Ran `make format`
 - [ ] No unintended files or changes included
 - [ ] PR is ready for admin review

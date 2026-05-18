@@ -15,30 +15,35 @@
         "search_area": {
             "center": { "x": -6000, "y": -10450 },
             "radius_min_m": 0,
-            "radius_max_m": 200
+            "radius_max_m": 0
         },
         "ping_history": [
             {
+                "timestamp": "2026-05-17T10:00:00Z",
                 "rover_position": { "x": -6090, "y": -10486 },
                 "rssi": -88,
                 "signal_category": "weak"
             },
             {
+                "timestamp": "2026-05-17T10:02:30Z",
                 "rover_position": { "x": -6060, "y": -10480 },
                 "rssi": -82,
                 "signal_category": "weak"
             },
             {
+                "timestamp": "2026-05-17T10:05:10Z",
                 "rover_position": { "x": -6040, "y": -10470 },
                 "rssi": -75,
                 "signal_category": "moderate"
             },
             {
+                "timestamp": "2026-05-17T10:08:45Z",
                 "rover_position": { "x": -6020, "y": -10455 },
                 "rssi": -70,
                 "signal_category": "moderate"
             },
             {
+                "timestamp": "2026-05-17T10:12:00Z",
                 "rover_position": { "x": -6000, "y": -10440 },
                 "rssi": -45,
                 "signal_category": "strong"

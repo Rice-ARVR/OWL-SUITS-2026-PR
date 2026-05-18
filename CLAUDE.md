@@ -9,6 +9,7 @@ Full-stack monorepo for a **NASA SUITS 2026 Pressurized Rover (PR) interface** â
 ## Commands
 
 ### Frontend (`/client`)
+
 ```bash
 npm run dev          # Start Vite dev server (port 5173)
 npm run build        # Production build
@@ -21,6 +22,7 @@ npm test             # Vitest
 ```
 
 ### Backend (`/server`)
+
 ```bash
 uv sync                                         # Install dependencies
 uv run fastapi dev main.py --host 0.0.0.0      # Start dev server (port 8000)
@@ -29,6 +31,7 @@ uv add --dev <package>                          # Add dev dependency
 ```
 
 ### Docker
+
 ```bash
 docker compose up   # Run full stack (recommended for first setup)
 ```
@@ -112,6 +115,7 @@ For write operations, DB operations, or custom algorithms:
 ## Environment Setup
 
 **`server/.env`**:
+
 ```
 TSS_HOST=<rover_network_ip>
 TSS_PORT=14141
@@ -122,9 +126,25 @@ MONGO_DB=app
 ```
 
 **`client/.env`**:
+
 ```
 VITE_API_URL=http://localhost:8000
+VITE_MEDIAMTX_URL=http://localhost:8889
+VITE_STREAM_NAME=dust_stream
+VITE_DUST_WS_URL=ws://host.docker.internal:8765
 ```
+
+## Adding a New TSS Feature
+
+Follow the 7-step pattern in `docs/example.md`:
+
+1. Add Pydantic model in `server/app/models/`
+2. Add TSS command constant and polling call in `telemetry_service.py`
+3. Create service in `server/app/services/`
+4. Create router in `server/app/routers/` and register in `main.py`
+5. Add route in `client/app/routes.ts`
+6. Create route file in `client/app/routes/`
+7. Create feature component in `client/app/features/`
 
 ## Git Workflow
 

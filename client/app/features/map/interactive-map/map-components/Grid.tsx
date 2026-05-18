@@ -11,25 +11,28 @@ export function Grid({ spacing, viewBox }: { spacing: number; viewBox: ViewBox }
     const labelInterval = viewBox.w > 2000 ? 500 : viewBox.w > 800 ? 200 : 100;
     const fontSize = Math.max(10, viewBox.w * 0.012);
 
+    // SVG y is negated: world +y (North) maps to SVG -y (visual top)
+    const svgTop = -viewBox.y - viewBox.h;
+    const svgBottom = -viewBox.y;
+
     for (let x = startX; x <= endX; x += spacing) {
         lines.push(
             <line
                 key={`v-${x}`}
                 x1={x}
-                y1={viewBox.y}
+                y1={svgTop}
                 x2={x}
-                y2={viewBox.y + viewBox.h}
+                y2={svgBottom}
                 stroke="#3a3a40"
                 strokeWidth="1"
             />,
         );
-        // Coordinate label on X axis
         if (x % labelInterval === 0) {
             lines.push(
                 <text
                     key={`lx-${x}`}
                     x={x}
-                    y={viewBox.y + fontSize + 4}
+                    y={svgTop + fontSize + 4}
                     textAnchor="middle"
                     fill="#555"
                     fontSize={fontSize}
@@ -45,20 +48,19 @@ export function Grid({ spacing, viewBox }: { spacing: number; viewBox: ViewBox }
             <line
                 key={`h-${y}`}
                 x1={viewBox.x}
-                y1={y}
+                y1={-y}
                 x2={viewBox.x + viewBox.w}
-                y2={y}
+                y2={-y}
                 stroke="#3a3a40"
                 strokeWidth="1"
             />,
         );
-        // Coordinate label on Y axis
         if (y % labelInterval === 0) {
             lines.push(
                 <text
                     key={`ly-${y}`}
                     x={viewBox.x + 4}
-                    y={y + fontSize / 3}
+                    y={-y + fontSize / 3}
                     textAnchor="start"
                     fill="#555"
                     fontSize={fontSize}

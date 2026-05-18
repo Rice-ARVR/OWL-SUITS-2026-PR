@@ -7,16 +7,19 @@ export function HazardShape({
     hazard: Hazard;
     onDelete: (id: string) => void;
 }) {
-    const pointsStr = hazard.points.map((p) => `${p.x},${p.y}`).join(" ");
+    // Negate y on all coordinates: world +y (North) = SVG -y (visual top)
+    const pointsStr = hazard.points.map((p) => `${p.x},${-p.y}`).join(" ");
     const cx = hazard.points.reduce((sum, p) => sum + p.x, 0) / hazard.points.length;
-    const cy = hazard.points.reduce((sum, p) => sum + p.y, 0) / hazard.points.length;
+    const worldCy = hazard.points.reduce((sum, p) => sum + p.y, 0) / hazard.points.length;
+    const svgCy = -worldCy;
 
-    // Octagon points for warning icon (radius 14, centered at cx,cy)
     const r = 14;
     const octagon = Array.from({ length: 8 }, (_, i) => {
         const angle = (Math.PI * 2 * i) / 8 - Math.PI / 8;
-        return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
+        return `${cx + r * Math.cos(angle)},${svgCy + r * Math.sin(angle)}`;
     }).join(" ");
+
+    const deleteOffsetY = hazard.types.length > 0 ? 44 : 30;
 
     return (
         <g>
@@ -32,12 +35,11 @@ export function HazardShape({
             )}
 
             {hazard.points.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r="5" fill="#ff8a75" />
+                <circle key={i} cx={p.x} cy={-p.y} r="5" fill="#ff8a75" />
             ))}
 
             {hazard.closed && (
                 <>
-                    {/* Warning icon at centroid */}
                     <polygon
                         points={octagon}
                         fill="none"
@@ -45,26 +47,23 @@ export function HazardShape({
                         strokeWidth="3"
                         strokeLinejoin="round"
                     />
-                    {/* Exclamation mark */}
                     <line
                         x1={cx}
-                        y1={cy - 7}
+                        y1={svgCy - 7}
                         x2={cx}
-                        y2={cy + 2}
+                        y2={svgCy + 2}
                         stroke="#ff8a75"
                         strokeWidth="3"
                         strokeLinecap="round"
                     />
-                    <circle cx={cx} cy={cy + 7} r="1.5" fill="#ff8a75" />
+                    <circle cx={cx} cy={svgCy + 7} r="1.5" fill="#ff8a75" />
 
-                    {/* Hazard types label */}
                     {hazard.types.length > 0 && (
-                        <text x={cx} y={cy + 28} textAnchor="middle" fill="#ff8a75" fontSize="10">
+                        <text x={cx} y={svgCy + 28} textAnchor="middle" fill="#ff8a75" fontSize="10">
                             {hazard.types.join(", ")}
                         </text>
                     )}
 
-                    {/* X delete button centered below */}
                     <g
                         cursor="pointer"
                         onClick={(e) => {
@@ -74,7 +73,7 @@ export function HazardShape({
                     >
                         <circle
                             cx={cx}
-                            cy={cy + (hazard.types.length > 0 ? 44 : 30)}
+                            cy={svgCy + deleteOffsetY}
                             r="9"
                             fill="#1e1e22"
                             stroke="#888"
@@ -82,9 +81,9 @@ export function HazardShape({
                         />
                         <line
                             x1={cx - 4}
-                            y1={cy + (hazard.types.length > 0 ? 40 : 26)}
+                            y1={svgCy + deleteOffsetY - 4}
                             x2={cx + 4}
-                            y2={cy + (hazard.types.length > 0 ? 48 : 34)}
+                            y2={svgCy + deleteOffsetY + 4}
                             stroke="#e74c3c"
                             strokeWidth="2"
                             strokeLinecap="round"
@@ -92,9 +91,9 @@ export function HazardShape({
                         />
                         <line
                             x1={cx + 4}
-                            y1={cy + (hazard.types.length > 0 ? 40 : 26)}
+                            y1={svgCy + deleteOffsetY - 4}
                             x2={cx - 4}
-                            y2={cy + (hazard.types.length > 0 ? 48 : 34)}
+                            y2={svgCy + deleteOffsetY + 4}
                             stroke="#e74c3c"
                             strokeWidth="2"
                             strokeLinecap="round"
