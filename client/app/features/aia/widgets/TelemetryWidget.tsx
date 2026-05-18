@@ -6,6 +6,14 @@ type Props = {
     widget: TelemetryWidgetData;
 };
 
+function getSourceFromKey(key: string | undefined): string | null {
+    if (!key) return null;
+    if (key.includes("eva1")) return "EVA 1";
+    if (key.includes("eva2")) return "EVA 2";
+    if (key.includes("rover") || key.startsWith("pr_telemetry")) return "Rover";
+    return null;
+}
+
 export default function TelemetryWidget({ widget }: Props) {
     const telemetry = useTelemetry();
 
@@ -18,6 +26,7 @@ export default function TelemetryWidget({ widget }: Props) {
                 ? "→"
                 : "";
 
+    const source = getSourceFromKey(widget.telemetryKey);
     let liveValue = widget.value;
 
     switch (widget.telemetryKey) {
@@ -94,6 +103,7 @@ export default function TelemetryWidget({ widget }: Props) {
             </div>
 
             <div className={styles.aiaWidgetFooter}>
+                {source && <span className={styles.aiaWidgetSource}>{source}</span>}
                 {trendSymbol && <span>Trend: {trendSymbol}</span>}
                 {widget.message && <span>{widget.message}</span>}
             </div>
