@@ -15,9 +15,12 @@ interface GraphProps {
 }
 
 const MAX_POINTS = 20;
+const W = 160;
 const H = 120;
 const LINE_COLOR = "#A1A4AF";
-const PAD = { top: 10, right: 24, bottom: 28, left: 44 };
+const PAD = { top: 10, right: 12, bottom: 28, left: 44 };
+const plotW = W - PAD.left - PAD.right;
+const plotH = H - PAD.top - PAD.bottom;
 
 export default function Graph({
     value,
@@ -31,21 +34,6 @@ export default function Graph({
     isWarning,
 }: GraphProps) {
     const clipId = useId();
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [svgW, setSvgW] = useState(160);
-
-    useEffect(() => {
-        const el = containerRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => setSvgW(el.offsetWidth));
-        ro.observe(el);
-        setSvgW(el.offsetWidth);
-        return () => ro.disconnect();
-    }, []);
-
-    const plotW = svgW - PAD.left - PAD.right;
-    const plotH = H - PAD.top - PAD.bottom;
-
     const statusLabel = isWarning !== undefined ? (isWarning ? "Unsafe" : "Safe") : null;
     const statusColor = isWarning ? "#F59095" : "#9DE4CE";
     const fillColor = isWarning ? "#5C5357" : "#6F7674";
@@ -137,128 +125,105 @@ export default function Graph({
                 flexDirection: "row",
                 alignItems: "center",
                 gap: 16,
-                overflow: "hidden",
-                boxSizing: "border-box",
             }}
         >
-            {/* Fluid SVG container — grows to fill available space */}
-            <div ref={containerRef} style={{ flex: 1, minWidth: 0 }}>
-                <svg
-                    width={svgW}
-                    height={H}
-                    style={{ overflow: "hidden", display: "block" }}
-                >
-                    <defs>
-                        <clipPath id={clipId}>
-                            <rect x={PAD.left} y={PAD.top} width={plotW} height={plotH} />
-                        </clipPath>
-                    </defs>
+            <svg width={W} height={H} style={{ overflow: "visible", flexShrink: 0 }}>
+                <defs>
+                    <clipPath id={clipId}>
+                        <rect x={PAD.left} y={PAD.top} width={plotW} height={plotH} />
+                    </clipPath>
+                </defs>
 
-                    {/* Grey plot background */}
-                    <rect
-                        x={PAD.left}
-                        y={PAD.top}
-                        width={plotW}
-                        height={plotH}
-                        fill="#3A3A41"
-                        rx={4}
+                <rect x={PAD.left} y={PAD.top} width={plotW} height={plotH} fill="#3A3A41" rx={4} />
+                {yTicks.map((tick, i) => (
+                    <line
+                        key={i}
+                        x1={PAD.left}
+                        y1={yOf(tick)}
+                        x2={W - PAD.right}
+                        y2={yOf(tick)}
+                        stroke="rgba(255,255,255,0.06)"
+                        strokeWidth={1}
                     />
+                ))}
 
-                    {/* Horizontal grid lines */}
-                    {yTicks.map((tick, i) => (
-                        <line
-                            key={i}
-                            x1={PAD.left}
-                            y1={yOf(tick)}
-                            x2={svgW - PAD.right}
-                            y2={yOf(tick)}
-                            stroke="rgba(255,255,255,0.06)"
-                            strokeWidth={1}
-                        />
-                    ))}
+                {yTicks.map((tick, i) => (
+                    <text
+                        key={i}
+                        x={PAD.left - 6}
+                        y={yOf(tick) + 4}
+                        textAnchor="end"
+                        fill="#8b95a6"
+                        fontSize={10}
+                        fontFamily='"Be Vietnam Pro", sans-serif'
+                    >
+                        {Number.isInteger(tick) ? tick : tick.toFixed(1)}
+                    </text>
+                ))}
 
-                    {/* Y-axis labels */}
-                    {yTicks.map((tick, i) => (
+                {xTicks.map((sec) => {
+                    const idx = MAX_POINTS - 1 - sec;
+                    if (idx < 0) return null;
+                    return (
                         <text
-                            key={i}
-                            x={PAD.left - 6}
-                            y={yOf(tick) + 4}
-                            textAnchor="end"
+                            key={sec}
+                            x={xOf(idx)}
+                            y={H - 4}
+                            textAnchor="middle"
                             fill="#8b95a6"
                             fontSize={10}
                             fontFamily='"Be Vietnam Pro", sans-serif'
                         >
-                            {Number.isInteger(tick) ? tick : tick.toFixed(1)}
+                            -{sec}s
                         </text>
+                    );
+                })}
+                <g clipPath={`url(#${clipId})`}>
+                    {fills.map((d, i) => (
+                        <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
                     ))}
 
-                    {xTicks.map((sec) => {
-                        const idx = MAX_POINTS - 1 - sec;
-                        if (idx < 0) return null;
-                        return (
-                            <text
-                                key={sec}
-                                x={xOf(idx)}
-                                y={H - 4}
-                                textAnchor="middle"
-                                fill="#8b95a6"
-                                fontSize={10}
-                                fontFamily='"Be Vietnam Pro", sans-serif'
-                            >
-                                -{sec}s
-                            </text>
-                        );
-                    })}
+                    {segments.map((d, i) => (
+                        <path
+                            key={i}
+                            d={d}
+                            fill="none"
+                            stroke={LINE_COLOR}
+                            strokeWidth={1.5}
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                        />
+                    ))}
 
-                    <g clipPath={`url(#${clipId})`}>
-                        {fills.map((d, i) => (
-                            <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
-                        ))}
-
-                        {segments.map((d, i) => (
-                            <path
-                                key={i}
-                                d={d}
-                                fill="none"
+                    {currentVal !== null && (
+                        <>
+                            <line
+                                x1={xOf(currentIdx)}
+                                y1={PAD.top}
+                                x2={xOf(currentIdx)}
+                                y2={PAD.top + plotH}
                                 stroke={LINE_COLOR}
-                                strokeWidth={1.5}
-                                strokeLinejoin="round"
-                                strokeLinecap="round"
+                                strokeWidth={1}
+                                strokeDasharray="3 3"
+                                opacity={0.4}
                             />
-                        ))}
+                            <circle
+                                cx={xOf(currentIdx)}
+                                cy={yOf(currentVal)}
+                                r={3.5}
+                                fill={LINE_COLOR}
+                            />
+                        </>
+                    )}
+                </g>
+            </svg>
 
-                        {currentVal !== null && (
-                            <>
-                                <line
-                                    x1={xOf(currentIdx)}
-                                    y1={PAD.top}
-                                    x2={xOf(currentIdx)}
-                                    y2={PAD.top + plotH}
-                                    stroke={LINE_COLOR}
-                                    strokeWidth={1}
-                                    strokeDasharray="3 3"
-                                    opacity={0.4}
-                                />
-                                <circle
-                                    cx={xOf(currentIdx)}
-                                    cy={yOf(currentVal)}
-                                    r={3.5}
-                                    fill={LINE_COLOR}
-                                />
-                            </>
-                        )}
-                    </g>
-                </svg>
-            </div> {/* ← closes <div ref={containerRef}> */}
-
-            {/* Label + value — fixed width, won't shrink */}
             {label && (
                 <div
                     style={{
                         display: "flex",
                         flexDirection: "column",
                         gap: 4,
-                        flexShrink: 0,
                     }}
                 >
                     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
