@@ -33,7 +33,10 @@ async def lifespan(app: FastAPI):
         if isinstance(path, str) and path.startswith("/ollama"):
             methods = sorted(getattr(route, "methods", []) or [])
             logger.info("Route registered: %s methods=%s", path, methods)
-    connect()
+    try:
+        connect()
+    except Exception as e:
+        logger.warning("MongoDB unavailable, continuing without DB: %s", e)
 
     # await ingest_documents()
     # await warmup_model(settings.AIA_MODEL)
