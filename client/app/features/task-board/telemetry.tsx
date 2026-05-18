@@ -186,8 +186,8 @@ export default function Telemetry() {
                                 }}
                             >
                                 <Oxygen
-                                    level={rover.oxygen_storage ?? 0}
-                                    tankLabel="Tank 1"
+                                    levelTank1={rover.oxygen_storage ?? 0}
+                                    levelTank2={0}
                                     remaining={formatRemaining(
                                         estimates.rover_oxygen_time_remaining_s,
                                     )}
@@ -332,10 +332,13 @@ export default function Telemetry() {
                                 }}
                             >
                                 <Oxygen
-                                    level={eva1.oxy_pri_storage ?? 0}
-                                    tankLabel="Tank 1"
+                                    levelTank1={eva1.oxy_pri_storage ?? 0}
+                                    levelTank2={eva1.oxy_sec_storage ?? 0}
+                                    primaryActive={snapshot.eva.dcu.eva1.oxy}
                                     remaining={formatRemaining(
-                                        estimates.eva_oxygen_time_remaining_s,
+                                        snapshot.eva.dcu.eva1.oxy
+                                            ? estimates.eva_oxygen_time_remaining_s
+                                            : (eva1.oxy_sec_storage ?? 0) / 0.1,
                                     )}
                                 />
                             </div>
