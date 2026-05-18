@@ -10,7 +10,7 @@ export default function DustCVStreamView({ onStatusChange }: DustCVStreamViewPro
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
-        const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+        const apiUrl = "http://localhost:8000";
         const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws/dust-cv";
 
         onStatusChange?.("connecting");
@@ -57,12 +57,11 @@ export default function DustCVStreamView({ onStatusChange }: DustCVStreamViewPro
     }, [onStatusChange]);
 
     return (
-        <div className="w-full h-full overflow-hidden bg-black flex items-center justify-center">
-            <canvas
-                ref={canvasRef}
-                className="w-full h-full"
-                style={{ objectFit: "contain" }}
-            />
+        <div
+            className="w-full h-full overflow-hidden bg-black flex items-center justify-center"
+            style={{ borderRadius: "10px", border: "4px solid #3a3a41" }}
+        >
+            <canvas ref={canvasRef} className="w-full h-full" style={{ objectFit: "contain" }} />
         </div>
     );
 }
