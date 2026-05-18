@@ -85,10 +85,12 @@ async def execute_navigation_ping():
 
         # Otherwise, act normally
         success, rssi_value, category = await execute_ping()
+
         return {
             "success": success,
             "rssi_value": rssi_value,
-            "category": category.value,
+            # SAFE FALLBACK: Prevent AttributeError if ping fails due to cooldown
+            "category": category.value if category else None,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

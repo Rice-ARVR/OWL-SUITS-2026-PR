@@ -84,18 +84,25 @@ class SearchSession(BaseModel):
     # memory flag
     previous_phase: Optional[SearchPhase] = None
 
-    success_vector: float
+    # --- NEW PHASE TRACKING VARIABLES ---
+    # Phase 2 State: Ensure all 3 points are hit regardless of manual interruptions
+    phase_2_waypoints: List[Position] = []
+    phase_2_index: int = 0
+
+    # Phase 3 State: Flag to trigger the 4-second brake & recalculation upon AI resume
+    phase_3_recalc_required: bool = False
+
+    # Phase 4 State: Anchor point where the STRONG signal was found to reset the spiral
+    phase_4_anchor: Optional[Position] = None
+    # ------------------------------------
+
     ping_history: List[PingRecord]
 
     # Arrays for the frontend map UI
     path_history: List[Position] = []
     projected_path: List[Position] = []
 
-    best_rssi: float
     current_target: Optional[NavigationTarget] = None
-
-    # Track local minimum sweeps during Gradient Ascent
-    gradient_retries: int = 0
 
     # Expose the estimated search zone to the UI
     search_area: Optional[SearchArea] = None
@@ -109,7 +116,6 @@ class Hazard(BaseModel):
 
     id: str
     description: Optional[str] = "Polygonal Hazard"
-    # Field(min_length=3) enforces that the array must contain at least a triangle
     points: List[Position] = Field(
         ...,
         min_length=3,
@@ -137,9 +143,11 @@ FRONTEND_EXCLUDES = {
     "session": {
         "lnp": True,
         "previous_phase": True,
-        "success_vector": True,
-        "best_rssi": True,
-        "gradient_retries": True,
+        # Exclude backend override tracking logic from the frontend stream
+        "phase_2_waypoints": True,
+        "phase_2_index": True,
+        "phase_3_recalc_required": True,
+        "phase_4_anchor": True,
     },
     "latest_lidar": True,
     "rover_position": True,
