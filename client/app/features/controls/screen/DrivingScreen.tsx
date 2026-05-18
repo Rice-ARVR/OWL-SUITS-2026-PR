@@ -4,6 +4,7 @@ import RoverPanel from "~/features/map/sidebar/RoverPanel";
 import DustStreamView from "./DustStreamView";
 import DustCVStreamView from "./DustCVStreamView";
 import Minimap from "./Minimap";
+import CabinClimate from "./CabinClimate";
 import styles from "./DrivingScreen.module.css";
 
 type StreamId = "dust" | "cv";
@@ -23,7 +24,7 @@ export default function DrivingScreen() {
                     <Dashboard />
                     <RoverPanel />
                     <div className={styles.panel}>
-                        <h2>Placeholder</h2>
+                        <CabinClimate />
                     </div>
                 </div>
                 <div className={styles.panel + " " + styles.bottomRow}>
