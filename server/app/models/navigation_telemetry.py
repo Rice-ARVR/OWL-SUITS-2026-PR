@@ -4,7 +4,7 @@ Captures steering decisions, obstacle detection, and system health metrics
 for real-time UI feedback during autonomous drive operations.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 
@@ -41,47 +41,108 @@ class HealthStatus:
 class VisionTelemetry:
     """Complete vision-based autonomous navigation telemetry snapshot.
 
-    Emitted once per control loop (~2 Hz) and streamed to frontend via WebSocket.
+    Emitted once per control loop (~2 Hz) and streams ONLY formatted UI
+    strings to the frontend via WebSocket.
     """
 
     # Metadata
-    timestamp: float  # loop.time() when snapshot was created
-    sequence_number: int  # incrementing counter per snapshot
+    timestamp: float
+    sequence_number: int
 
     # State
     mode: str  # 'AVOID' | 'CLEAR' | 'BOXED'
-    active: bool  # whether travel_vision() is currently running
+    active: bool
 
     # Position & motion
-    position_x: float  # rover X coordinate (meters)
-    position_y: float  # rover Y coordinate (meters)
-    heading: float  # rover heading (0°=+Y, 90°=+X)
-    speed: float  # rover speed (m/s)
-    distance_to_goal: float  # Euclidean distance to target (meters)
+    position_x: float
+    position_y: float
+    heading: float
+    speed: float
+    distance_to_goal: float
 
     # Vision data
-    detections: List[Detection]  # YOLO detections in frame
-    column_danger: List[float]  # 12-column danger accumulation [0..1.0]
-    total_danger: float  # sum of weighted column dangers
-    center_blocked: bool  # center 4 columns have danger
+    detections: List[Detection]
+    column_danger: List[float]
+    total_danger: float
+    center_blocked: bool
 
     # Steering composition
     steering_components: SteeringComponents
-    final_steering: float  # command sent to rover [-1, 1]
-    final_throttle: float  # command sent to rover [0, 100]
+    final_steering: float
+    final_throttle: float
 
     # Health
     health: HealthStatus
 
     # Recovery codes
-    return_code: Optional[int] = None  # set at end: 0=success, 1=fail, 2=interrupt
+    return_code: Optional[int] = None
+
+    def get_ui_messages(self) -> dict:
+        """Translates raw telemetry into human-readable UI strings for the frontend."""
+        ui = {}
+
+        # 1. Active Drive Mode
+        if self.mode == "CLEAR":
+            ui["mode"] = "🟢 Mode: CLEAR (Direct Pathing)"
+        elif self.mode == "AVOID":
+            ui["mode"] = "🟡 Mode: AVOID (Evasive Maneuver)"
+        elif self.mode == "BOXED":
+            ui["mode"] = "🔴 Mode: BOXED (Evaluating Escape)"
+        else:
+            ui["mode"] = f"⚪ Mode: {self.mode}"
+
+        # 2. Threat Assessment
+        if self.center_blocked:
+            threats = ", ".join(list(set(d.class_name for d in self.detections)))
+            ui["threat"] = (
+                f"Path: Center Blocked by [{threats}] (Danger Score: {self.total_danger:.2f})"
+            )
+        elif self.total_danger > 0.1:
+            ui["threat"] = (
+                f"Path: Flank Obstacle Detected (Danger Score: {self.total_danger:.2f})"
+            )
+        else:
+            ui["threat"] = "Path: Clear"
+
+        # 3. Steering Breakdown
+        avoid = self.steering_components.avoid_steer
+        head = self.steering_components.heading_steer
+        if self.mode == "AVOID":
+            ui["steering"] = (
+                f"Steering: {self.final_steering:+.2f} (Evasion: {avoid:+.2f} | Goal: {head:+.2f})"
+            )
+        else:
+            ui["steering"] = (
+                f"Steering: {self.final_steering:+.2f} (Pure Goal Heading: {head:+.2f})"
+            )
+
+        # 4. Throttle & Pacing
+        if self.final_throttle >= 80:
+            ui["throttle"] = f"Throttle: NORMAL ({self.final_throttle}%)"
+        elif self.final_throttle > 0:
+            ui["throttle"] = (
+                f"Throttle: SLOW ({self.final_throttle}%) - Correction Maneuver"
+            )
+        else:
+            ui["throttle"] = "Throttle: STOPPED"
+
+        # 5. AI Health & Frustration
+        health_msgs = []
+        if self.health.boxed_streak > 0:
+            health_msgs.append(f"⚠️ Boxed-In Streak: {self.health.boxed_streak} steps")
+        if self.health.stuck_moved_m < self.health.stuck_threshold_m and self.active:
+            health_msgs.append(
+                f"⚠️ Stuck Warning: Low movement ({self.health.stuck_moved_m:.2f}m)"
+            )
+        if self.health.frame_age_s > 1.5:
+            health_msgs.append(
+                f"⚠️ Vision Feed Lag: Frame is {self.health.frame_age_s:.1f}s old"
+            )
+
+        ui["health"] = " | ".join(health_msgs) if health_msgs else "Status: Nominal"
+
+        return ui
 
     def to_dict(self) -> dict:
-        """Serialize to JSON-compatible dict, expanding nested dataclasses."""
-        data = asdict(self)
-        # Expand detections list of dataclasses
-        data["detections"] = [asdict(d) for d in self.detections]
-        # Expand nested dataclasses
-        data["steering_components"] = asdict(self.steering_components)
-        data["health"] = asdict(self.health)
-        return data
+        """Serialize ONLY the frontend UI strings. We no longer send raw telemetry."""
+        return self.get_ui_messages()
