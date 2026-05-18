@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
+from app.core.config import settings
 from app.services.rag.document_service import ingest_documents
 from app.services.rag.ollama_service import (
     check_ollama_health,
@@ -36,7 +37,7 @@ async def health():
 
 
 class GenerateRequest(BaseModel):
-    model: str = "llama3.2"
+    model: str = settings.AIA_MODEL
     prompt: str
     stream: bool = True
 
@@ -47,7 +48,7 @@ class Message(BaseModel):
 
 
 class RagQueryRequest(BaseModel):
-    model: str = "llama3.2"
+    model: str = settings.AIA_MODEL
     question: str
     stream: bool = True
     chat_history: list[Message] = []
@@ -71,7 +72,9 @@ async def rag_query(request: RagQueryRequest):
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
             )
-        result = await invoke_rag(request.model, request.question, history, request.use_rag)
+        result = await invoke_rag(
+            request.model, request.question, history, request.use_rag
+        )
         return JSONResponse({"model": request.model, "response": result, "done": True})
     except Exception as e:
         logger.exception("Ollama rag-query failed: %s", e)

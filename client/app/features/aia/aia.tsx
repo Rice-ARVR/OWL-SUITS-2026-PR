@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import type { SystemActionWidgetData } from "~/types/aiaWidgets";
 import { useOllama } from "~/hooks/useOllama";
 import { useVoice } from "~/hooks/useVoice";
 import styles from "./aia.module.css";
+import MessageBubble from "./components/MessageBubble";
 
 function TypingDots() {
     return (
@@ -15,20 +17,33 @@ function TypingDots() {
 
 export function AiaChat() {
     const [input, setInput] = useState("");
-    // Set AIA model here:
-    const { chat, messages, loading, error, connected, clearHistory } = useOllama("llama3.2");
+
+    const [dismissedActionIds, setDismissedActionIds] = useState<Set<string>>(new Set());
+
+    const { chat, messages, loading, error, connected, clearHistory } = useOllama();
+
     const { isRecording, transcribing, transcript, voiceError, startRecording, stopRecording } =
         useVoice();
+
     const [health, setHealth] = useState<
         | { ok: true; ollama_url: string; models: unknown[] }
         | { ok: false; ollama_url: string; error: string }
         | null
     >(null);
-    const bottomRef = useRef<HTMLDivElement>(null);
 
-    // check server is connected to ollama
+    const bottomRef = useRef<HTMLDivElement>(null);
+    const messagesRef = useRef<HTMLDivElement>(null);
+    const userScrolledUp = useRef(false);
+
+    const handleMessagesScroll = () => {
+        const el = messagesRef.current;
+        if (!el) return;
+        userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 50;
+    };
+
     useEffect(() => {
         const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
         fetch(`${apiUrl}/ollama/health`)
             .then((r) => r.json())
             .then(setHealth)
@@ -41,19 +56,46 @@ export function AiaChat() {
             );
     }, []);
 
-    // populate input with voice transcript when it arrives
     useEffect(() => {
         if (transcript) setInput(transcript);
     }, [transcript]);
 
-    // auto scroll to newest message.
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (!userScrolledUp.current) {
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
     }, [messages]);
+
+    async function handleSystemAction(
+        payload: SystemActionWidgetData["payload"],
+        widget: SystemActionWidgetData,
+    ) {
+        setDismissedActionIds((prev) => new Set(prev).add(widget.id));
+
+        if (payload.action === "cancel") return;
+
+        try {
+            const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+            await fetch(`${apiUrl}/system/action`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+        } catch (err) {
+            console.error("Failed to trigger system action:", err);
+        }
+
+        chat(
+            `The user confirmed the following action — Title: "${widget.title}". Description: "${widget.description}". Action: "${widget.actionLabel}". Please provide concise guidance on how to carry this out.`,
+            { hidden: true, suppressWidgetTypes: ["telemetry"] },
+        );
+    }
 
     const handleSend = () => {
         const trimmed = input.trim();
         if (!trimmed || loading) return;
+
+        userScrolledUp.current = false;
         setInput("");
         chat(trimmed);
     };
@@ -67,24 +109,29 @@ export function AiaChat() {
 
     return (
         <div className={styles.container}>
-            <div className={styles.messages}>
+            <div className={styles.messages} ref={messagesRef} onScroll={handleMessagesScroll}>
                 {messages.length === 0 && (
                     <p className={styles.emptyState}>
                         Ask something about the current mission telemetry...
                     </p>
                 )}
+
                 {messages.map((msg, i) => (
-                    <div key={i} className={`${styles.messageBubbleWrapper} ${styles[msg.role]}`}>
-                        <span className={`${styles.messageBubble} ${styles[msg.role]}`}>
-                            {msg.content || <TypingDots />}
-                        </span>
-                    </div>
+                    <MessageBubble
+                        key={i}
+                        msg={msg}
+                        index={i}
+                        dismissedActionIds={dismissedActionIds}
+                        onSystemAction={handleSystemAction}
+                    />
                 ))}
+
                 <div ref={bottomRef} />
             </div>
 
             {error && <p className={styles.error}>{error}</p>}
             {voiceError && <p className={styles.error}>{voiceError}</p>}
+
             <div className={styles.inputRow}>
                 <textarea
                     rows={3}
@@ -95,6 +142,7 @@ export function AiaChat() {
                     placeholder="Ask anything"
                     disabled={loading}
                 />
+
                 <div className={styles.actions}>
                     <button
                         onClick={handleSend}
@@ -103,13 +151,17 @@ export function AiaChat() {
                     >
                         {loading ? <TypingDots /> : "Send"}
                     </button>
+
                     <button
                         onClick={isRecording ? stopRecording : startRecording}
                         disabled={loading || transcribing}
-                        className={`${styles.micButton} ${isRecording ? styles.micButtonActive : ""}`}
+                        className={`${styles.micButton} ${
+                            isRecording ? styles.micButtonActive : ""
+                        }`}
                     >
-                        {transcribing ? <TypingDots /> : isRecording ? "■ Stop" : "🎙 Mic"}
+                        {transcribing ? <TypingDots /> : isRecording ? "■ Stop" : "Mic"}
                     </button>
+
                     <button
                         onClick={clearHistory}
                         disabled={loading}
@@ -119,6 +171,7 @@ export function AiaChat() {
                     </button>
                 </div>
             </div>
+
         </div>
     );
 }

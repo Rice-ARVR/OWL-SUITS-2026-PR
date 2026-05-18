@@ -43,7 +43,11 @@ async def ingest_documents(force: bool = False) -> dict:
 
     _DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
-    paths = [*_DOCS_DIR.glob("**/*.pdf"), *_DOCS_DIR.glob("**/*.txt"), *_DOCS_DIR.glob("**/*.csv")]
+    paths = [
+        *_DOCS_DIR.glob("**/*.pdf"),
+        *_DOCS_DIR.glob("**/*.txt"),
+        *_DOCS_DIR.glob("**/*.csv"),
+    ]
     if not paths:
         logger.info("No documents found in %s", _DOCS_DIR)
         return {"files": 0, "chunks": 0}

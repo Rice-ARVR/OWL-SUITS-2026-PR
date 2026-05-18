@@ -1,0 +1,19 @@
+Value Name,Units,Min,Nominal,Max
+pitch,deg,-50.00,-,50.00
+roll,deg,0.00,-,50.00
+speed,m/s,0.00,-,18.00
+throttle,%,0.00,-,100.00
+steering,-,-1.00,-,1.00
+distance_traveled,meters,0,-,No Max
+surface_incline,deg,-50.00,-,50.0
+distance_from_base,m,0.00,-,2500.00
+oxygen_tank,%,25.00,-,100.00
+oxygen_pressure,psi,2997.00,-,3000.00
+fan_pri_rpm,rpm,29999.00,-,30005.00
+fan_sec_rpm,rpm,29999.00,-,30005.00
+cabin_pressure,psi,3.50,4.00,4.10
+cabin_temperature,℃,10.00,-,21.00
+external_temp,℃,-,-,-
+coolant_pressure,psi,495.00,500.00,501.00
+coolant_storage,%,80.00,100.00,100.00
+battery_level,%,30.00,-,100.00

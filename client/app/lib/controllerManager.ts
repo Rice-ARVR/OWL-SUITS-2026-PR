@@ -76,10 +76,7 @@ class ControllerManager {
             this.status = "disconnected";
             if (this.shouldReconnect) {
                 this.reconnectTimer = setTimeout(() => {
-                    this.reconnectDelay = Math.min(
-                        this.reconnectDelay * 2,
-                        this.maxReconnectDelay,
-                    );
+                    this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
                     this.openConnection();
                 }, this.reconnectDelay);
             }

@@ -37,8 +37,12 @@ export function useWASD(): WASDHookState {
 
     useEffect(() => {
         controllerManager.registerInitialSync({
-            throttle: 0, steering: 0, brakes: 1.0,
-            cabin_heating: 0, cabin_cooling: 0, headlights: 0,
+            throttle: 0,
+            steering: 0,
+            brakes: 1.0,
+            cabin_heating: 0,
+            cabin_cooling: 0,
+            headlights: 0,
         });
         controllerManager.connect();
 
@@ -102,9 +106,17 @@ export function useWASD(): WASDHookState {
             }
         };
 
+        const isTypingInInput = () => {
+            const el = document.activeElement;
+            return (
+                el instanceof HTMLInputElement ||
+                el instanceof HTMLTextAreaElement ||
+                (el instanceof HTMLElement && el.isContentEditable)
+            );
+        };
+
         const handleKeyDown = (e: KeyboardEvent) => {
-            const tag = (e.target as HTMLElement).tagName;
-            if (tag === "INPUT" || tag === "TEXTAREA") return;
+            if (isTypingInInput()) return;
             const key = e.key === " " ? " " : e.key.toLowerCase();
             if (![...ANALOG_KEYS, ...TOGGLE_KEYS].includes(key)) return;
             e.preventDefault();
@@ -137,13 +149,12 @@ export function useWASD(): WASDHookState {
 
             if (e.repeat) return;
             pressedKeys.current.add(key);
-            applyKeys();    // immediate response on first press
+            applyKeys(); // immediate response on first press
             startInterval(); // then repeat at interval while held
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
-            const tag = (e.target as HTMLElement).tagName;
-            if (tag === "INPUT" || tag === "TEXTAREA") return;
+            if (isTypingInInput()) return;
             const key = e.key === " " ? " " : e.key.toLowerCase();
             pressedKeys.current.delete(key);
             // Don't stop the interval here — let applyKeys wind values back to 0 first.

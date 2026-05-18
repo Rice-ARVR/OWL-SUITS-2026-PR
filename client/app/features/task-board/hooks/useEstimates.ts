@@ -24,7 +24,9 @@ export function useEstimates(): Estimates {
         const fetchEstimates = () => {
             fetch(`${apiUrl}/estimation/time_remaining`)
                 .then((res) => res.json() as Promise<Estimates>)
-                .then((data) => { if (active) setEstimates(data); })
+                .then((data) => {
+                    if (active) setEstimates(data);
+                })
                 .catch(() => {});
         };
 
