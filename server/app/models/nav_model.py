@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
-from typing import List, Literal, Optional
+from typing import AsyncGenerator, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -35,7 +35,7 @@ class Position(BaseModel):
 
 
 class RssiSignalStrength(BaseModel):
-    value: float  # dBm
+    value: float
     category: DistanceCategory
     distance_min: float
     distance_max: float
@@ -58,7 +58,7 @@ class SearchArea(BaseModel):
 
 
 class LidarReading(BaseModel):
-    index: int  # 0-16
+    index: int
     distance_cm: float
     is_obstacle: bool
 
@@ -132,38 +132,68 @@ class NavigationState(BaseModel):
     status_level: Literal["info", "warning", "critical", "success"] = "info"
 
 
+# --- Frontend Exclusions ---
+FRONTEND_EXCLUDES = {
+    "session": {
+        "lnp": True,
+        "previous_phase": True,
+        "success_vector": True,
+        "best_rssi": True,
+        "gradient_retries": True,
+    },
+    "latest_lidar": True,
+    "rover_position": True,
+}
+
+
 # --- Thread-Safe Wrapper ---
 
 
 class NavigationStateData:
     def __init__(self) -> None:
         self._data: NavigationState = NavigationState()
-        self._lock: asyncio.Lock = asyncio.Lock()
+        # An asyncio.Condition inherently acts as a lock AND an event notifier
+        self._condition: asyncio.Condition = asyncio.Condition()
+
+        # Internal tracker for the ping interrupt
+        self._ping_interrupt_event: Optional[asyncio.Event] = None
+
+    # Safely grab or create the event
+    def get_ping_interrupt_event(self) -> asyncio.Event:
+        """Lazily instantiate the event to ensure it binds to the active event loop."""
+        if self._ping_interrupt_event is None:
+            self._ping_interrupt_event = asyncio.Event()
+        return self._ping_interrupt_event
 
     async def update_hazards(self, hazards: List[Hazard]) -> None:
-        """Updates the list of polygonal hazards on the map."""
-        async with self._lock:
+        async with self._condition:
             self._data.hazards = hazards
+            self._condition.notify_all()  # Wakes up the SSE stream
 
     async def update_session(self, session: SearchSession) -> None:
-        async with self._lock:
+        async with self._condition:
             self._data.session = session
+            self._condition.notify_all()
 
     async def update_rssi(self, rssi: RssiSignalStrength) -> None:
-        async with self._lock:
+        async with self._condition:
             self._data.latest_rssi = rssi
+            self._condition.notify_all()
 
     async def update_lidar(self, lidar: LidarScan) -> None:
-        async with self._lock:
+        async with self._condition:
             self._data.latest_lidar = lidar
+            self._condition.notify_all()
 
     async def update_rover_position(self, position: Position) -> None:
-        async with self._lock:
+        async with self._condition:
             self._data.rover_position = position
+            self._condition.notify_all()
 
     async def set_autonomous_driving(self, enabled: bool) -> None:
-        async with self._lock:
+        async with self._condition:
             self._data.autonomous_driving = enabled
+            self._condition.notify_all()
 
     # push UI alerts
     async def update_status(
@@ -171,11 +201,23 @@ class NavigationStateData:
         message: str,
         level: Literal["info", "warning", "critical", "success"] = "info",
     ) -> None:
-        """Updates the UI status flags for frontend alerts."""
-        async with self._lock:
+        async with self._condition:
             self._data.status_message = message
             self._data.status_level = level
+            self._condition.notify_all()
 
     async def get_snapshot(self) -> NavigationState:
-        async with self._lock:
+        """Used internally by the backend (includes all data)."""
+        async with self._condition:
             return self._data
+
+    async def subscribe_frontend(self) -> AsyncGenerator[str, None]:
+        """Async generator strictly for the SSE stream. Yields filtered JSON only on changes."""
+        async with self._condition:
+            # 1. Send the initial state immediately upon connection
+            yield self._data.model_dump_json(exclude=FRONTEND_EXCLUDES)
+
+            # 2. Go to sleep. Only wake up when notify_all() is called by an update
+            while True:
+                await self._condition.wait()
+                yield self._data.model_dump_json(exclude=FRONTEND_EXCLUDES)

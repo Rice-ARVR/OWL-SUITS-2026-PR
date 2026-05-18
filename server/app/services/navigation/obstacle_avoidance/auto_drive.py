@@ -21,6 +21,7 @@ from typing import List, Optional, Tuple
 from app.services.navigation.navigation_helpers import (
     ARRIVAL_THRESHOLD_M,
     COMMAND_PAUSE_S,
+    MAX_SPEED,
     STEERING_SIGN,
     STUCK_DIST_M,
     STUCK_WINDOW_S,
@@ -582,7 +583,12 @@ async def _wall_follow_step(tel, state: _WallFollow) -> None:
 # ─── Public entry point ──────────────────────────────────────────────────────
 
 
-async def travel(goalX: float, goalY: float) -> int:
+async def travel(
+    goalX: float,
+    goalY: float,
+    arrival_threshold: float = 5.0,
+    interrupt_event: Optional[asyncio.Event] = None,
+) -> int:
     """Drive within ARRIVAL_THRESHOLD_M of (goalX, goalY).
 
     Returns 0 on success, 1 on failure (timeout / stuck-out).
@@ -600,6 +606,12 @@ async def travel(goalX: float, goalY: float) -> int:
 
     try:
         while True:
+            # Check for the interrupt signal from the API
+            if interrupt_event and interrupt_event.is_set():
+                logger.warning("travel: interrupted by manual ping")
+                await _full_stop()  # Turn on the brakes!
+                return 2  # Return the special interrupt code
+
             if loop.time() - started > TRAVEL_TIMEOUT_S:
                 logger.error("travel: timeout")
                 await _full_stop()
@@ -703,5 +715,4 @@ async def travel(goalX: float, goalY: float) -> int:
             await asyncio.sleep(COMMAND_PAUSE_S)
             await _brake_pulse()
     except asyncio.CancelledError:
-        await _full_stop()
         raise
