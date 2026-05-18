@@ -1,18 +1,11 @@
 import type { TelemetryWidgetData } from "../../../types/aiaWidgets";
 import { useTelemetry } from "~/hooks/useTelemetry";
+import { getSourceFromKey } from "~/lib/widgetSource";
 import styles from "../aia.module.css";
 
 type Props = {
     widget: TelemetryWidgetData;
 };
-
-function getSourceFromKey(key: string | undefined): string | null {
-    if (!key) return null;
-    if (key.includes("eva1")) return "EVA 1";
-    if (key.includes("eva2")) return "EVA 2";
-    if (key.includes("rover") || key.startsWith("pr_telemetry")) return "Rover";
-    return null;
-}
 
 export default function TelemetryWidget({ widget }: Props) {
     const telemetry = useTelemetry();

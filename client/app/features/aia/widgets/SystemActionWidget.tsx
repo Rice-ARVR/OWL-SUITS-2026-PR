@@ -1,4 +1,5 @@
 import type { SystemActionWidgetData } from "../../../types/aiaWidgets";
+import { getSourceFromKey } from "~/lib/widgetSource";
 import styles from "../aia.module.css";
 
 type Props = {
@@ -7,10 +8,15 @@ type Props = {
 };
 
 export default function SystemActionWidget({ widget, onAction }: Props) {
+    const source = getSourceFromKey(widget.payload.target) ?? widget.source ?? null;
+
     return (
         <div className={`${styles.aiaWidget} ${styles.actionModalWidget}`}>
             <div className={styles.aiaWidgetHeader}>
                 <span className={styles.aiaWidgetTitle}>{widget.title}</span>
+                {source && (
+                    <span className={styles.aiaWidgetSource}>{source}</span>
+                )}
             </div>
 
             <p className={styles.aiaWidgetDescription}>{widget.description}</p>

@@ -21,6 +21,7 @@ export type SystemActionWidgetData = {
     actionLabel: string;
     confirmText?: string;
     cancelText?: string;
+    source?: string;
     payload: {
         action: string;
         target?: string;

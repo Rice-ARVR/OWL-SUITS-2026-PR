@@ -57,7 +57,7 @@ def _infer_status(key: str, value: Any) -> str:
     return "normal"
 
 
-def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | None:
+def _build_action_widget(key: str, label: str, status: str, source: str = "") -> dict[str, Any] | None:
     if status not in ("warning", "critical"):
         return None
 
@@ -73,6 +73,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "Switch Backup Power",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "switch_backup_power",
                 "target": key,
@@ -89,6 +90,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "Check Oxygen",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "check_oxygen_system",
                 "target": key,
@@ -105,6 +107,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "Find out how to check scrubber?",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "check_scrubber_system",
                 "target": key,
@@ -121,6 +124,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "See how to inspect scrubber?",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "inspect_scrubber",
                 "target": key,
@@ -137,6 +141,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "Check Fan",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "check_fan_system",
                 "target": key,
@@ -153,6 +158,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "See how to check coolant?",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "check_coolant_system",
                 "target": key,
@@ -169,6 +175,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "Find out how to turn on Heating",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "turn_on",
                 "target": "fan_heating",
@@ -185,6 +192,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "Review Thermal",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "review_thermal_status",
                 "target": key,
@@ -201,6 +209,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "Find out how to check pressure?",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "check_pressure_system",
                 "target": key,
@@ -217,6 +226,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "actionLabel": "See how to check signal?",
             "confirmText": "Yes",
             "cancelText": "No",
+            "source": source,
             "payload": {
                 "action": "check_signal",
                 "target": key,
@@ -232,6 +242,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
         "actionLabel": "Review",
         "confirmText": "Yes",
         "cancelText": "No",
+        "source": source,
         "payload": {
             "action": "review_telemetry",
             "target": key,
@@ -395,6 +406,7 @@ def select_widgets_for_prompt(
                 widget["key"],
                 widget["label"],
                 widget["status"],
+                widget["source"],
             )
 
             if action_widget:
