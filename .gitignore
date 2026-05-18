@@ -5,3 +5,4 @@ package.json
 .serena/project.local.yml
 .serena/cache/typescript/document_symbols.pkl
 .serena/cache/typescript/raw_document_symbols.pkl
+server/app/services/rag/active_warnings.json

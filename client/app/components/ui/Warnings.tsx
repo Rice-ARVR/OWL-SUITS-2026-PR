@@ -88,9 +88,19 @@ export default function Warnings({ warnings }: WarningsProps) {
                             >
                                 {label}
                             </span>
-                            <span style={{ color: "#F59095", fontSize: 10, flexShrink: 0 }}>
-                                {isExpanded ? "▼" : "▶"}
-                            </span>
+                            <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 10 10"
+                                fill="#F59095"
+                                style={{
+                                    flexShrink: 0,
+                                    transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                                    transition: "transform 0.2s ease",
+                                }}
+                            >
+                                <polygon points="2,1 9,5 2,9" />
+                            </svg>
                         </div>
 
                         <div
