@@ -43,6 +43,14 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
     # loop through all fields in given model
     # model = EVA1Telemetry, EVA2Telemetry, or PrTelemetry
     for field_name, field_info in model_class.model_fields.items():
+        # 5/18/26 -> bug in TSS, these fields are unused
+        # tech team said they'll address it, but for day 1 test let's just ignore here
+        # TODO address this issue for AIA later
+        if source == "rover" and field_name in (
+            "battery_level",
+            "secondary_battery_level",
+        ):
+            continue
         # loop through all telemetry values in given field and check against NominalRange metadata
         for meta in field_info.metadata:
             if isinstance(meta, NominalRange):
