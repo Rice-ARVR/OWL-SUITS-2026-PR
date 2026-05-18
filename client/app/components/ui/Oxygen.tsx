@@ -36,8 +36,6 @@ export default function Oxygen({
     return (
         <div
             style={{
-                background: "#3a3a41",
-                borderRadius: "12px",
                 padding: "4px 20px 20px",
                 width: "100%",
                 maxWidth: 240,

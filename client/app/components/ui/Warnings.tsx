@@ -46,7 +46,12 @@ export default function Warnings({ warnings }: WarningsProps) {
                     return (
                         <div
                             key={actualIndex}
-                            style={{ background: "#2e2b2b", borderRadius: 8, overflow: "hidden", flexShrink: 0 }}
+                            style={{
+                                background: "#2e2b2b",
+                                borderRadius: 8,
+                                overflow: "hidden",
+                                flexShrink: 0,
+                            }}
                         >
                             <div
                                 style={{
@@ -66,7 +71,13 @@ export default function Warnings({ warnings }: WarningsProps) {
                                     fill="none"
                                     style={{ flexShrink: 0 }}
                                 >
-                                    <circle cx="8" cy="8" r="6.5" stroke="#F59095" strokeWidth="1.5" />
+                                    <circle
+                                        cx="8"
+                                        cy="8"
+                                        r="6.5"
+                                        stroke="#F59095"
+                                        strokeWidth="1.5"
+                                    />
                                     <path
                                         d="M8 5v4"
                                         stroke="#F59095"

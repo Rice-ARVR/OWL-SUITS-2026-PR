@@ -48,7 +48,7 @@ export default function Summary({
             style={{
                 background: hasWarnings
                     ? "linear-gradient(to bottom, #493E3E, #3a3a41)"
-                    : "#3a3a41",
+                    : "transparent",
                 borderRadius: 12,
                 width: "100%",
                 height: "100%",
