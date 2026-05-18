@@ -2,7 +2,6 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
-from app.db.database import connect, disconnect
 from app.routers import systems_actions
 from app.routers.dust_cv_ws import router as dust_cv_ws_router
 from app.routers.estimation import router as estimation_router
@@ -43,7 +42,7 @@ async def lifespan(app: FastAPI):
         if isinstance(path, str) and path.startswith("/ollama"):
             methods = sorted(getattr(route, "methods", []) or [])
             logger.info("Route registered: %s methods=%s", path, methods)
-    connect()
+    # connect()
 
     await ingest_documents(force=True)
     # await warmup_model(settings.AIA_MODEL)
@@ -56,7 +55,7 @@ async def lifespan(app: FastAPI):
     await stop_cv_service()
     await stop_dust_stream()
     await stop_polling()
-    disconnect()
+    # disconnect()
 
 
 app = FastAPI(lifespan=lifespan)

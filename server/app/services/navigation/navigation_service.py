@@ -43,6 +43,7 @@ logger.propagate = False
 # --- Constants ---
 LNP_POSITION = Position(x=-5669.80, y=-10074.60)
 SEARCH_RADIUS_M = 548.7
+TRIANGLE_SEARCH_RADIUS_M = 300.0
 PING_COOLDOWN_S = 20
 GRADIENT_PROJECTION_M = 80.0
 SPIRAL_ARM_SPACING_M = 25.0
@@ -109,7 +110,7 @@ async def _travel(
 
 
 async def start_autonomous_loop(force_reset: bool = False):
-    global _telemetry_task, _mission_task
+    global _telemetry_task, _mission_task, ring_waypoints, current_ring_index
 
     # Safely fetch and clear the event via the state manager
     interrupt_event = navigation_state.get_ping_interrupt_event()
@@ -145,8 +146,18 @@ async def start_autonomous_loop(force_reset: bool = False):
             # Must drive to the actual LNP, not its current spot!
             resume_target = state.session.lnp
             threshold = 50.0
+        elif resumed_phase == SearchPhase.CONCENTRIC_SEARCH:
+            # Regenerate triangle from LNP in case ring_waypoints was lost across restart.
+            ring_waypoints = generate_initial_rings(
+                state.session.lnp.x, state.session.lnp.y
+            )
+            resume_target = Position(
+                x=ring_waypoints[current_ring_index][0],
+                y=ring_waypoints[current_ring_index][1],
+            )
+            threshold = 30.0
         else:
-            # Active search: wake up exactly where the human left it
+            # GRADIENT_ASCENT / TIGHT_SPIRAL: resume from rover's current position.
             resume_target = state.rover_position or state.session.lnp
             threshold = 5.0
 
@@ -195,14 +206,36 @@ async def stop_autonomous_loop(apply_brakes: bool = True):
     global _telemetry_task, _mission_task
     await navigation_state.set_autonomous_driving(False)
 
+    # Identify the caller so we never await a task from within itself (deadlock).
+    # abort_autonomous_mission calls stop from inside _mission_task, so self-await
+    # must be skipped — the task exits on its own once control returns.
+    current_task = asyncio.current_task()
+
     if _telemetry_task and not _telemetry_task.done():
         _telemetry_task.cancel()
+        if _telemetry_task is not current_task:
+            try:
+                await _telemetry_task
+            except Exception:
+                pass
+
     if _mission_task and not _mission_task.done():
         _mission_task.cancel()
+        if _mission_task is not current_task:
+            try:
+                await _mission_task
+            except Exception:
+                pass
 
     # Slam the brakes to release controls safely to user (if not overridden)
     if apply_brakes:
         await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
+
+    # Clear any stale projected path left over from mid-mission stops
+    state = await navigation_state.get_snapshot()
+    if state.session and state.session.projected_path:
+        state.session.projected_path = []
+        await navigation_state.update_session(state.session)
 
     # Wipe any lingering countdowns or AI messages from the UI
     await navigation_state.update_status("System Idle. Manual Control Active.", "info")
@@ -335,6 +368,7 @@ async def autonomous_mission_loop():
 
             # 4. Traverse the path using auto_drive
             path_success = True
+            ping_interrupted = False
             for i, waypoint in enumerate(safe_path):
                 # Update the projected path so the frontend UI line adjusts dynamically
                 # Fetch fresh state to prevent overwriting telemetry
@@ -361,19 +395,17 @@ async def autonomous_mission_loop():
 
                 # TRIGGER THE MANUAL PING INTERRUPT
                 if result == 2:
-                    # Step 4: Do the ping, recalculate next waypoint, send update msg
                     await navigation_state.update_status(
                         "Brakes active. Executing ping and recalculating next waypoint...",
                         "info",
                     )
                     await evaluate_phase_and_ping()
-
-                    # Step 5: Restart autonomous driving and send update msg
                     await navigation_state.update_status(
                         "Recalculation complete. Resuming autonomous navigation to next waypoint.",
                         "success",
                     )
-                    continue  # Jumps to the start of the 'while True' loop to pathfind the new target!
+                    ping_interrupted = True
+                    break  # Exit for-loop; while-loop re-pathfinds to new current_target
 
                 # TRIGGER THE HAND-OFF TO MANUAL (Failure)
                 if result != 0:
@@ -400,14 +432,37 @@ async def autonomous_mission_loop():
                 )
                 break
 
-            # 5. Arrived at the final target! Wait for cooldown, ping, and evaluate next phase.
-            await evaluate_phase_and_ping()
+            # 5. Arrived at the final target — ping and evaluate next phase.
+            # Skipped if a mid-path ping interrupt already called evaluate_phase_and_ping.
+            if not ping_interrupted:
+                await evaluate_phase_and_ping()
 
     except asyncio.CancelledError:
         pass
 
 
 # --- Mission Logic & Evaluation ---
+
+
+async def _get_current_rover_position() -> Optional[Position]:
+    """Read rover position directly from TSS telemetry and sync to navigation state.
+
+    Always bypasses the navigation_state cache so callers get the freshest
+    possible coordinates regardless of how long the telemetry loop has been
+    idle (e.g. during a ping cooldown wait or before autonomy starts).
+    """
+    if telemetry_service.rover_data is None:
+        return None
+    try:
+        snap = await telemetry_service.rover_data.get_snapshot()
+        if snap and snap.pr_telemetry:
+            tel = snap.pr_telemetry
+            pos = Position(x=tel.rover_pos_x, y=tel.rover_pos_y, heading=tel.heading)
+            await navigation_state.update_rover_position(pos)
+            return pos
+    except Exception as e:
+        logger.error(f"Failed to fetch rover position from TSS: {e}")
+    return None
 
 
 async def abort_autonomous_mission(reason: str) -> None:
@@ -476,43 +531,10 @@ async def handle_unreachable_target(state: NavigationState) -> bool:
         # We cannot "skip" this, so we must return False to abort and ask for human help.
         return False
 
-    # --- PHASE: CONCENTRIC SEARCH (The Rings) ---
+    # --- PHASE: CONCENTRIC SEARCH (Triangle) ---
     elif session.phase == SearchPhase.CONCENTRIC_SEARCH:
-        # If a specific waypoint on the ring is blocked, it's not a big deal.
-        # We just advance the index to look at the next point on the ring.
-        current_ring_index += 1
-
-        if current_ring_index < len(ring_waypoints):
-            # We still have valid points left on the ring. Update the target to the next one.
-            session.current_target = NavigationTarget(
-                position=Position(
-                    x=ring_waypoints[current_ring_index][0],
-                    y=ring_waypoints[current_ring_index][1],
-                ),
-                description=f"Ring waypoint {current_ring_index + 1}/{len(ring_waypoints)}",
-                arrival_threshold_m=10.0,
-            )
-            # Save the updated target to state so the frontend UI line updates
-            await navigation_state.update_session(session)
-            return True
-        else:
-            # We have exhausted all waypoints in the concentric rings, and the last one
-            # happened to be blocked. We must transition to the next phase (Gradient Ascent).
-            session.phase = SearchPhase.GRADIENT_ASCENT
-
-            # Reset the success vector to North (+Y) as a starting guess
-            session.success_vector = 0.0
-
-            # Project the first Gradient Ascent waypoint
-            session.current_target = NavigationTarget(
-                position=get_gradient_waypoint(
-                    rover_pos, session.success_vector, session.search_center
-                ),
-                description="Gradient ascent waypoint",
-                arrival_threshold_m=10.0,
-            )
-            await navigation_state.update_session(session)
-            return True
+        # All 3 triangle waypoints must be visited for triangulation; do not skip.
+        return False
 
     # --- PHASE: GRADIENT ASCENT (Following the Signal) ---
     elif session.phase == SearchPhase.GRADIENT_ASCENT:
@@ -577,8 +599,8 @@ async def evaluate_phase_and_ping():
     # 1. Grab FRESH state immediately after arriving
     state = await navigation_state.get_snapshot()
     session = state.session
-    rover_pos = state.rover_position
     lidar = state.latest_lidar
+    rover_pos = await _get_current_rover_position()
 
     if session is None or rover_pos is None:
         return
@@ -617,8 +639,8 @@ async def evaluate_phase_and_ping():
     # We MUST fetch a fresh snapshot and refresh our locals!
     state = await navigation_state.get_snapshot()
     session = state.session
-    rover_pos = state.rover_position
     lidar = state.latest_lidar
+    rover_pos = await _get_current_rover_position()
 
     if session is None or rover_pos is None:
         return
@@ -631,50 +653,58 @@ async def evaluate_phase_and_ping():
 
     # State Machine Transitions
     if session.phase == SearchPhase.TRANSIT_TO_LNP:
-        session.search_center = rover_pos
+        session.search_center = session.lnp
         session.phase = SearchPhase.CONCENTRIC_SEARCH
-        if success:
-            # Only initialize best_rssi if valid
-            if rssi < 0:
-                session.best_rssi = rssi
-            if ring_waypoints:
-                session.current_target = NavigationTarget(
-                    position=Position(x=ring_waypoints[0][0], y=ring_waypoints[0][1]),
-                    description=f"Ring waypoint 1/{len(ring_waypoints)}",
-                    arrival_threshold_m=10.0,
-                )
-                current_ring_index = 0
+        ring_waypoints = generate_initial_rings(session.lnp.x, session.lnp.y)
+        if success and rssi < 0:
+            session.best_rssi = rssi
+        if ring_waypoints:
+            current_ring_index = 0
+            session.current_target = NavigationTarget(
+                position=Position(x=ring_waypoints[0][0], y=ring_waypoints[0][1]),
+                description=f"Triangle waypoint 1/{len(ring_waypoints)}",
+                arrival_threshold_m=30.0,
+            )
 
     elif session.phase == SearchPhase.CONCENTRIC_SEARCH:
         if success:
-            if rssi > session.best_rssi:
-                if category == DistanceCategory.NOT_IN_RANGE:
-                    session.search_area = SearchArea(
-                        center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
-                    )
+            if category == DistanceCategory.NOT_IN_RANGE:
+                session.search_area = SearchArea(
+                    center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
+                )
             elif rssi < 0 and rssi > session.best_rssi:
                 session.best_rssi = rssi
-                session.success_vector = calculate_bearing(
-                    session.search_center.x,
-                    session.search_center.y,
-                    rover_pos.x,
-                    rover_pos.y,
-                )
-
-                # Update search area when best signal improves
                 r_min, r_max = get_distance_range(category)
                 session.search_area = SearchArea(
                     center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
                 )
-
-                # search area updated message
                 await navigation_state.update_status(
                     f"Stronger signal detected ({rssi} dBm). Recalculating LTV search area.",
                     "success",
                 )
 
-            if rssi >= RSSI_THRESHOLDS[DistanceCategory.MODERATE]:
+        if success:
+            current_ring_index += 1
+            if current_ring_index < len(ring_waypoints):
+                session.current_target = NavigationTarget(
+                    position=Position(
+                        x=ring_waypoints[current_ring_index][0],
+                        y=ring_waypoints[current_ring_index][1],
+                    ),
+                    description=f"Triangle waypoint {current_ring_index + 1}/{len(ring_waypoints)}",
+                    arrival_threshold_m=30.0,
+                )
+            else:
+                # All 3 triangle waypoints visited — triangulate LTV direction
                 session.phase = SearchPhase.GRADIENT_ASCENT
+                concentric_pings = session.ping_history[-len(ring_waypoints):]
+                session.success_vector = triangulate_ltv_direction(
+                    concentric_pings, session.search_center
+                )
+                await navigation_state.update_status(
+                    "Triangle scan complete. Triangulating LTV direction for gradient ascent.",
+                    "info",
+                )
                 session.current_target = NavigationTarget(
                     position=get_gradient_waypoint(
                         rover_pos, session.success_vector, session.search_center
@@ -682,27 +712,6 @@ async def evaluate_phase_and_ping():
                     description="Gradient ascent waypoint",
                     arrival_threshold_m=10.0,
                 )
-            else:
-                current_ring_index += 1
-                if current_ring_index < len(ring_waypoints):
-                    session.current_target = NavigationTarget(
-                        position=Position(
-                            x=ring_waypoints[current_ring_index][0],
-                            y=ring_waypoints[current_ring_index][1],
-                        ),
-                        description=f"Ring waypoint {current_ring_index + 1}/{len(ring_waypoints)}",
-                        arrival_threshold_m=10.0,
-                    )
-                else:
-                    session.phase = SearchPhase.GRADIENT_ASCENT
-                    session.success_vector = 0.0
-                    session.current_target = NavigationTarget(
-                        position=get_gradient_waypoint(
-                            rover_pos, session.success_vector, session.search_center
-                        ),
-                        description="Gradient ascent waypoint",
-                        arrival_threshold_m=10.0,
-                    )
 
     elif session.phase == SearchPhase.GRADIENT_ASCENT:
         if success:
@@ -935,22 +944,14 @@ def get_distance_range(category: DistanceCategory) -> Tuple[float, float]:
 def generate_initial_rings(
     center_x: float, center_y: float
 ) -> List[Tuple[float, float]]:
-    rings = [
-        (150.0, [0, 90, 180, 270]),
-        (350.0, [0, 60, 120, 180, 240, 300]),
-        (550.0, [30, 90, 150, 210, 270, 330]),
+    """Generate 3 equilateral triangle waypoints for the concentric search phase."""
+    return [
+        (
+            center_x + TRIANGLE_SEARCH_RADIUS_M * math.cos(math.radians(angle)),
+            center_y + TRIANGLE_SEARCH_RADIUS_M * math.sin(math.radians(angle)),
+        )
+        for angle in [0, 120, 240]
     ]
-    waypoints = []
-    for radius, angles in rings:
-        for angle_deg in angles:
-            angle_rad = math.radians(angle_deg)
-            waypoints.append(
-                (
-                    center_x + radius * math.cos(angle_rad),
-                    center_y + radius * math.sin(angle_rad),
-                )
-            )
-    return waypoints
 
 
 def generate_square_spiral(
@@ -961,6 +962,27 @@ def generate_square_spiral(
             center_x, center_y, SPIRAL_ARM_SPACING_M, SPIRAL_MAX_RADIUS_M
         )
     )[1:]
+
+
+def triangulate_ltv_direction(
+    ping_records: List[PingRecord], search_center: Position
+) -> float:
+    """Estimate the bearing toward the LTV using a weighted centroid of the 3 triangle pings.
+
+    Converts each RSSI (dBm) to a linear power weight (mW) so that the position
+    with the strongest signal pulls the centroid toward the LTV.
+    Falls back to North (0.0°) when no valid readings exist.
+    """
+    valid = [p for p in ping_records if p.rssi < 0]
+    if not valid:
+        return 0.0
+
+    weights = [10 ** (p.rssi / 10) for p in valid]
+    total = sum(weights)
+    est_x = sum(w * p.rover_position.x for w, p in zip(weights, valid)) / total
+    est_y = sum(w * p.rover_position.y for w, p in zip(weights, valid)) / total
+
+    return calculate_bearing(search_center.x, search_center.y, est_x, est_y)
 
 
 def check_for_ltv_proximity(
@@ -1038,15 +1060,31 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
     if last_ping_time and (now - last_ping_time).total_seconds() < PING_COOLDOWN_S:
         return False, 0.0, DistanceCategory.VERY_WEAK
 
-    await asyncio.to_thread(tss_client.send_ltv_ping_normal)
-    await asyncio.sleep(1)
-
-    # Safety guard to fix the "None" type error
+    # Guard before sending — ltv_data must exist to read the response
     if telemetry_service.ltv_data is None:
-        logger.warning(
-            "Ping failed: telemetry_service.ltv_data is not initialized yet."
-        )
+        logger.warning("Ping aborted: telemetry_service.ltv_data is not initialized.")
         return False, 0.0, DistanceCategory.VERY_WEAK
+
+    # Snapshot update timestamp so we know when a fresh poll arrives post-ping
+    pre_ping_update_t = await telemetry_service.ltv_data.get_last_updated()
+
+    await asyncio.to_thread(tss_client.send_ltv_ping_normal)
+
+    # Wait for the next telemetry poll to complete (fire-and-forget ping; response
+    # arrives in the next fetch_json cycle). Poll every 250 ms with a 5 s hard timeout.
+    POLL_INTERVAL_S = 0.25
+    PING_WAIT_TIMEOUT_S = 5.0
+    deadline = asyncio.get_event_loop().time() + PING_WAIT_TIMEOUT_S
+    while True:
+        await asyncio.sleep(POLL_INTERVAL_S)
+        fresh_t = await telemetry_service.ltv_data.get_last_updated()
+        if fresh_t is not None and (
+            pre_ping_update_t is None or fresh_t > pre_ping_update_t
+        ):
+            break
+        if asyncio.get_event_loop().time() >= deadline:
+            logger.warning("Ping timed out waiting for fresh telemetry poll.")
+            return False, 0.0, DistanceCategory.VERY_WEAK
 
     ltv_data = await telemetry_service.ltv_data.get_snapshot()
 
@@ -1069,25 +1107,7 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
             await navigation_state.update_session(state.session)
 
         session = state.session
-        rover_pos = state.rover_position
-
-        # 2. THE TELEMETRY DEADLOCK FIX
-        # If autonomy hasn't started yet, the background loop isn't updating rover_pos.
-        # We must fetch the coordinates manually so the ping can be mapped!
-        if rover_pos is None:
-            try:
-                if telemetry_service.rover_data:
-                    snap = await telemetry_service.rover_data.get_snapshot()
-                    if snap and snap.pr_telemetry:
-                        tel = snap.pr_telemetry
-                        rover_pos = Position(
-                            x=tel.rover_pos_x,
-                            y=tel.rover_pos_y,
-                            heading=tel.heading,
-                        )
-                        await navigation_state.update_rover_position(rover_pos)
-            except Exception as e:
-                logger.error(f"Failed to fetch rover position for manual ping: {e}")
+        rover_pos = await _get_current_rover_position()
 
         # Now that we guarantee we have a session AND a position, save the ping.
         if session is not None and rover_pos is not None:
