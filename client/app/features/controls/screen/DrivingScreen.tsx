@@ -3,6 +3,7 @@ import Dashboard from "~/features/map/sidebar/Dashboard";
 import RoverPanel from "~/features/map/sidebar/RoverPanel";
 import DustStreamView from "./DustStreamView";
 import DustCVStreamView from "./DustCVStreamView";
+import Minimap from "./Minimap";
 import styles from "./DrivingScreen.module.css";
 
 type StreamId = "dust" | "cv";
@@ -10,8 +11,7 @@ type StreamId = "dust" | "cv";
 export default function DrivingScreen() {
     const [primaryStream, setPrimaryStream] = useState<StreamId>("dust");
 
-    const swap = () =>
-        setPrimaryStream((prev) => (prev === "dust" ? "cv" : "dust"));
+    const swap = () => setPrimaryStream((prev) => (prev === "dust" ? "cv" : "dust"));
 
     const PrimaryComponent = primaryStream === "dust" ? DustStreamView : DustCVStreamView;
     const SecondaryComponent = primaryStream === "dust" ? DustCVStreamView : DustStreamView;
@@ -51,7 +51,7 @@ export default function DrivingScreen() {
                     </div>
                 </div>
                 <div className={styles.panel}>
-                    <h5 className="medium">placeholder for minimap</h5>
+                    <Minimap />
                 </div>
             </div>
         </div>

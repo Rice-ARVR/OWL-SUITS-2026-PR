@@ -19,7 +19,9 @@ export default function Minimap() {
     const isAutonomous = navState?.autonomous_driving ?? false;
 
     const svgRef = useRef<SVGSVGElement>(null);
-    const [viewBox, setViewBox] = useState<ViewBox>({ x: -500, y: -400, w: 1000, h: 800 });
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const aspectRef = useRef(1);
+    const [viewBox, setViewBox] = useState<ViewBox>({ x: -500, y: -400, w: 1000, h: 1000 });
     const [isPanning, setIsPanning] = useState(false);
     const panStart = useRef<{ x: number; y: number; vx: number; vy: number }>({
         x: 0,
@@ -27,6 +29,24 @@ export default function Minimap() {
         vx: 0,
         vy: 0,
     });
+
+    useEffect(() => {
+        const el = wrapperRef.current;
+        if (!el) return;
+        const observer = new ResizeObserver((entries) => {
+            const { width, height } = entries[0].contentRect;
+            if (width <= 0) return;
+            const ratio = height / width;
+            aspectRef.current = ratio;
+            setViewBox((prev) => {
+                const newH = prev.w * ratio;
+                const centerY = prev.y + prev.h / 2;
+                return { ...prev, h: newH, y: centerY - newH / 2 };
+            });
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     // Auto-center on rover when it moves significantly
     const lastCenteredRef = useRef<{ x: number; y: number } | null>(null);
@@ -106,7 +126,7 @@ export default function Minimap() {
         setViewBox((prev) => {
             const factor = direction === 1 ? 1 - ZOOM_FACTOR : 1 + ZOOM_FACTOR;
             const newW = Math.min(MAX_VIEW, Math.max(MIN_VIEW, prev.w * factor));
-            const newH = Math.min(MAX_VIEW, Math.max(MIN_VIEW, prev.h * factor));
+            const newH = newW * aspectRef.current;
             return {
                 x: prev.x + (prev.w - newW) / 2,
                 y: prev.y + (prev.h - newH) / 2,
@@ -160,7 +180,7 @@ export default function Minimap() {
     };
 
     return (
-        <div className={styles.wrapper}>
+        <div ref={wrapperRef} className={styles.wrapper}>
             {/* ── SVG canvas ── */}
             <svg
                 ref={svgRef}

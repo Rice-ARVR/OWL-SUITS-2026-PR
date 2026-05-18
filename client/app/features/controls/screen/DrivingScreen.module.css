@@ -31,6 +31,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 8px;
 }
 
 .bottomRow {
@@ -54,7 +55,6 @@
     justify-content: flex-start;
     min-height: 0;
     overflow: hidden;
-    padding: 5px;
 }
 
 .primaryStream {
@@ -65,7 +65,6 @@
     align-items: stretch;
     justify-content: flex-start;
     cursor: pointer;
-    padding: 3px;
 }
 
 .primaryStream:hover > * {
