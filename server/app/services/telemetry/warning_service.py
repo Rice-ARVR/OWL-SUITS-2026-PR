@@ -49,6 +49,8 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
         if source == "rover" and field_name in (
             "battery_level",
             "secondary_battery_level",
+            "fan_pri_rpm",
+            "fan_sec_rpm"
         ):
             continue
         # loop through all telemetry values in given field and check against NominalRange metadata
