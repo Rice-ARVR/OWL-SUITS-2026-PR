@@ -718,3 +718,117 @@
 .stopAutonomyBtn:hover {
     background: #c0392b;
 }
+
+/* ── Assets panel (top-right) ───────────── */
+
+.assetsPanel {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background-color: #1e1e22;
+    border-radius: 12px;
+    z-index: 10;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    min-width: 200px;
+    max-width: 240px;
+}
+
+.assetsPanelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    gap: 8px;
+}
+
+.assetsPanelTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e0e0e0;
+    flex: 1;
+}
+
+.assetsChevron {
+    color: #666;
+    font-size: 11px;
+    transition: transform 0.15s;
+    line-height: 1;
+}
+
+.assetsChevronOpen {
+    transform: rotate(180deg);
+}
+
+.assetsList {
+    max-height: 280px;
+    overflow-y: auto;
+    border-top: 1px solid #2e2e34;
+    padding: 4px 0;
+}
+
+.assetsList::-webkit-scrollbar {
+    width: 4px;
+}
+
+.assetsList::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.assetsList::-webkit-scrollbar-thumb {
+    background: #3a3a42;
+    border-radius: 2px;
+}
+
+.assetItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.assetItem:hover {
+    background: #2a2a30;
+}
+
+.assetDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.assetLabel {
+    font-size: 12px;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.assetGroup {
+    padding: 4px 14px 2px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.assetItemBody {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.assetCoords {
+    font-size: 10px;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

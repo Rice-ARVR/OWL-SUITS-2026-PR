@@ -21,6 +21,7 @@ import { Grid } from "./map-components/Grid";
 import { Marker } from "./map-components/Marker"; // Pins
 import { HazardShape } from "./map-components/HazardShape";
 import { RoverIcon } from "./map-components/RoverIcon";
+import { AstronautIcon } from "./map-components/AstronautIcon";
 
 import mockNavState from "./mock-nav-state.json";
 
@@ -54,6 +55,7 @@ export default function InteractiveMap({
     headlightNotice = null,
 }: InteractiveMapProps) {
     const svgRef = useRef<SVGSVGElement>(null);
+    const coordXInputRef = useRef<HTMLInputElement>(null);
 
     // Only connect to the navigation/stream SSE once the user starts autonomy
     const [autonomyRequested, setAutonomyRequested] = useState(false);
@@ -81,6 +83,9 @@ export default function InteractiveMap({
         ...pos,
         heading: telemetry.getRoverHeading() ?? 0,
     };
+
+    const eva1Imu = telemetry.getEvaImu("eva1");
+    const eva2Imu = telemetry.getEvaImu("eva2");
 
     const isAutonomous = navState?.autonomous_driving ?? false;
 
@@ -142,7 +147,12 @@ export default function InteractiveMap({
         prevStatusLevelRef.current = level;
     }, [navState?.status_level, navState?.status_message]);
     const [savedPingHistory, setSavedPingHistory] = useState<
-        { rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
+        {
+            timestamp?: string;
+            rover_position: { x: number; y: number };
+            rssi: number;
+            signal_category: string;
+        }[]
     >([]);
     const [savedSearchArea, setSavedSearchArea] = useState<{
         center: { x: number; y: number };
@@ -188,6 +198,7 @@ export default function InteractiveMap({
         setSavedPingHistory((prev) => [
             ...prev,
             {
+                timestamp: new Date().toISOString(),
                 rover_position: { x: roverPosition.x, y: roverPosition.y },
                 rssi: lastManualPing.rssi_value,
                 signal_category: lastManualPing.category,
@@ -218,6 +229,18 @@ export default function InteractiveMap({
     const [poiCoordX, setPoiCoordX] = useState("");
     const [poiCoordY, setPoiCoordY] = useState("");
     const [hoveredPointId, setHoveredPointId] = useState<string | null>(null);
+
+    // Focus the X coord input whenever a map click autofills it
+    useEffect(() => {
+        if (pendingPOI && poiStep === "placing") {
+            coordXInputRef.current?.focus();
+        }
+    }, [pendingPOI?.id]);
+    const [hoveredPingIndex, setHoveredPingIndex] = useState<number | null>(null);
+    const [isRoverHovered, setIsRoverHovered] = useState(false);
+    const [isEva1Hovered, setIsEva1Hovered] = useState(false);
+    const [isEva2Hovered, setIsEva2Hovered] = useState(false);
+    const [assetsExpanded, setAssetsExpanded] = useState(false);
 
     // Directions workflow
     const [directionsStep, setDirectionsStep] = useState<DirectionsStep>("selectDestination");
@@ -266,18 +289,28 @@ export default function InteractiveMap({
         const { x, y } = getSVGCoords(e);
 
         if (mode === "addPOI" && poiStep === "placing") {
-            const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
-            setPendingPOI({
-                id: crypto.randomUUID(),
-                x,
-                y,
-                label: defaultName,
-                description: "",
-                type: "poi",
-            });
-            setPoiName(defaultName);
-            setPoiDescription("");
-            setPoiStep("naming");
+            if (pendingPOI) {
+                setPendingPOI((prev) => (prev ? { ...prev, x, y } : null));
+                setPoiCoordX(String(Math.round(x)));
+                setPoiCoordY(String(Math.round(y)));
+                setMousePos(null);
+                setPoiStep("naming");
+                return;
+            } else {
+                const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
+                setPendingPOI({
+                    id: crypto.randomUUID(),
+                    x,
+                    y,
+                    label: defaultName,
+                    description: "",
+                    type: "poi",
+                });
+                setPoiName(defaultName);
+                setPoiDescription("");
+                setPoiCoordX(String(Math.round(x)));
+                setPoiCoordY(String(Math.round(y)));
+            }
         }
 
         if (mode === "plotHazard") {
@@ -361,6 +394,14 @@ export default function InteractiveMap({
         if (mode === "plotHazard" && activeHazard) {
             setMousePos(coords);
         }
+
+        if (mode === "addPOI" && poiStep === "placing") {
+            setMousePos(coords);
+            if (pendingPOI) {
+                setPoiCoordX(String(Math.round(coords.x)));
+                setPoiCoordY(String(Math.round(coords.y)));
+            }
+        }
     };
 
     // ── Pan handlers ──
@@ -379,6 +420,17 @@ export default function InteractiveMap({
 
     const handleMouseUp = () => {
         setIsPanning(false);
+    };
+
+    const centerOn = (x: number, y: number) => {
+        setViewBox((prev) => ({ ...prev, x: x - prev.w / 2, y: y - prev.h / 2 }));
+    };
+
+    const handleMouseLeave = () => {
+        setIsPanning(false);
+        if (mode === "addPOI" && poiStep === "placing") {
+            setMousePos(null);
+        }
     };
 
     // ── Zoom helpers ──
@@ -633,15 +685,16 @@ export default function InteractiveMap({
         const x = parseFloat(poiCoordX);
         const y = parseFloat(poiCoordY);
         if (isNaN(x) || isNaN(y)) return;
-        const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
-        setPendingPOI({
-            id: crypto.randomUUID(),
+        const defaultName =
+            poiName.trim() || `POI ${points.filter((p) => p.type === "poi").length + 1}`;
+        setPendingPOI((prev) => ({
+            id: prev?.id ?? crypto.randomUUID(),
             x,
             y,
             label: defaultName,
             description: "",
             type: "poi",
-        });
+        }));
         setPoiName(defaultName);
         setPoiDescription("");
         setPoiCoordX("");
@@ -1086,29 +1139,54 @@ export default function InteractiveMap({
                                         cx="12"
                                         cy="12"
                                         r="2.5"
-                                        fill={signalStatus === "failed" || signalStatus === "not in range" ? "#e74c3c" : "#6ee7b7"}
+                                        fill={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                     />
                                     <path
                                         d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
                                     <path
                                         d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
-                                        stroke={signalStatus === "failed" || signalStatus === "not in range"? "#e74c3c" : "#6ee7b7"}
+                                        stroke={
+                                            signalStatus === "failed" ||
+                                            signalStatus === "not in range"
+                                                ? "#e74c3c"
+                                                : "#6ee7b7"
+                                        }
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                     />
@@ -1118,7 +1196,9 @@ export default function InteractiveMap({
                                         ? "Signaling LTV"
                                         : signalStatus === "success"
                                           ? "Signal Success"
-                                          : signalStatus === "failed"? "Signal Failed" : "Signal Not In Range"}
+                                          : signalStatus === "failed"
+                                            ? "Signal Failed"
+                                            : "Signal Not In Range"}
                                 </span>
                             </div>
                             {signalStatus === "success" && lastManualPing && (
@@ -1267,21 +1347,32 @@ export default function InteractiveMap({
                             {mode === "addPOI" && poiStep === "placing" && (
                                 <div>
                                     <p className={styles.panelHint}>
-                                        Click on the map to add a POI
+                                        {pendingPOI
+                                            ? "Confirm location or edit coordinates"
+                                            : "Click on the map to place a POI"}
                                     </p>
-                                    <p
-                                        className={styles.panelHint}
-                                        style={{ opacity: 0.5, margin: "4px 0" }}
-                                    >
-                                        — or enter coordinates —
-                                    </p>
+                                    {!pendingPOI && (
+                                        <p
+                                            className={styles.panelHint}
+                                            style={{ opacity: 0.5, margin: "4px 0" }}
+                                        >
+                                            — or enter coordinates —
+                                        </p>
+                                    )}
                                     <div className={styles.poiForm}>
                                         <input
+                                            ref={coordXInputRef}
                                             type="number"
                                             className={styles.poiInput}
                                             value={poiCoordX}
                                             onChange={(e) => setPoiCoordX(e.target.value)}
                                             placeholder="X coordinate"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    placePOIFromCoords();
+                                                }
+                                            }}
                                         />
                                         <input
                                             type="number"
@@ -1302,7 +1393,7 @@ export default function InteractiveMap({
                                             disabled={!poiCoordX || !poiCoordY}
                                             style={{ opacity: !poiCoordX || !poiCoordY ? 0.4 : 1 }}
                                         >
-                                            Place POI
+                                            {pendingPOI ? "Confirm" : "Place POI"}
                                         </button>
                                     </div>
                                 </div>
@@ -1675,11 +1766,12 @@ export default function InteractiveMap({
                 ref={svgRef}
                 className={`${styles.canvas} ${cursorClass}`}
                 viewBox={`${viewBox.x} ${-viewBox.y - viewBox.h} ${viewBox.w} ${viewBox.h}`}
+                preserveAspectRatio="none"
                 onClick={handleCanvasClick}
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
             >
                 <Grid spacing={50} viewBox={viewBox} />
 
@@ -1694,64 +1786,67 @@ export default function InteractiveMap({
                 {/* ── Autonomous Nav Overlays ── */}
 
                 {/* Search area donut */}
-                {savedSearchArea && (
-                    <g>
-                        {/* Outer circle (max radius) */}
-                        <circle
-                            cx={savedSearchArea.center.x}
-                            cy={-savedSearchArea.center.y}
-                            r={savedSearchArea.radius_max_m}
-                            fill="rgba(110, 231, 183, 0.06)"
-                            stroke="#6ee7b7"
-                            strokeWidth="1.5"
-                            strokeDasharray="8 4"
-                            opacity="0.4"
-                        />
-                        {/* Inner circle (min radius) — punches out the donut center */}
-                        {savedSearchArea.radius_min_m > 0 && (
+                {savedSearchArea &&
+                    (savedSearchArea.radius_min_m !== 0 || savedSearchArea.radius_max_m !== 0) && (
+                        <g>
+                            {/* Outer circle (max radius) */}
                             <circle
                                 cx={savedSearchArea.center.x}
                                 cy={-savedSearchArea.center.y}
-                                r={savedSearchArea.radius_min_m}
-                                fill="#1e1e22"
+                                r={savedSearchArea.radius_max_m}
+                                fill="rgba(110, 231, 183, 0.06)"
+                                stroke="#6ee7b7"
+                                strokeWidth="1.5"
+                                strokeDasharray="8 4"
+                                opacity="0.4"
+                            />
+                            {/* Inner circle (min radius) — punches out the donut center */}
+                            {savedSearchArea.radius_min_m > 0 && (
+                                <circle
+                                    cx={savedSearchArea.center.x}
+                                    cy={-savedSearchArea.center.y}
+                                    r={savedSearchArea.radius_min_m}
+                                    fill="#1e1e22"
+                                    stroke="#6ee7b7"
+                                    strokeWidth="1"
+                                    strokeDasharray="4 4"
+                                    opacity="0.35"
+                                />
+                            )}
+                            {/* Center crosshair */}
+                            <circle
+                                cx={savedSearchArea.center.x}
+                                cy={-savedSearchArea.center.y}
+                                r="4"
+                                fill="none"
                                 stroke="#6ee7b7"
                                 strokeWidth="1"
-                                strokeDasharray="4 4"
-                                opacity="0.35"
+                                opacity="0.5"
                             />
-                        )}
-                        {/* Center crosshair */}
-                        <circle
-                            cx={savedSearchArea.center.x}
-                            cy={-savedSearchArea.center.y}
-                            r="4"
-                            fill="none"
-                            stroke="#6ee7b7"
-                            strokeWidth="1"
-                            opacity="0.5"
-                        />
-                        {/* Label */}
-                        <text
-                            x={savedSearchArea.center.x}
-                            y={-savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
-                            textAnchor="middle"
-                            fill="#6ee7b7"
-                            fontSize="10"
-                            opacity="0.6"
-                        >
-                            Search Area (
-                            {savedSearchArea.radius_min_m > 0
-                                ? `${Math.round(savedSearchArea.radius_min_m)}–${Math.round(savedSearchArea.radius_max_m)}m`
-                                : `${Math.round(savedSearchArea.radius_max_m)}m radius`}
-                            )
-                        </text>
-                    </g>
-                )}
+                            {/* Label */}
+                            <text
+                                x={savedSearchArea.center.x}
+                                y={-savedSearchArea.center.y - savedSearchArea.radius_max_m - 10}
+                                textAnchor="middle"
+                                fill="#6ee7b7"
+                                fontSize="10"
+                                opacity="0.6"
+                            >
+                                Search Area (
+                                {savedSearchArea.radius_min_m > 0
+                                    ? `${Math.round(savedSearchArea.radius_min_m)}–${Math.round(savedSearchArea.radius_max_m)}m`
+                                    : `${Math.round(savedSearchArea.radius_max_m)}m radius`}
+                                )
+                            </text>
+                        </g>
+                    )}
 
                 {/* Breadcrumb trail */}
                 {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
                     <polyline
-                        points={navState.session.path_history.map((p) => `${p.x},${-p.y}`).join(" ")}
+                        points={navState.session.path_history
+                            .map((p) => `${p.x},${-p.y}`)
+                            .join(" ")}
                         fill="none"
                         stroke="#6ee7b7"
                         strokeWidth="1.5"
@@ -1787,12 +1882,17 @@ export default function InteractiveMap({
                                 ? "#f97316"
                                 : "#ef4444";
                     return (
-                        <g key={`ping-${i}`}>
+                        <g
+                            key={`ping-${i}`}
+                            onMouseEnter={() => setHoveredPingIndex(i)}
+                            onMouseLeave={() => setHoveredPingIndex(null)}
+                            style={{ cursor: "default" }}
+                        >
                             <circle
                                 cx={ping.rover_position.x}
                                 cy={-ping.rover_position.y}
                                 r="8"
-                                fill="none"
+                                fill="transparent"
                                 stroke={color}
                                 strokeWidth="2"
                                 opacity="0.6"
@@ -1814,6 +1914,116 @@ export default function InteractiveMap({
                             >
                                 {Math.round(ping.rssi)}dBm
                             </text>
+                            {hoveredPingIndex === i &&
+                                (() => {
+                                    const rangeByCategory: Record<string, [number, number]> = {
+                                        strong: [0, 50],
+                                        moderate: [50, 200],
+                                        weak: [200, 500],
+                                        very_weak: [500, 1000],
+                                    };
+                                    const [rMin, rMax] = rangeByCategory[ping.signal_category] ?? [
+                                        0, 0,
+                                    ];
+                                    const ts = ping.timestamp
+                                        ? new Date(ping.timestamp).toLocaleTimeString([], {
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                              second: "2-digit",
+                                          })
+                                        : "—";
+                                    const px = ping.rover_position.x;
+                                    const py = -ping.rover_position.y;
+                                    const tw = 180;
+                                    const lineH = 17;
+                                    const th = lineH * 3 + 14;
+                                    const tx = px - tw / 2;
+                                    const ty = py - 36 - th;
+                                    return (
+                                        <g>
+                                            {/* Range donuts */}
+                                            <circle
+                                                cx={px}
+                                                cy={py}
+                                                r={rMax}
+                                                fill={`${color}0d`}
+                                                stroke={color}
+                                                strokeWidth="1.5"
+                                                strokeDasharray="8 4"
+                                                opacity="0.5"
+                                                pointerEvents="none"
+                                            />
+                                            {rMin > 0 && (
+                                                <circle
+                                                    cx={px}
+                                                    cy={py}
+                                                    r={rMin}
+                                                    fill="#1e1e2240"
+                                                    stroke={color}
+                                                    strokeWidth="1"
+                                                    strokeDasharray="4 4"
+                                                    opacity="0.4"
+                                                    pointerEvents="none"
+                                                />
+                                            )}
+                                            {/* Tooltip */}
+                                            <rect
+                                                x={tx}
+                                                y={ty}
+                                                width={tw}
+                                                height={th}
+                                                rx="6"
+                                                fill="#1e1e22"
+                                                stroke="#444"
+                                                strokeWidth="1"
+                                                pointerEvents="none"
+                                            />
+                                            <polygon
+                                                points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                                fill="#1e1e22"
+                                                stroke="#444"
+                                                strokeWidth="1"
+                                                pointerEvents="none"
+                                            />
+                                            <line
+                                                x1={px - 6}
+                                                y1={ty + th}
+                                                x2={px + 6}
+                                                y2={ty + th}
+                                                stroke="#1e1e22"
+                                                strokeWidth="2"
+                                                pointerEvents="none"
+                                            />
+                                            <text
+                                                x={px}
+                                                y={ty + 8 + lineH * 1}
+                                                textAnchor="middle"
+                                                fill="#6ee7b7"
+                                                fontSize="11"
+                                            >
+                                                {`x: ${Math.round(ping.rover_position.x)}, y: ${Math.round(ping.rover_position.y)}`}
+                                            </text>
+                                            <text
+                                                x={px}
+                                                y={ty + 8 + lineH * 2}
+                                                textAnchor="middle"
+                                                fill="#aaa"
+                                                fontSize="10"
+                                            >
+                                                {ts}
+                                            </text>
+                                            <text
+                                                x={px}
+                                                y={ty + 8 + lineH * 3}
+                                                textAnchor="middle"
+                                                fill={color}
+                                                fontSize="10"
+                                            >
+                                                {`${Math.round(ping.rssi)} dBm · ${ping.signal_category.replace("_", " ")} · ${rMin}–${rMax} m`}
+                                            </text>
+                                        </g>
+                                    );
+                                })()}
                         </g>
                     );
                 })}
@@ -2006,8 +2216,24 @@ export default function InteractiveMap({
                         </g>
                     )}
 
-                {/* Pending POI (faded while editing) */}
-                {pendingPOI && (
+                {/* Ghost POI — follows cursor while repositioning after first click */}
+                {mode === "addPOI" && poiStep === "placing" && pendingPOI && mousePos && (
+                    <g opacity="0.3" pointerEvents="none">
+                        <path
+                            d={`M ${mousePos.x} ${-mousePos.y}
+                  C ${mousePos.x - 4} ${-mousePos.y - 6}, ${mousePos.x - 14} ${-mousePos.y - 16}, ${mousePos.x - 14} ${-mousePos.y - 26}
+                  A 14 14 0 1 1 ${mousePos.x + 14} ${-mousePos.y - 26}
+                  C ${mousePos.x + 14} ${-mousePos.y - 16}, ${mousePos.x + 4} ${-mousePos.y - 6}, ${mousePos.x} ${-mousePos.y} Z`}
+                            fill="#6ee7b7"
+                            stroke="#1e1e22"
+                            strokeWidth="2"
+                        />
+                        <circle cx={mousePos.x} cy={-mousePos.y - 26} r="5" fill="#1e1e22" />
+                    </g>
+                )}
+
+                {/* Pending POI (faded while editing) — shown only when cursor is off canvas */}
+                {pendingPOI && (poiStep !== "placing" || !mousePos) && (
                     <g opacity="0.4">
                         <path
                             d={`M ${pendingPOI.x} ${-pendingPOI.y}
@@ -2039,7 +2265,133 @@ export default function InteractiveMap({
                 )}
 
                 {/* Rover */}
-                <RoverIcon position={roverPosition} />
+                <RoverIcon
+                    position={roverPosition}
+                    onHover={() => setIsRoverHovered(true)}
+                    onLeave={() => setIsRoverHovered(false)}
+                />
+                {isRoverHovered &&
+                    (() => {
+                        const px = roverPosition.x;
+                        const py = -roverPosition.y;
+                        const tw = 160;
+                        const th = 24;
+                        const tx = px - tw / 2;
+                        const ty = py - 40 - th;
+                        const coordText = `x: ${Math.round(roverPosition.x)}, y: ${Math.round(roverPosition.y)}`;
+                        return (
+                            <g>
+                                <rect
+                                    x={tx}
+                                    y={ty}
+                                    width={tw}
+                                    height={th}
+                                    rx="6"
+                                    fill="#1e1e22"
+                                    stroke="#444"
+                                    strokeWidth="1"
+                                />
+                                <polygon
+                                    points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                    fill="#1e1e22"
+                                    stroke="#444"
+                                    strokeWidth="1"
+                                />
+                                <line
+                                    x1={px - 6}
+                                    y1={ty + th}
+                                    x2={px + 6}
+                                    y2={ty + th}
+                                    stroke="#1e1e22"
+                                    strokeWidth="2"
+                                />
+                                <text
+                                    x={px}
+                                    y={ty + 16}
+                                    textAnchor="middle"
+                                    fill="#6ee7b7"
+                                    fontSize="11"
+                                >
+                                    {coordText}
+                                </text>
+                            </g>
+                        );
+                    })()}
+
+                {/* EVA astronauts */}
+                {[
+                    {
+                        imu: eva1Imu,
+                        label: "EVA1" as const,
+                        hovered: isEva1Hovered,
+                        setHovered: setIsEva1Hovered,
+                    },
+                    {
+                        imu: eva2Imu,
+                        label: "EVA2" as const,
+                        hovered: isEva2Hovered,
+                        setHovered: setIsEva2Hovered,
+                    },
+                ].map(({ imu, label, hovered, setHovered }) => {
+                    if (!imu) return null;
+                    const px = imu.posx;
+                    const py = -imu.posy;
+                    const tw = 160;
+                    const th = 24;
+                    const tx = px - tw / 2;
+                    const ty = py - 40 - th;
+                    const coordText = `x: ${Math.round(imu.posx)}, y: ${Math.round(imu.posy)}`;
+                    const color = label === "EVA1" ? "#93c5fd" : "#f9a8d4";
+                    return (
+                        <g key={label}>
+                            <AstronautIcon
+                                x={px}
+                                y={imu.posy}
+                                heading={imu.heading}
+                                label={label}
+                                onHover={() => setHovered(true)}
+                                onLeave={() => setHovered(false)}
+                            />
+                            {hovered && (
+                                <g>
+                                    <rect
+                                        x={tx}
+                                        y={ty}
+                                        width={tw}
+                                        height={th}
+                                        rx="6"
+                                        fill="#1e1e22"
+                                        stroke="#444"
+                                        strokeWidth="1"
+                                    />
+                                    <polygon
+                                        points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                        fill="#1e1e22"
+                                        stroke="#444"
+                                        strokeWidth="1"
+                                    />
+                                    <line
+                                        x1={px - 6}
+                                        y1={ty + th}
+                                        x2={px + 6}
+                                        y2={ty + th}
+                                        stroke="#1e1e22"
+                                        strokeWidth="2"
+                                    />
+                                    <text
+                                        x={px}
+                                        y={ty + 16}
+                                        textAnchor="middle"
+                                        fill={color}
+                                        fontSize="11"
+                                    >
+                                        {coordText}
+                                    </text>
+                                </g>
+                            )}
+                        </g>
+                    );
+                })}
             </svg>
 
             {/* ── Virtual Joystick (bottom-left) ── */}
@@ -2048,6 +2400,168 @@ export default function InteractiveMap({
                     <VirtualJoystick />
                 </div>
             )}
+
+            {/* ── All Assets panel (top-right) ── */}
+            <div className={styles.assetsPanel}>
+                <div
+                    className={styles.assetsPanelHeader}
+                    onClick={() => setAssetsExpanded((v) => !v)}
+                >
+                    <span className={styles.assetsPanelTitle}>All Assets</span>
+                    <span
+                        className={`${styles.assetsChevron} ${assetsExpanded ? styles.assetsChevronOpen : ""}`}
+                    >
+                        ▼
+                    </span>
+                </div>
+
+                {assetsExpanded && (
+                    <div className={styles.assetsList}>
+                        {/* Rover */}
+                        <div className={styles.assetGroup}>Rover</div>
+                        <div
+                            className={styles.assetItem}
+                            onClick={() => centerOn(roverPosition.x, roverPosition.y)}
+                        >
+                            <span className={styles.assetDot} style={{ background: "#6ee7b7" }} />
+                            <div className={styles.assetItemBody}>
+                                <span className={styles.assetLabel}>Rover</span>
+                                <span className={styles.assetCoords}>
+                                    x: {Math.round(roverPosition.x)}, y:{" "}
+                                    {Math.round(roverPosition.y)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* EVAs */}
+                        {(eva1Imu || eva2Imu) && <div className={styles.assetGroup}>EVAs</div>}
+                        {eva1Imu && (
+                            <div
+                                className={styles.assetItem}
+                                onClick={() => centerOn(eva1Imu.posx, eva1Imu.posy)}
+                            >
+                                <span
+                                    className={styles.assetDot}
+                                    style={{ background: "#93c5fd" }}
+                                />
+                                <div className={styles.assetItemBody}>
+                                    <span className={styles.assetLabel}>EVA 1</span>
+                                    <span classsName={styles.assetCoords}>
+                                        x: {Math.round(eva1Imu.posx)}, y: {Math.round(eva1Imu.posy)}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                        {eva2Imu && (
+                            <div
+                                className={styles.assetItem}
+                                onClick={() => centerOn(eva2Imu.posx, eva2Imu.posy)}
+                            >
+                                <span
+                                    className={styles.assetDot}
+                                    style={{ background: "#f9a8d4" }}
+                                />
+                                <div className={styles.assetItemBody}>
+                                    <span className={styles.assetLabel}>EVA 2</span>
+                                    <span className={styles.assetCoords}>
+                                        x: {Math.round(eva2Imu.posx)}, y: {Math.round(eva2Imu.posy)}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* POIs */}
+                        {points.filter((p) => p.type === "poi").length > 0 && (
+                            <div className={styles.assetGroup}>POIs</div>
+                        )}
+                        {points
+                            .filter((p) => p.type === "poi")
+                            .map((p) => (
+                                <div
+                                    key={p.id}
+                                    className={styles.assetItem}
+                                    onClick={() => centerOn(p.x, p.y)}
+                                >
+                                    <span
+                                        className={styles.assetDot}
+                                        style={{ background: "#6ee7b7" }}
+                                    />
+                                    <div className={styles.assetItemBody}>
+                                        <span className={styles.assetLabel}>{p.label}</span>
+                                        <span className={styles.assetCoords}>
+                                            x: {Math.round(p.x)}, y: {Math.round(p.y)}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+
+                        {/* Pings */}
+                        {savedPingHistory.length > 0 && (
+                            <div className={styles.assetGroup}>Pings</div>
+                        )}
+                        {savedPingHistory.map((ping, i) => {
+                            const pingColor =
+                                ping.signal_category === "strong"
+                                    ? "#6ee7b7"
+                                    : ping.signal_category === "moderate"
+                                      ? "#fbbf24"
+                                      : ping.signal_category === "weak"
+                                        ? "#f97316"
+                                        : "#ef4444";
+                            return (
+                                <div
+                                    key={i}
+                                    className={styles.assetItem}
+                                    onClick={() =>
+                                        centerOn(ping.rover_position.x, ping.rover_position.y)
+                                    }
+                                >
+                                    <span
+                                        className={styles.assetDot}
+                                        style={{ background: pingColor }}
+                                    />
+                                    <div className={styles.assetItemBody}>
+                                        <span className={styles.assetLabel}>
+                                            Ping {i + 1} · {Math.round(ping.rssi)} dBm
+                                        </span>
+                                        <span className={styles.assetCoords}>
+                                            x: {Math.round(ping.rover_position.x)}, y:{" "}
+                                            {Math.round(ping.rover_position.y)}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Hazards */}
+                        {hazards.length > 0 && <div className={styles.assetGroup}>Hazards</div>}
+                        {hazards.map((h) => {
+                            const cx = h.points.reduce((s, p) => s + p.x, 0) / h.points.length;
+                            const cy = h.points.reduce((s, p) => s + p.y, 0) / h.points.length;
+                            return (
+                                <div
+                                    key={h.id}
+                                    className={styles.assetItem}
+                                    onClick={() => centerOn(cx, cy)}
+                                >
+                                    <span
+                                        className={styles.assetDot}
+                                        style={{ background: "#ff8a75" }}
+                                    />
+                                    <div className={styles.assetItemBody}>
+                                        <span className={styles.assetLabel}>
+                                            {h.types.length ? h.types.join(", ") : "Hazard"}
+                                        </span>
+                                        <span className={styles.assetCoords}>
+                                            x: {Math.round(cx)}, y: {Math.round(cy)}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
