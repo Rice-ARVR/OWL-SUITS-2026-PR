@@ -20,7 +20,9 @@ _REASONS_PATH = (
 
 _WARNINGS_PATH = (
     pathlib.Path(__file__).parent.parent.parent.parent
-    / "documents"
+    / "app"
+    / "services"
+    / "rag"
     / "active_warnings.json"
 )
 
