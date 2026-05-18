@@ -60,15 +60,26 @@ export default function Summary({
         >
             {/* Images positioned absolutely */}
             <div
-                style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: 83,
-                    width: 272,
-                    height: 226,
-                    transform: "translateX(-50%)",
-                    pointerEvents: "none",
-                }}
+                style={
+                    hasWarnings
+                        ? {
+                              position: "absolute",
+                              right: 6,
+                              bottom: 6,
+                              width: 110,
+                              height: 92,
+                              pointerEvents: "none",
+                          }
+                        : {
+                              position: "absolute",
+                              left: "50%",
+                              top: 83,
+                              width: 272,
+                              height: 226,
+                              transform: "translateX(-50%)",
+                              pointerEvents: "none",
+                          }
+                }
             >
                 <img
                     src={image}
@@ -186,24 +197,6 @@ export default function Summary({
                         >
                             {statusText}
                         </p>
-                    </div>
-                    <div
-                        style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: 5,
-                            overflow: "hidden",
-                        }}
-                    >
-                        <img
-                            src="/AI.png"
-                            alt="AI"
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                            }}
-                        />
                     </div>
                 </div>
             </div>
