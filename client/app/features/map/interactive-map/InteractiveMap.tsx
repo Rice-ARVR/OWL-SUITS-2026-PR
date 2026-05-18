@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import styles from "./InteractiveMap.module.css";
 import { useNavigationState } from "./useNavigationState";
 import { useTelemetry } from "~/hooks/useTelemetry";
+import { useMapContext } from "~/contexts/MapContext";
 import { VirtualJoystick } from "~/features/controls/joystick";
 
 import type {
@@ -57,25 +58,42 @@ export default function InteractiveMap({
     const svgRef = useRef<SVGSVGElement>(null);
     const coordXInputRef = useRef<HTMLInputElement>(null);
 
-    // Only connect to the navigation/stream SSE once the user starts autonomy
-    const [autonomyRequested, setAutonomyRequested] = useState(false);
+    // Shared map state — single source of truth used by both InteractiveMap and Minimap
+    const {
+        points,
+        setPoints,
+        hazards,
+        setHazards,
+        savedPingHistory,
+        setSavedPingHistory,
+        savedSearchArea,
+        setSavedSearchArea,
+        navState: liveNavState,
+        autonomyRequested,
+        setAutonomyRequested,
+        startAutonomy: ctxStartAutonomy,
+        stopAutonomy: ctxStopAutonomy,
+        executePing,
+    } = useMapContext();
 
-    // ── Navigation SSE hook ──
-    const liveNav = useNavigationState(autonomyRequested);
+    // ── Navigation SSE hook (mock shim for debug) ──
+    const liveNav = useNavigationState(false); // unused when not in DEBUG_MODE
 
-    const { navState, connected, startAutonomy, stopAutonomy, executePing } = DEBUG_MODE
+    const { navState, startAutonomy, stopAutonomy } = DEBUG_MODE
         ? {
               navState: autonomyRequested ? (mockNavState as typeof liveNav.navState) : null,
-              connected: true,
               startAutonomy: async () => {
                   setAutonomyRequested(true);
               },
               stopAutonomy: async () => {
                   setAutonomyRequested(false);
               },
-              executePing: async () => {},
           }
-        : liveNav;
+        : {
+              navState: liveNavState,
+              startAutonomy: ctxStartAutonomy,
+              stopAutonomy: ctxStopAutonomy,
+          };
 
     const telemetry = useTelemetry();
     const pos = telemetry.getRoverPosition() ?? { x: 0, y: 0, z: 0 };
@@ -119,8 +137,6 @@ export default function InteractiveMap({
         }
     }, [roverPosition.x, roverPosition.y]);
 
-    const [points, setPoints] = useState<MapPoint[]>([]);
-    const [hazards, setHazards] = useState<Hazard[]>([]);
     const [activeHazard, setActiveHazard] = useState<Hazard | null>(null);
     const [mousePos, setMousePos] = useState<Point | null>(null);
     const [mode, setMode] = useState<Mode>("navigate");
@@ -146,34 +162,6 @@ export default function InteractiveMap({
         }
         prevStatusLevelRef.current = level;
     }, [navState?.status_level, navState?.status_message]);
-    const [savedPingHistory, setSavedPingHistory] = useState<
-        {
-            timestamp?: string;
-            rover_position: { x: number; y: number };
-            rssi: number;
-            signal_category: string;
-        }[]
-    >([]);
-    const [savedSearchArea, setSavedSearchArea] = useState<{
-        center: { x: number; y: number };
-        radius_min_m: number;
-        radius_max_m: number;
-    } | null>(null);
-
-    // Sync ping history from navState into persistent local state
-    useEffect(() => {
-        if (navState?.session?.ping_history && navState.session.ping_history.length > 0) {
-            setSavedPingHistory(navState.session.ping_history);
-        }
-    }, [navState?.session?.ping_history]);
-
-    // Sync search area from navState into persistent local state
-    useEffect(() => {
-        if (navState?.session?.search_area) {
-            setSavedSearchArea(navState.session.search_area);
-        }
-    }, [navState?.session?.search_area]);
-
     // Append manual pings (fired outside of autonomous mode) to saved history
     const lastProcessedPingRef = useRef<ManualPingResult>(null);
 
@@ -2394,13 +2382,6 @@ export default function InteractiveMap({
                 })}
             </svg>
 
-            {/* ── Virtual Joystick (bottom-left) ── */}
-            {!isAutonomous && (
-                <div className={styles.joystickArea}>
-                    <VirtualJoystick />
-                </div>
-            )}
-
             {/* ── All Assets panel (top-right) ── */}
             <div className={styles.assetsPanel}>
                 <div
@@ -2446,7 +2427,7 @@ export default function InteractiveMap({
                                 />
                                 <div className={styles.assetItemBody}>
                                     <span className={styles.assetLabel}>EVA 1</span>
-                                    <span classsName={styles.assetCoords}>
+                                    <span className={styles.assetCoords}>
                                         x: {Math.round(eva1Imu.posx)}, y: {Math.round(eva1Imu.posy)}
                                     </span>
                                 </div>
