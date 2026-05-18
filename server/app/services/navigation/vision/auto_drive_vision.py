@@ -1,11 +1,12 @@
 """Vision-based autonomous drive: travel_vision(targetX, targetY) -> int.
 
 Consumes the YOLO obstacle detections published by `cv_service` (craters,
-boulders, Lunar Home Base, Lunar Terrain Vehicle) and steers the rover toward
-a goal while keeping all four obstacle classes out of its path.
+boulders, Lunar Home Base) and steers the rover toward a goal while keeping
+hazards out of its path.
 
-Returns 0 on success (within ARRIVAL_THRESHOLD_M of the target), 1 to hand
-control back to the user (stuck / boxed-in / timeout / no vision feed).
+Returns 0 on success (within arrival_threshold of the target), 1 to hand
+control back to the user (stuck / boxed-in / timeout / no vision feed), and
+2 to gracefully brake due to a manual ping interrupt.
 
 Conventions (shared with the lidar driver — see navigation_helpers):
 - Steering: positive = right (CW), negative = left (CCW); magnitude in [-1, 1].
@@ -39,7 +40,6 @@ from app.models.navigation_telemetry import (
     VisionTelemetry,
 )
 from app.services.navigation.navigation_helpers import (
-    ARRIVAL_THRESHOLD_M,
     COMMAND_PAUSE_S,
     STUCK_DIST_M,
     STUCK_WINDOW_S,
@@ -70,10 +70,6 @@ _telemetry_sequence = 0
 
 
 # ─── Tunables ─────────────────────────────────────────────────────────────────
-#
-# Shared tunables (ARRIVAL_THRESHOLD_M, TRAVEL_TIMEOUT_S, COMMAND_PAUSE_S,
-# STUCK_DIST_M, STUCK_WINDOW_S, THROTTLE_NORMAL/SLOW) come from
-# navigation_helpers. Only vision-specific tunables live here.
 
 # 12-column scan
 N_COLUMNS = 12
@@ -148,16 +144,16 @@ def _proximity(bbox: Tuple[int, int, int, int], width: int, height: int) -> floa
 
 
 def _column_danger(detections: List[Detection], width: int, height: int) -> List[float]:
-    """Accumulate per-column danger: every column a bbox spans gets += proximity.
-
-    All four obstacle classes are treated as solid no-go regions (the rover can
-    no more drive through a crater than over the base or the LTV).
-    """
+    """Accumulate per-column danger: every column a bbox spans gets += proximity."""
     danger = [0.0] * N_COLUMNS
     if width <= 0:
         return danger
     col_w = width / float(N_COLUMNS)
     for det in detections:
+        # DO NOT treat the objective as an obstacle to avoid!
+        if "ltv" in det.label.lower() or "astronaut" in det.label.lower():
+            continue
+
         x1, _, x2, _ = det.bbox
         p = _proximity(det.bbox, width, height)
         if p <= 0.0:
@@ -297,10 +293,10 @@ def _build_telemetry_snapshot(
 async def travel_vision(
     targetX: float,
     targetY: float,
-    arrival_threshold: float = 5.0,
+    arrival_threshold: float = 20.0,  # Updated buffer size!
     interrupt_event: Optional[asyncio.Event] = None,
 ) -> int:
-    """Drive within ARRIVAL_THRESHOLD_M of (targetX, targetY) using vision only.
+    """Drive within arrival_threshold of (targetX, targetY) using vision only.
 
     Returns 0 on success, 1 to return manual control (stuck / boxed-in /
     timeout / dead vision feed).
@@ -316,6 +312,7 @@ async def travel_vision(
     stuck_anchor: Optional[Tuple[float, float]] = None
     stuck_anchor_t = 0.0
     boxed_streak = 0
+    last_ltv_alert_time = 0.0
 
     try:
         while True:
@@ -338,7 +335,8 @@ async def travel_vision(
                 continue
 
             dist = _distance_to(targetX, targetY, tel.rover_pos_x, tel.rover_pos_y)
-            if dist <= ARRIVAL_THRESHOLD_M:
+            # Use dynamic arrival threshold instead of hardcoded 5m
+            if dist <= arrival_threshold:
                 await _full_stop()
                 logger.info("travel_vision: arrived (dist=%.1fm)", dist)
                 return 0
@@ -364,6 +362,26 @@ async def travel_vision(
                 return 1
 
             assert last_result is not None
+
+            # ── Asynchronous LTV Detection Warning ────────────────────────────
+            # Do not interrupt the drive. Just warn the user of a possible match.
+            has_ltv = any(
+                "ltv" in d.label.lower() or "astronaut" in d.label.lower()
+                for d in last_result.detections
+            )
+            if has_ltv and (now - last_ltv_alert_time > 10.0):
+                # Local import to prevent circular dependency with navigation_service
+                from app.services.navigation.navigation_service import navigation_state
+
+                asyncio.create_task(
+                    navigation_state.update_status(
+                        "LTV Visual Match Detected! High probability of false positive. Navigation continuing.",
+                        "warning",
+                    )
+                )
+                last_ltv_alert_time = now
+            # ──────────────────────────────────────────────────────────────────
+
             h, w = last_result.frame.shape[:2]
             danger = _column_danger(last_result.detections, w, h)
             avoid_steer, center_blocked, total = _vision_steering(danger)
