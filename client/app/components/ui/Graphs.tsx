@@ -174,7 +174,7 @@ export default function Graph({
                             fontSize={10}
                             fontFamily='"Be Vietnam Pro", sans-serif'
                         >
-                            -{sec}s
+                            {sec}s
                         </text>
                     );
                 })}
