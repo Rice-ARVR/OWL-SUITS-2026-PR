@@ -17,6 +17,7 @@ from .procedures_service import get_procedures_context
 logger = logging.getLogger(__name__)
 
 CONTEXT_FILE = Path(__file__).parent / "tss_context.txt"
+WARNINGS_FILE = Path(__file__).parent / "active_warnings.json"
 
 _SYSTEM = """\
 You are Sammy, an AI assistant specialized in NASA lunar missions.
@@ -64,6 +65,12 @@ the CO2 switch on the DCU.
 - temperature > 32°C: suit overheating — alert astronaut to slow down.
 - coolant_storage trending downward below 100: possible coolant leak — monitor closely.
 
+ACTIVE WARNINGS RULES:
+- The === ACTIVE WARNINGS === section lists every field currently out of range or off-nominal.
+- Each line format: [SOURCE] field = value — reason  (severity: CRITICAL if out_of_range, CAUTION if off_nominal)
+- If any CRITICAL warning is present, always mention it — even if the user did not ask.
+- Use these warnings to prioritize your response when multiple issues exist.
+
 TREND ALERTS — always check the EVA TELEMETRY TRENDS section and proactively flag:
 - Any value trending toward its threshold (e.g. scrubber storage rising toward 60%, \
 helmet CO2 rising toward 0.15 psi, suit pressure falling toward 3.5 psi).
@@ -96,6 +103,9 @@ Sammy: "Scrubber A is at 62% — vent it now using the CO2 switch on your DCU."
 === LIVE TSS TELEMETRY ===
 {telemetry}
 
+=== ACTIVE WARNINGS ===
+{warnings}
+
 === ACTIVE MISSION TASKS & PROCEDURES ===
 {procedures}
 
@@ -109,6 +119,35 @@ def _read_telemetry() -> str:
         return CONTEXT_FILE.read_text(encoding="utf-8")
     except FileNotFoundError:
         return "(No telemetry data available yet — TSS polling has not started.)"
+
+
+def _read_warnings() -> str:
+    """Read active_warnings.json and format each entry as a compact line for the system prompt."""
+    import json
+
+    try:
+        raw = WARNINGS_FILE.read_text(encoding="utf-8")
+        entries = json.loads(raw)
+    except FileNotFoundError:
+        return "(No active warnings file found.)"
+    except json.JSONDecodeError:
+        return "(Active warnings file is malformed.)"
+
+    if not entries:
+        return "(No active warnings.)"
+
+    lines = []
+    for w in entries:
+        severity = "CRITICAL" if w.get("out_of_range") else "CAUTION"
+        source = w.get("source", "unknown").upper()
+        field = w.get("field", "unknown")
+        value = w.get("value", "N/A")
+        reason = w.get("reason", "")
+        if isinstance(value, float):
+            value = f"{value:.2f}"
+        lines.append(f"[{source}] {field} = {value} ({severity}) — {reason}")
+
+    return "\n".join(lines)
 
 
 def _format_docs(docs: list) -> str:
@@ -151,6 +190,7 @@ _chain_no_rag = (
     {
         "question": itemgetter("question"),
         "telemetry": RunnableLambda(lambda _: _read_telemetry()),
+        "warnings": RunnableLambda(lambda _: _read_warnings()),
         "procedures": RunnableLambda(lambda _: get_procedures_context()),
         "documents": RunnableLambda(lambda _: "(Document retrieval disabled.)"),
         "chat_history": itemgetter("chat_history"),
@@ -171,6 +211,7 @@ def _get_rag_chain():
             {
                 "question": itemgetter("question"),
                 "telemetry": RunnableLambda(lambda _: _read_telemetry()),
+                "warnings": RunnableLambda(lambda _: _read_warnings()),
                 "procedures": RunnableLambda(lambda _: get_procedures_context()),
                 "documents": itemgetter("question")
                 | get_retriever()
