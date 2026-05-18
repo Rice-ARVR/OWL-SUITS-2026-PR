@@ -147,7 +147,7 @@ export default function InteractiveMap({
         prevStatusLevelRef.current = level;
     }, [navState?.status_level, navState?.status_message]);
     const [savedPingHistory, setSavedPingHistory] = useState<
-        { rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
+        { timestamp?: string; rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
     >([]);
     const [savedSearchArea, setSavedSearchArea] = useState<{
         center: { x: number; y: number };
@@ -193,6 +193,7 @@ export default function InteractiveMap({
         setSavedPingHistory((prev) => [
             ...prev,
             {
+                timestamp: new Date().toISOString(),
                 rover_position: { x: roverPosition.x, y: roverPosition.y },
                 rssi: lastManualPing.rssi_value,
                 signal_category: lastManualPing.category,
@@ -234,6 +235,7 @@ export default function InteractiveMap({
     const [isRoverHovered, setIsRoverHovered] = useState(false);
     const [isEva1Hovered, setIsEva1Hovered] = useState(false);
     const [isEva2Hovered, setIsEva2Hovered] = useState(false);
+    const [assetsExpanded, setAssetsExpanded] = useState(false);
 
     // Directions workflow
     const [directionsStep, setDirectionsStep] = useState<DirectionsStep>("selectDestination");
@@ -282,19 +284,28 @@ export default function InteractiveMap({
         const { x, y } = getSVGCoords(e);
 
         if (mode === "addPOI" && poiStep === "placing") {
-            const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
-            setPendingPOI({
-                id: crypto.randomUUID(),
-                x,
-                y,
-                label: defaultName,
-                description: "",
-                type: "poi",
-            });
-            setPoiName(defaultName);
-            setPoiDescription("");
-            setPoiCoordX(String(Math.round(x)));
-            setPoiCoordY(String(Math.round(y)));
+            if (pendingPOI) {
+                setPendingPOI((prev) => prev ? { ...prev, x, y } : null);
+                setPoiCoordX(String(Math.round(x)));
+                setPoiCoordY(String(Math.round(y)));
+                setMousePos(null);
+                setPoiStep("naming");
+                return;
+            } else {
+                const defaultName = `POI ${points.filter((p) => p.type === "poi").length + 1}`;
+                setPendingPOI({
+                    id: crypto.randomUUID(),
+                    x,
+                    y,
+                    label: defaultName,
+                    description: "",
+                    type: "poi",
+                });
+                setPoiName(defaultName);
+                setPoiDescription("");
+                setPoiCoordX(String(Math.round(x)));
+                setPoiCoordY(String(Math.round(y)));
+            }
         }
 
         if (mode === "plotHazard") {
@@ -378,6 +389,14 @@ export default function InteractiveMap({
         if (mode === "plotHazard" && activeHazard) {
             setMousePos(coords);
         }
+
+        if (mode === "addPOI" && poiStep === "placing") {
+            setMousePos(coords);
+            if (pendingPOI) {
+                setPoiCoordX(String(Math.round(coords.x)));
+                setPoiCoordY(String(Math.round(coords.y)));
+            }
+        }
     };
 
     // ── Pan handlers ──
@@ -396,6 +415,17 @@ export default function InteractiveMap({
 
     const handleMouseUp = () => {
         setIsPanning(false);
+    };
+
+    const centerOn = (x: number, y: number) => {
+        setViewBox((prev) => ({ ...prev, x: x - prev.w / 2, y: y - prev.h / 2 }));
+    };
+
+    const handleMouseLeave = () => {
+        setIsPanning(false);
+        if (mode === "addPOI" && poiStep === "placing") {
+            setMousePos(null);
+        }
     };
 
     // ── Zoom helpers ──
@@ -1736,7 +1766,7 @@ export default function InteractiveMap({
                 onMouseMove={handleMouseMove}
                 onMouseDown={handleMouseDown}
                 onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
             >
                 <Grid spacing={50} viewBox={viewBox} />
 
@@ -1857,7 +1887,7 @@ export default function InteractiveMap({
                                 cx={ping.rover_position.x}
                                 cy={-ping.rover_position.y}
                                 r="8"
-                                fill="none"
+                                fill="transparent"
                                 stroke={color}
                                 strokeWidth="2"
                                 opacity="0.6"
@@ -1881,47 +1911,62 @@ export default function InteractiveMap({
                             </text>
                             {hoveredPingIndex === i &&
                                 (() => {
+                                    const rangeByCategory: Record<string, [number, number]> = {
+                                        strong: [0, 50],
+                                        moderate: [50, 200],
+                                        weak: [200, 500],
+                                        very_weak: [500, 1000],
+                                    };
+                                    const [rMin, rMax] = rangeByCategory[ping.signal_category] ?? [0, 0];
+                                    const ts = ping.timestamp
+                                        ? new Date(ping.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                                        : "—";
                                     const px = ping.rover_position.x;
                                     const py = -ping.rover_position.y;
-                                    const tw = 160;
-                                    const th = 24;
+                                    const tw = 180;
+                                    const lineH = 17;
+                                    const th = lineH * 3 + 14;
                                     const tx = px - tw / 2;
                                     const ty = py - 36 - th;
-                                    const coordText = `x: ${Math.round(ping.rover_position.x)}, y: ${Math.round(ping.rover_position.y)}`;
                                     return (
                                         <g>
-                                            <rect
-                                                x={tx}
-                                                y={ty}
-                                                width={tw}
-                                                height={th}
-                                                rx="6"
-                                                fill="#1e1e22"
-                                                stroke="#444"
-                                                strokeWidth="1"
+                                            {/* Range donuts */}
+                                            <circle
+                                                cx={px}
+                                                cy={py}
+                                                r={rMax}
+                                                fill={`${color}0d`}
+                                                stroke={color}
+                                                strokeWidth="1.5"
+                                                strokeDasharray="8 4"
+                                                opacity="0.5"
+                                                pointerEvents="none"
                                             />
-                                            <polygon
-                                                points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
-                                                fill="#1e1e22"
-                                                stroke="#444"
-                                                strokeWidth="1"
-                                            />
-                                            <line
-                                                x1={px - 6}
-                                                y1={ty + th}
-                                                x2={px + 6}
-                                                y2={ty + th}
-                                                stroke="#1e1e22"
-                                                strokeWidth="2"
-                                            />
-                                            <text
-                                                x={px}
-                                                y={ty + 16}
-                                                textAnchor="middle"
-                                                fill="#6ee7b7"
-                                                fontSize="11"
-                                            >
-                                                {coordText}
+                                            {rMin > 0 && (
+                                                <circle
+                                                    cx={px}
+                                                    cy={py}
+                                                    r={rMin}
+                                                    fill="#1e1e2240"
+                                                    stroke={color}
+                                                    strokeWidth="1"
+                                                    strokeDasharray="4 4"
+                                                    opacity="0.4"
+                                                    pointerEvents="none"
+                                                />
+                                            )}
+                                            {/* Tooltip */}
+                                            <rect x={tx} y={ty} width={tw} height={th} rx="6" fill="#1e1e22" stroke="#444" strokeWidth="1" pointerEvents="none" />
+                                            <polygon points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`} fill="#1e1e22" stroke="#444" strokeWidth="1" pointerEvents="none" />
+                                            <line x1={px - 6} y1={ty + th} x2={px + 6} y2={ty + th} stroke="#1e1e22" strokeWidth="2" pointerEvents="none" />
+                                            <text x={px} y={ty + 8 + lineH * 1} textAnchor="middle" fill="#6ee7b7" fontSize="11">
+                                                {`x: ${Math.round(ping.rover_position.x)}, y: ${Math.round(ping.rover_position.y)}`}
+                                            </text>
+                                            <text x={px} y={ty + 8 + lineH * 2} textAnchor="middle" fill="#aaa" fontSize="10">
+                                                {ts}
+                                            </text>
+                                            <text x={px} y={ty + 8 + lineH * 3} textAnchor="middle" fill={color} fontSize="10">
+                                                {`${Math.round(ping.rssi)} dBm · ${ping.signal_category.replace("_", " ")} · ${rMin}–${rMax} m`}
                                             </text>
                                         </g>
                                     );
@@ -2118,8 +2163,24 @@ export default function InteractiveMap({
                         </g>
                     )}
 
-                {/* Pending POI (faded while editing) */}
-                {pendingPOI && (
+                {/* Ghost POI — follows cursor while repositioning after first click */}
+                {mode === "addPOI" && poiStep === "placing" && pendingPOI && mousePos && (
+                    <g opacity="0.3" pointerEvents="none">
+                        <path
+                            d={`M ${mousePos.x} ${-mousePos.y}
+                  C ${mousePos.x - 4} ${-mousePos.y - 6}, ${mousePos.x - 14} ${-mousePos.y - 16}, ${mousePos.x - 14} ${-mousePos.y - 26}
+                  A 14 14 0 1 1 ${mousePos.x + 14} ${-mousePos.y - 26}
+                  C ${mousePos.x + 14} ${-mousePos.y - 16}, ${mousePos.x + 4} ${-mousePos.y - 6}, ${mousePos.x} ${-mousePos.y} Z`}
+                            fill="#6ee7b7"
+                            stroke="#1e1e22"
+                            strokeWidth="2"
+                        />
+                        <circle cx={mousePos.x} cy={-mousePos.y - 26} r="5" fill="#1e1e22" />
+                    </g>
+                )}
+
+                {/* Pending POI (faded while editing) — shown only when cursor is off canvas */}
+                {pendingPOI && (poiStep !== "placing" || !mousePos) && (
                     <g opacity="0.4">
                         <path
                             d={`M ${pendingPOI.x} ${-pendingPOI.y}
@@ -2247,6 +2308,130 @@ export default function InteractiveMap({
                     <VirtualJoystick />
                 </div>
             )}
+
+            {/* ── All Assets panel (top-right) ── */}
+            <div className={styles.assetsPanel}>
+                <div
+                    className={styles.assetsPanelHeader}
+                    onClick={() => setAssetsExpanded((v) => !v)}
+                >
+                    <span className={styles.assetsPanelTitle}>All Assets</span>
+                    <span className={`${styles.assetsChevron} ${assetsExpanded ? styles.assetsChevronOpen : ""}`}>▼</span>
+                </div>
+
+                {assetsExpanded && (
+                    <div className={styles.assetsList}>
+                        {/* Rover */}
+                        <div className={styles.assetGroup}>Rover</div>
+                        <div
+                            className={styles.assetItem}
+                            onClick={() => centerOn(roverPosition.x, roverPosition.y)}
+                        >
+                            <span className={styles.assetDot} style={{ background: "#6ee7b7" }} />
+                            <div className={styles.assetItemBody}>
+                                <span className={styles.assetLabel}>Rover</span>
+                                <span className={styles.assetCoords}>x: {Math.round(roverPosition.x)}, y: {Math.round(roverPosition.y)}</span>
+                            </div>
+                        </div>
+
+                        {/* EVAs */}
+                        {(eva1Imu || eva2Imu) && (
+                            <div className={styles.assetGroup}>EVAs</div>
+                        )}
+                        {eva1Imu && (
+                            <div
+                                className={styles.assetItem}
+                                onClick={() => centerOn(eva1Imu.posx, eva1Imu.posy)}
+                            >
+                                <span className={styles.assetDot} style={{ background: "#93c5fd" }} />
+                                <div className={styles.assetItemBody}>
+                                    <span className={styles.assetLabel}>EVA 1</span>
+                                    <span className={styles.assetCoords}>x: {Math.round(eva1Imu.posx)}, y: {Math.round(eva1Imu.posy)}</span>
+                                </div>
+                            </div>
+                        )}
+                        {eva2Imu && (
+                            <div
+                                className={styles.assetItem}
+                                onClick={() => centerOn(eva2Imu.posx, eva2Imu.posy)}
+                            >
+                                <span className={styles.assetDot} style={{ background: "#f9a8d4" }} />
+                                <div className={styles.assetItemBody}>
+                                    <span className={styles.assetLabel}>EVA 2</span>
+                                    <span className={styles.assetCoords}>x: {Math.round(eva2Imu.posx)}, y: {Math.round(eva2Imu.posy)}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* POIs */}
+                        {points.filter((p) => p.type === "poi").length > 0 && (
+                            <div className={styles.assetGroup}>POIs</div>
+                        )}
+                        {points
+                            .filter((p) => p.type === "poi")
+                            .map((p) => (
+                                <div
+                                    key={p.id}
+                                    className={styles.assetItem}
+                                    onClick={() => centerOn(p.x, p.y)}
+                                >
+                                    <span className={styles.assetDot} style={{ background: "#6ee7b7" }} />
+                                    <div className={styles.assetItemBody}>
+                                        <span className={styles.assetLabel}>{p.label}</span>
+                                        <span className={styles.assetCoords}>x: {Math.round(p.x)}, y: {Math.round(p.y)}</span>
+                                    </div>
+                                </div>
+                            ))}
+
+                        {/* Pings */}
+                        {savedPingHistory.length > 0 && (
+                            <div className={styles.assetGroup}>Pings</div>
+                        )}
+                        {savedPingHistory.map((ping, i) => {
+                            const pingColor =
+                                ping.signal_category === "strong" ? "#6ee7b7"
+                                : ping.signal_category === "moderate" ? "#fbbf24"
+                                : ping.signal_category === "weak" ? "#f97316"
+                                : "#ef4444";
+                            return (
+                                <div
+                                    key={i}
+                                    className={styles.assetItem}
+                                    onClick={() => centerOn(ping.rover_position.x, ping.rover_position.y)}
+                                >
+                                    <span className={styles.assetDot} style={{ background: pingColor }} />
+                                    <div className={styles.assetItemBody}>
+                                        <span className={styles.assetLabel}>Ping {i + 1} · {Math.round(ping.rssi)} dBm</span>
+                                        <span className={styles.assetCoords}>x: {Math.round(ping.rover_position.x)}, y: {Math.round(ping.rover_position.y)}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Hazards */}
+                        {hazards.length > 0 && (
+                            <div className={styles.assetGroup}>Hazards</div>
+                        )}
+                        {hazards.map((h) => {
+                            const cx = h.points.reduce((s, p) => s + p.x, 0) / h.points.length;
+                            const cy = h.points.reduce((s, p) => s + p.y, 0) / h.points.length;
+                            return (
+                                <div
+                                    key={h.id}
+                                    className={styles.assetItem}
+                                    onClick={() => centerOn(cx, cy)}
+                                >
+                                    <span className={styles.assetDot} style={{ background: "#ff8a75" }} />
+                                    <div className={styles.assetItemBody}>
+                                        <span className={styles.assetLabel}>{h.types.length ? h.types.join(", ") : "Hazard"}</span>
+                                        <span className={styles.assetCoords}>x: {Math.round(cx)}, y: {Math.round(cy)}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
