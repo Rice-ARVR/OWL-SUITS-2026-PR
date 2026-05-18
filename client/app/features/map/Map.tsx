@@ -72,14 +72,6 @@ export default function Map() {
 
     return (
         <div className={styles.layout}>
-            <SideBar
-                isAutonomous={isAutonomous}
-                onStopAutonomy={() => stopAutonomyRef.current?.()}
-                isSignaling={isSignaling}
-                onSignalLTV={handleSignalLTV}
-                onHeadlightToggle={handleHeadlightToggle}
-            />
-
             <div className={styles.main}>
                 <TopBar isAutonomous={isAutonomous} currentTargetPos={currentTargetPos} />
                 <div className={styles.mapContainer}>
@@ -94,6 +86,13 @@ export default function Map() {
                     />
                 </div>
             </div>
+            <SideBar
+                isAutonomous={isAutonomous}
+                onStopAutonomy={() => stopAutonomyRef.current?.()}
+                isSignaling={isSignaling}
+                onSignalLTV={handleSignalLTV}
+                onHeadlightToggle={handleHeadlightToggle}
+            />
         </div>
     );
 }

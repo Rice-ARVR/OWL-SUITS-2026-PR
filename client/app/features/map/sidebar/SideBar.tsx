@@ -21,11 +21,6 @@ export default function SideBar({
 }: SideBarProps) {
     return (
         <div className={styles.sidebar}>
-            <div className={styles.topRow}>
-                <Dashboard />
-                <RoverPanel />
-            </div>
-
             <div className={styles.taskWrapper}>
                 <TaskPanel />
             </div>
