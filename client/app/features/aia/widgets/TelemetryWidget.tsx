@@ -97,15 +97,17 @@ export default function TelemetryWidget({ widget }: Props) {
                 )}
             </div>
 
-            <div className={styles.aiaWidgetValue}>
-                {typeof liveValue === "number" ? liveValue.toFixed(2) : liveValue}
-                {widget.unit && <span className={styles.aiaWidgetUnit}> {widget.unit}</span>}
-            </div>
+            <div className={styles.aiaWidgetValueRow}>
+                <div className={styles.aiaWidgetValue}>
+                    {typeof liveValue === "number" ? liveValue.toFixed(2) : liveValue}
+                    {widget.unit && <span className={styles.aiaWidgetUnit}> {widget.unit}</span>}
+                </div>
 
-            <div className={styles.aiaWidgetFooter}>
-                {source && <span className={styles.aiaWidgetSource}>{source}</span>}
-                {trendSymbol && <span>Trend: {trendSymbol}</span>}
-                {widget.message && <span>{widget.message}</span>}
+                <div className={styles.aiaWidgetFooter}>
+                    {source && <span className={styles.aiaWidgetSource}>{source}</span>}
+                    {trendSymbol && <span>Trend: {trendSymbol}</span>}
+                    {widget.message && <span>{widget.message}</span>}
+                </div>
             </div>
         </div>
     );

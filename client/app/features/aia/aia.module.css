@@ -226,6 +226,13 @@
     }
 }
 
+.telemetryWidgetGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+}
+
 .aiaWidget {
     margin-top: 8px;
     padding: 12px;
@@ -235,6 +242,24 @@
     color: #d7dde5;
     max-width: 320px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.telemetryWidgetGrid .aiaWidget {
+    margin-top: 0;
+    max-width: none;
+    padding: 8px 10px;
+}
+
+.telemetryWidgetGrid .aiaWidgetTitle {
+    font-size: 11px;
+}
+
+.telemetryWidgetGrid .aiaWidgetValue {
+    font-size: 18px;
+}
+
+.telemetryWidgetGrid .aiaWidgetFooter {
+    font-size: 11px;
 }
 
 .actionModalWidget {
@@ -268,13 +293,21 @@
     opacity: 0.8;
 }
 
+.aiaWidgetValueRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+    gap: 8px;
+}
+
 .aiaWidgetFooter {
-    margin-top: 6px;
     font-size: 12px;
     color: #9aa4b2;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
     gap: 6px;
 }
 

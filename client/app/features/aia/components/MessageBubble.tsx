@@ -29,16 +29,36 @@ export default function MessageBubble({ msg, index, dismissedActionIds, fallback
                 )}
             </div>
 
-            {[...( msg.widgets ?? [])]
-                .filter((widget) => !dismissedActionIds.has(widget.id))
-                .sort((a, b) => (a.type === "system_action" ? 1 : 0) - (b.type === "system_action" ? 1 : 0))
-                .map((widget) => (
-                    <AIAWidgetRenderer
-                        key={widget.id}
-                        widget={widget}
-                        onSystemAction={onSystemAction}
-                    />
-                ))}
+            {(() => {
+                const visible = [...(msg.widgets ?? [])].filter(
+                    (widget) => !dismissedActionIds.has(widget.id),
+                );
+                const telemetry = visible.filter((w) => w.type === "telemetry");
+                const others = visible.filter((w) => w.type !== "telemetry");
+
+                return (
+                    <>
+                        {telemetry.length > 0 && (
+                            <div className={styles.telemetryWidgetGrid}>
+                                {telemetry.map((widget) => (
+                                    <AIAWidgetRenderer
+                                        key={widget.id}
+                                        widget={widget}
+                                        onSystemAction={onSystemAction}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        {others.map((widget) => (
+                            <AIAWidgetRenderer
+                                key={widget.id}
+                                widget={widget}
+                                onSystemAction={onSystemAction}
+                            />
+                        ))}
+                    </>
+                );
+            })()}
         </div>
     );
 }
