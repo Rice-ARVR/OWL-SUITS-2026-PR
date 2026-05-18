@@ -11,11 +11,15 @@ from langchain_ollama import ChatOllama
 
 from app.core.config import settings
 
+from app.services.telemetry.telemetry_formatter import format_key
+
 from .document_service import get_retriever
+from .procedures_service import get_procedures_context
 
 logger = logging.getLogger(__name__)
 
 CONTEXT_FILE = Path(__file__).parent / "tss_context.txt"
+WARNINGS_FILE = Path(__file__).parent / "active_warnings.json"
 
 _SYSTEM = """\
 You are Sammy, an AI assistant specialized in NASA lunar missions.
@@ -26,17 +30,63 @@ TELEMETRY STRUCTURE:
 - EVA section: spacesuit telemetry for EVA 1 and EVA 2 (heart rate, suit pressure, oxygen, etc.)
 - ROVER section: pressurized rover cabin telemetry (cabin_pressure, cabin_temperature, speed, etc.)
 - LTV section: lunar terrain vehicle location and signal data.
+- LTV_ERRORS section: active error procedures for the lunar terrain vehicle. Each entry contains:
+    "code": the error identifier
+    "description": what the error means
+    "needs_resolved": true if the error requires immediate astronaut action
+    "procedures": ordered list of resolution steps to follow
+- EVA TELEMETRY TRENDS section: per-field deltas for EVA1 and EVA2 showing direction \
+(rising/falling/stable) and magnitude over recent poll cycles.
+
 When asked about "cabin pressure", "cabin temperature", or any rover metric, \
 always read from the ROVER section, NOT the EVA section.
 When asked about suit pressure, heart rate, or oxygen storage, read from the EVA section.
+When asked why something is happening, what is wrong, or what to do, \
+check LTV_ERRORS and EVA error thresholds first, then use RELEVANT MISSION DOCUMENTS below.
+
+EVA ERROR THRESHOLDS AND PROCEDURES:
+
+IMPORTANT — there are TWO separate CO2 readings. They measure different things and have different fixes:
+- suit_pressure_co2: CO2 level in the OVERALL SUIT ATMOSPHERE. Caused by a full scrubber.
+  Threshold: > 0.1 psi. Fix: vent the scrubber using the CO2 switch on the DCU.
+- helmet_pressure_co2: CO2 level specifically in the HELMET BUBBLE. Caused by fan failure.
+  Threshold: > 0.15 psi. Fix: swap to secondary fan using the fan switch on the DCU. Return to PR ASAP.
+Never confuse these two. Always check which field is actually out of range before responding.
+
+Other thresholds:
+- heart_rate > 160 BPM: alert astronaut to slow down and rest immediately.
+- suit_pressure_oxy outside 3.5–4.1 psi: primary O2 supply issue — swap to secondary O2 tank \
+using the oxygen switch on the DCU. Return to PR ASAP.
+- suit_pressure_other > 0.5 psi: unknown gas contamination — return to PR ASAP.
+- suit_pressure_total outside 3.5–4.5 psi: check suit_pressure_oxy and scrubber values \
+and follow their respective procedures.
+- fan_pri_rpm or fan_sec_rpm below 30,000 rpm while active: fan error — swap to the other fan \
+using the fan switch on the DCU. Return to PR ASAP.
+- scrubber_a_co2_storage or scrubber_b_co2_storage > 60%: scrubber nearly full — vent using \
+the CO2 switch on the DCU.
+- temperature > 32°C: suit overheating — alert astronaut to slow down.
+- coolant_storage trending downward below 100: possible coolant leak — monitor closely.
+
+ACTIVE WARNINGS RULES:
+- The === ACTIVE WARNINGS === section lists every field currently out of range or off-nominal.
+- Each line format: [SOURCE] field = value — reason  (severity: CRITICAL if out_of_range, CAUTION if off_nominal)
+- If any CRITICAL warning is present, always mention it — even if the user did not ask.
+- Use these warnings to prioritize your response when multiple issues exist.
+
+TREND ALERTS — always check the EVA TELEMETRY TRENDS section and proactively flag:
+- Any value trending toward its threshold (e.g. scrubber storage rising toward 60%, \
+helmet CO2 rising toward 0.15 psi, suit pressure falling toward 3.5 psi).
+- Sustained rising trends in heart_rate or temperature.
+- Sustained falling trends in suit_pressure_total or suit_pressure_oxy.
 
 RESPONSE RULES:
-- Be short and concise: 40 words maximum per response.
-- Do not provide any additional information not asked by the user.
+- Keep all responses short — 1 to 3 sentences maximum. The astronaut is in the field.
+- For telemetry queries: one sentence with the value.
+- For errors: state what is wrong and the immediate action in two sentences. Do not explain the science.
+- If any LTV_ERRORS entry has needs_resolved: true, report it in one sentence even if not asked.
 - Answer using ONLY the data provided below.
 - If a specific value is missing from the snapshot, say it is not available in the current reading.
 - When the user says "I", "my", or "myself", treat them as EVA 1 in the telemetry data.
-- You MAY analyse data to explain anomalies, but ground all analysis in NASA space and lunar mission context.
 - Truncate all telemetry values to two decimal places when reporting them (e.g. 67.1235234 → 67.12).
 
 EXAMPLES:
@@ -46,8 +96,20 @@ Sammy: "EVA 1 heart rate is 92.00 BPM."
 User: "What is the cabin pressure?"
 Sammy: "Rover cabin pressure is 3.93 psi."
 
+User: "Why is my suit pressure dropping?"
+Sammy: "Your suit_pressure_oxy is below range — swap to the secondary O2 tank using the oxygen switch on your DCU and return to PR."
+
+User: "What's wrong with the scrubber?"
+Sammy: "Scrubber A is at 62% — vent it now using the CO2 switch on your DCU."
+
 === LIVE TSS TELEMETRY ===
 {telemetry}
+
+=== ACTIVE WARNINGS ===
+{warnings}
+
+=== ACTIVE MISSION TASKS & PROCEDURES ===
+{procedures}
 
 === RELEVANT MISSION DOCUMENTS ===
 {documents}"""
@@ -59,6 +121,35 @@ def _read_telemetry() -> str:
         return CONTEXT_FILE.read_text(encoding="utf-8")
     except FileNotFoundError:
         return "(No telemetry data available yet — TSS polling has not started.)"
+
+
+def _read_warnings() -> str:
+    """Read active_warnings.json and format each entry as a compact line for the system prompt."""
+    import json
+
+    try:
+        raw = WARNINGS_FILE.read_text(encoding="utf-8")
+        entries = json.loads(raw)
+    except FileNotFoundError:
+        return "(No active warnings file found.)"
+    except json.JSONDecodeError:
+        return "(Active warnings file is malformed.)"
+
+    if not entries:
+        return "(No active warnings.)"
+
+    lines = []
+    for w in entries:
+        severity = "CRITICAL" if w.get("out_of_range") else "CAUTION"
+        source = w.get("source", "unknown").upper()
+        field = format_key(w.get("field", "unknown"))
+        value = w.get("value", "N/A")
+        reason = w.get("reason", "")
+        if isinstance(value, float):
+            value = f"{value:.2f}"
+        lines.append(f"[{source}] {field} = {value} ({severity}) — {reason}")
+
+    return "\n".join(lines)
 
 
 def _format_docs(docs: list) -> str:
@@ -86,7 +177,7 @@ def get_raw_context() -> str:
 
 
 # Singletons — built once at module load, reused for every request.
-_llm = ChatOllama(model="llama3.2", base_url=settings.OLLAMA_URL, keep_alive=-1)
+_llm = ChatOllama(model=settings.AIA_MODEL, base_url=settings.OLLAMA_URL, keep_alive=-1)
 
 _prompt = ChatPromptTemplate.from_messages(
     [
@@ -101,6 +192,8 @@ _chain_no_rag = (
     {
         "question": itemgetter("question"),
         "telemetry": RunnableLambda(lambda _: _read_telemetry()),
+        "warnings": RunnableLambda(lambda _: _read_warnings()),
+        "procedures": RunnableLambda(lambda _: get_procedures_context()),
         "documents": RunnableLambda(lambda _: "(Document retrieval disabled.)"),
         "chat_history": itemgetter("chat_history"),
     }
@@ -120,7 +213,11 @@ def _get_rag_chain():
             {
                 "question": itemgetter("question"),
                 "telemetry": RunnableLambda(lambda _: _read_telemetry()),
-                "documents": get_retriever() | RunnableLambda(_format_docs),
+                "warnings": RunnableLambda(lambda _: _read_warnings()),
+                "procedures": RunnableLambda(lambda _: get_procedures_context()),
+                "documents": itemgetter("question")
+                | get_retriever()
+                | RunnableLambda(_format_docs),
                 "chat_history": itemgetter("chat_history"),
             }
             | _prompt

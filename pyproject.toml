@@ -1,0 +1,11 @@
+[project]
+name = "workspace"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.136.1",
+    "langchain-core>=1.4.0",
+    "langchain-ollama>=1.1.0",
+    "pydantic>=2.13.4",
+    "starlette>=1.0.0",
+]

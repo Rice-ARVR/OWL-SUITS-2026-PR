@@ -11,4 +11,4 @@ class Warning:
     nominal: float | None
     out_of_range: bool
     off_nominal: bool  # in range but deviating from nominal
-    reason: str = ""   # optional field to provide additional context or explanation for the warning (AIA)
+    reason: str = ""  # optional field to provide additional context or explanation for the warning (AIA)

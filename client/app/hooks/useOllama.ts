@@ -1,25 +1,37 @@
 import { useState } from "react";
+import type { AIAWidgetData } from "../types/aiaWidgets";
 
 export interface Message {
     role: "user" | "assistant";
     content: string;
+    widgets?: AIAWidgetData[];
+    hidden?: boolean;
 }
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-export function useOllama(model = "llama3.2") {
+function cleanAssistantText(text: string) {
+    return text
+        .replace(/\[(EVA|ROVER|LTV|LTV_ERRORS)\]\s*/gi, "")
+        .replace(/^EVA section:\s*/gi, "")
+        .replace(/^ROVER section:\s*/gi, "")
+        .replace(/^LTV section:\s*/gi, "")
+        .trim();
+}
+
+export function useOllama() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [connected, setConnected] = useState<boolean | null>(null);
 
-    const chat = async (prompt: string) => {
+    const chat = async (prompt: string, options?: { hidden?: boolean; suppressWidgetTypes?: string[] }) => {
         setLoading(true);
         setError(null);
 
         // Snapshot history before this turn, then immediately show the user message
         const historyToSend = [...messages];
-        setMessages((prev) => [...prev, { role: "user", content: prompt }]);
+        setMessages((prev) => [...prev, { role: "user", content: prompt, hidden: options?.hidden }]);
 
         let fullResponse = "";
 
@@ -28,11 +40,10 @@ export function useOllama(model = "llama3.2") {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model,
                     question: prompt,
                     stream: true,
                     chat_history: historyToSend,
-                    use_rag: false,
+                    use_rag: true,
                 }),
             });
 
@@ -75,6 +86,7 @@ export function useOllama(model = "llama3.2") {
                     try {
                         const parsed = JSON.parse(data) as {
                             response?: string;
+                            widgets?: AIAWidgetData[];
                             error?: string;
                         };
 
@@ -90,7 +102,10 @@ export function useOllama(model = "llama3.2") {
                                 const updated = [...prev];
                                 updated[updated.length - 1] = {
                                     role: "assistant",
-                                    content: fullResponse,
+                                    content: cleanAssistantText(fullResponse),
+                                    widgets: (parsed.widgets ?? []).filter(
+                                        (w) => !options?.suppressWidgetTypes?.includes(w.type),
+                                    ),
                                 };
                                 return updated;
                             });

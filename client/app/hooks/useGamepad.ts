@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-import { readGamepadState, type GamepadState } from "~/features/controls/gamepad/gamepad_controller";
+import {
+    readGamepadState,
+    type GamepadState,
+} from "~/features/controls/gamepad/gamepad_controller";
 import { controllerManager } from "~/lib/controllerManager";
 
 const SEND_INTERVAL_MS = 50;
@@ -47,8 +50,12 @@ export function useGamepad(): GamepadHookState {
 
     useEffect(() => {
         controllerManager.registerInitialSync({
-            throttle: 0, steering: 0, brakes: 1.0,
-            cabin_heating: 0, cabin_cooling: 0, headlights: 0,
+            throttle: 0,
+            steering: 0,
+            brakes: 1.0,
+            cabin_heating: 0,
+            cabin_cooling: 0,
+            headlights: 0,
         });
         controllerManager.connect();
 
@@ -83,7 +90,8 @@ export function useGamepad(): GamepadHookState {
                 const headlightsChanged = state.headlights !== prev.headlights;
 
                 const analogChanged = throttleChanged || steeringChanged || brakesChanged;
-                const toggleChanged = cabinHeatingChanged || cabinCoolingChanged || headlightsChanged;
+                const toggleChanged =
+                    cabinHeatingChanged || cabinCoolingChanged || headlightsChanged;
                 const rateLimitElapsed = timestamp - lastSendTimeRef.current >= SEND_INTERVAL_MS;
 
                 // Toggles are sent immediately; analog values are rate-limited.
@@ -133,5 +141,14 @@ export function useGamepad(): GamepadHookState {
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return { throttle, steering, brakes, cabinHeating, cabinCooling, headlights, connected, hardwareError };
+    return {
+        throttle,
+        steering,
+        brakes,
+        cabinHeating,
+        cabinCooling,
+        headlights,
+        connected,
+        hardwareError,
+    };
 }

@@ -391,84 +391,83 @@ export default function TaskPanel() {
                 </div>
 
                 {/* Tasks tab */}
-                {activeTab === "tasks" && (
-                    <>
-                        <div className={styles.scrollArea}>
-                            {current && (
-                                <TaskCard
-                                    task={current}
-                                    checkedTasks={checkedTasks}
-                                    onToggle={toggleTask}
-                                />
-                            )}
+                <div style={{ display: activeTab === "tasks" ? "contents" : "none" }}>
+                    <div className={styles.scrollArea}>
+                        {current && (
+                            <TaskCard
+                                task={current}
+                                checkedTasks={checkedTasks}
+                                onToggle={toggleTask}
+                            />
+                        )}
 
-                            {!current && (
-                                <div className={styles.allDone}>
-                                    <span>All tasks completed</span>
-                                </div>
-                            )}
+                        {!current && (
+                            <div className={styles.allDone}>
+                                <span>All tasks completed</span>
+                            </div>
+                        )}
 
-                            {upcoming.length > 0 && (
-                                <>
-                                    <span className={styles.sectionLabel}>Upcoming tasks</span>
-                                    {upcoming.map((task) => (
-                                        <TaskCard
-                                            key={task.id}
-                                            task={task}
-                                            checkedTasks={checkedTasks}
-                                            onToggle={toggleTask}
-                                        />
-                                    ))}
-                                </>
-                            )}
-                        </div>
+                        {upcoming.length > 0 && (
+                            <>
+                                <span className={styles.sectionLabel}>Upcoming tasks</span>
+                                {upcoming.map((task) => (
+                                    <TaskCard
+                                        key={task.id}
+                                        task={task}
+                                        checkedTasks={checkedTasks}
+                                        onToggle={toggleTask}
+                                    />
+                                ))}
+                            </>
+                        )}
+                    </div>
 
-                        <div className={styles.completedSection}>
-                            {completedExpanded && completed.length > 0 && (
-                                <div className={styles.completedList}>
-                                    {completed.map((task) => (
-                                        <TaskCard
-                                            key={task.id}
-                                            task={task}
-                                            checkedTasks={checkedTasks}
-                                            onToggle={toggleTask}
-                                            readonly
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                            <button
-                                className={styles.completedRow}
-                                onClick={() => setCompletedExpanded(!completedExpanded)}
+                    <div className={styles.completedSection}>
+                        {completedExpanded && completed.length > 0 && (
+                            <div className={styles.completedList}>
+                                {completed.map((task) => (
+                                    <TaskCard
+                                        key={task.id}
+                                        task={task}
+                                        checkedTasks={checkedTasks}
+                                        onToggle={toggleTask}
+                                        readonly
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        <button
+                            className={styles.completedRow}
+                            onClick={() => setCompletedExpanded(!completedExpanded)}
+                        >
+                            <span className={styles.completedText}>
+                                {completed.length} task{completed.length !== 1 ? "s" : ""}{" "}
+                                completed
+                            </span>
+                            <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="#888"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className={`${styles.chevronIcon} ${completedExpanded ? styles.completedChevronOpen : ""}`}
                             >
-                                <span className={styles.completedText}>
-                                    {completed.length} task{completed.length !== 1 ? "s" : ""}{" "}
-                                    completed
-                                </span>
-                                <svg
-                                    width="18"
-                                    height="18"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="#888"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className={`${styles.chevronIcon} ${completedExpanded ? styles.completedChevronOpen : ""}`}
-                                >
-                                    <polyline points="9 18 15 12 9 6" />
-                                </svg>
-                            </button>
-                        </div>
-                    </>
-                )}
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
                 {/* Assistant tab */}
-                {activeTab === "assistant" && (
-                    <div className={styles.assistantContent}>
-                        <AiaChat></AiaChat>
-                    </div>
-                )}
+                <div
+                    className={styles.assistantContent}
+                    style={{ display: activeTab === "assistant" ? undefined : "none" }}
+                >
+                    <AiaChat />
+                </div>
             </div>
         </div>
     );
