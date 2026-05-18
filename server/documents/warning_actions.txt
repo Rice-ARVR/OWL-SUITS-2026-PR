@@ -12,6 +12,7 @@ actions, do this, what you should do
         "above_nominal": "SEC battery above nominal — no action needed.",
         "high": "SEC battery reading unexpectedly high — verify sensor calibration."
     },
+    "battery_level": {
         "low": "Battery critically low — return to HAB or connect to external power source immediately.",
         "below_nominal": "Battery below nominal — monitor consumption & plan for recharge.",
         "above_nominal": "Battery above nominal — no action needed.",
