@@ -11,6 +11,8 @@ from langchain_ollama import ChatOllama
 
 from app.core.config import settings
 
+from app.services.telemetry.telemetry_formatter import format_key
+
 from .document_service import get_retriever
 from .procedures_service import get_procedures_context
 
@@ -140,7 +142,7 @@ def _read_warnings() -> str:
     for w in entries:
         severity = "CRITICAL" if w.get("out_of_range") else "CAUTION"
         source = w.get("source", "unknown").upper()
-        field = w.get("field", "unknown")
+        field = format_key(w.get("field", "unknown"))
         value = w.get("value", "N/A")
         reason = w.get("reason", "")
         if isinstance(value, float):
