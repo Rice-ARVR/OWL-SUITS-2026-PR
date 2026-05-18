@@ -16,6 +16,7 @@ import Oxygen from "~/components/ui/Oxygen";
 import Pressure from "~/components/ui/Pressure";
 import Summary from "~/components/ui/Summary";
 import Temperature from "~/components/ui/Temperature";
+import TelemetryHighlight, { type Severity } from "~/components/ui/TelemetryHighlight";
 import type { Warning } from "~/types/warning";
 import styles from "./telemetry.module.css";
 
@@ -83,6 +84,10 @@ export default function Telemetry() {
     const evaWarnings = telemetryWarnings.filter((w) => w.source === "eva1");
     const w = (source: "rover" | "eva1", field: string) =>
         telemetryWarnings.some((warn) => warn.source === source && warn.field === field && warn.out_of_range);
+    const worst = (ws: Warning[]): Severity =>
+        ws.some((x) => x.out_of_range) ? "critical" : ws.some((x) => x.off_nominal) ? "warning" : "nominal";
+    const sev = (source: "rover" | "eva1", ...fields: string[]): Severity =>
+        worst(telemetryWarnings.filter((x) => x.source === source && fields.includes(x.field)));
 
     return (
         <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#000" }}>
@@ -101,10 +106,10 @@ export default function Telemetry() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: "2.5 1 0" }}>
                     {/* Rover Row 1: Summary + Temperature */}
                     <div style={{ display: "flex", gap: 16, flex: "0 0 300px" }}>
-                        <Card style={{ flex: 1, padding: 0 }}>
+                        <Card style={{ flex: 1, padding: 0 }} severity={worst(roverWarnings)}>
                             <div style={INNER}><Summary showReflection={false} warnings={roverWarnings} /></div>
                         </Card>
-                        <Card style={{ flex: 1.5, overflow: "hidden" }}>
+                        <Card style={{ flex: 1.5, overflow: "hidden" }} severity={sev("rover", "cabin_temperature")}>
                             <div style={INNER}>
                                 <Temperature temperature={rover.cabin_temperature} outsideTemperature={rover.external_temp} target={rover.cabin_temperature_target} />
                             </div>
@@ -113,12 +118,12 @@ export default function Telemetry() {
                     {/* Rover Row 2: Oxygen + Battery | Pressure + Coolant */}
                     <div style={{ display: "flex", gap: 16, flex: 1, minHeight: 0 }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
-                            <Card style={{ flex: 1 }}>
+                            <Card style={{ flex: 1 }} severity={sev("rover", "oxygen_storage")}>
                                 <div style={INNER}>
                                     <Oxygen level={rover.oxygen_storage ?? 0} tankLabel="Tank 1" remaining={formatRemaining(estimates.rover_oxygen_time_remaining_s)} />
                                 </div>
                             </Card>
-                            <Card style={{ flex: 1 }}>
+                            <Card style={{ flex: 1 }} severity={sev("rover", "primary_battery_level")}>
                                 <div style={INNER}>
                                     <Battery level={rover.primary_battery_level ?? 0} label="PR Battery" remaining={formatRemaining(estimates.rover_battery_time_remaining_s)} />
                                 </div>
@@ -127,14 +132,22 @@ export default function Telemetry() {
                         <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1.5 }}>
                             <Card style={{ flex: 1 }}>
                                 <div style={{ ...INNER, gap: 24 }}>
-                                    <Pressure value={rover.cabin_pressure} {...ROVER_LIMITS.cabin_pressure} label={getTelemetryLabel("cabin_pressure")} />
-                                    <Graph value={rover.oxygen_pressure} label={getTelemetryLabel("oxygen_pressure")} unit=" psi" min={ROVER_LIMITS.oxygen_pressure.min} max={ROVER_LIMITS.oxygen_pressure.max} isWarning={w("rover", "oxygen_pressure")} />
+                                    <TelemetryHighlight severity={sev("rover", "cabin_pressure")} style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+                                        <Pressure value={rover.cabin_pressure} {...ROVER_LIMITS.cabin_pressure} label={getTelemetryLabel("cabin_pressure")} />
+                                    </TelemetryHighlight>
+                                    <TelemetryHighlight severity={sev("rover", "oxygen_pressure")} style={{ width: "100%" }}>
+                                        <Graph value={rover.oxygen_pressure} label={getTelemetryLabel("oxygen_pressure")} unit=" psi" min={ROVER_LIMITS.oxygen_pressure.min} max={ROVER_LIMITS.oxygen_pressure.max} isWarning={w("rover", "oxygen_pressure")} />
+                                    </TelemetryHighlight>
                                 </div>
                             </Card>
                             <Card style={{ flex: 1 }}>
                                 <div style={{ ...INNER, gap: 24 }}>
-                                    <Coolant storage={rover.coolant_storage} pressure={rover.coolant_pressure} storageWarning={w("rover", "coolant_storage")} pressureWarning={w("rover", "coolant_pressure")} />
-                                    <Fans fans={[{ label: getTelemetryLabel("fan_pri_rpm"), rpm: rover.fan_pri_rpm ?? 0 }, { label: getTelemetryLabel("fan_sec_rpm"), rpm: rover.fan_sec_rpm ?? 0 }]} fanWarnings={[w("rover", "fan_pri_rpm"), w("rover", "fan_sec_rpm")]} />
+                                    <TelemetryHighlight severity={sev("rover", "coolant_storage", "coolant_pressure")} style={{ width: "100%" }}>
+                                        <Coolant storage={rover.coolant_storage} pressure={rover.coolant_pressure} storageWarning={w("rover", "coolant_storage")} pressureWarning={w("rover", "coolant_pressure")} />
+                                    </TelemetryHighlight>
+                                    <TelemetryHighlight severity={sev("rover", "fan_pri_rpm", "fan_sec_rpm")} style={{ width: "100%" }}>
+                                        <Fans fans={[{ label: getTelemetryLabel("fan_pri_rpm"), rpm: rover.fan_pri_rpm ?? 0 }, { label: getTelemetryLabel("fan_sec_rpm"), rpm: rover.fan_sec_rpm ?? 0 }]} fanWarnings={[w("rover", "fan_pri_rpm"), w("rover", "fan_sec_rpm")]} />
+                                    </TelemetryHighlight>
                                 </div>
                             </Card>
                         </div>
@@ -145,7 +158,7 @@ export default function Telemetry() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: "3.55 1 0" }}>
                     {/* EVA Row 1: EVA Summary + Moon */}
                     <div style={{ display: "flex", gap: 16, flex: "0 0 300px" }}>
-                        <Card style={{ flex: 1, padding: 0 }}>
+                        <Card style={{ flex: 1, padding: 0 }} severity={worst(evaWarnings)}>
                             <div style={INNER}><Summary image="/astronaut.png" label="EVA 1" showReflection={false} warnings={evaWarnings} /></div>
                         </Card>
                         <Card style={{ flex: 2.6 }}>
@@ -155,18 +168,18 @@ export default function Telemetry() {
                     {/* EVA Row 2: EVA Oxygen + Battery | EVA Suit Pressure | EVA Health + CO2 + Coolant */}
                     <div style={{ display: "flex", gap: 16, flex: 1, minHeight: 0 }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: "0.76 1 auto" }}>
-                            <Card style={{ flex: 1 }}>
+                            <Card style={{ flex: 1 }} severity={sev("eva1", "oxy_pri_storage")}>
                                 <div style={INNER}>
                                     <Oxygen level={eva1.oxy_pri_storage ?? 0} tankLabel="Tank 1" remaining={formatRemaining(estimates.eva_oxygen_time_remaining_s)} />
                                 </div>
                             </Card>
-                            <Card style={{ flex: 1 }}>
+                            <Card style={{ flex: 1 }} severity={sev("eva1", "primary_battery_level")}>
                                 <div style={INNER}>
                                     <Battery level={eva1.primary_battery_level ?? 0} label="EVA 1 Battery" remaining={formatRemaining(estimates.eva_battery_time_remaining_s)} />
                                 </div>
                             </Card>
                         </div>
-                        <Card style={{ flex: "1.35 1 auto" }}>
+                        <Card style={{ flex: "1.35 1 auto" }} severity={sev("eva1", "suit_pressure_total", "suit_pressure_oxy", "suit_pressure_co2", "scrubber_a_co2_storage", "suit_pressure_other")}>
                             <div style={{ ...INNER, justifyContent: "flex-start", paddingTop: 8, gap: 0 }}>
                                 <Pressure value={eva1.suit_pressure_total} {...EVA_LIMITS.suit_pressure_total} label={getTelemetryLabel("suit_pressure_total")} />
                                 <div style={{ height: 120 }} />
@@ -177,18 +190,22 @@ export default function Telemetry() {
                             </div>
                         </Card>
                         <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: "1.44 1 auto" }}>
-                            <Card style={{ flex: "0.4 1 auto", padding: "0 16px" }}>
+                            <Card style={{ flex: "0.4 1 auto", padding: "0 16px" }} severity={sev("eva1", "temperature", "heart_rate")}>
                                 <div style={INNER}>
                                     <Health bodyTemp={eva1.temperature} heartRate={eva1.heart_rate} bodyTempWarning={w("eva1", "temperature")} heartRateWarning={w("eva1", "heart_rate")} />
                                 </div>
                             </Card>
                             <Card style={{ flex: "0.92 1 auto" }}>
                                 <div style={{ ...INNER, gap: 20 }}>
-                                    <CO2 co2Production={eva1.co2_production} helmetCo2Pressure={eva1.helmet_pressure_co2} co2ProductionWarning={w("eva1", "co2_production")} helmetCo2Warning={w("eva1", "helmet_pressure_co2")} />
-                                    <Fans fans={[{ label: "Fan 1", rpm: eva1.fan_pri_rpm ?? 0 }, { label: "Fan 2", rpm: eva1.fan_sec_rpm ?? 0 }]} fanWarnings={[w("eva1", "fan_pri_rpm"), w("eva1", "fan_sec_rpm")]} />
+                                    <TelemetryHighlight severity={sev("eva1", "co2_production", "helmet_pressure_co2")} radius={10} style={{ width: "100%" }}>
+                                        <CO2 co2Production={eva1.co2_production} helmetCo2Pressure={eva1.helmet_pressure_co2} co2ProductionWarning={w("eva1", "co2_production")} helmetCo2Warning={w("eva1", "helmet_pressure_co2")} />
+                                    </TelemetryHighlight>
+                                    <TelemetryHighlight severity={sev("eva1", "fan_pri_rpm", "fan_sec_rpm")} style={{ width: "100%" }}>
+                                        <Fans fans={[{ label: "Fan 1", rpm: eva1.fan_pri_rpm ?? 0 }, { label: "Fan 2", rpm: eva1.fan_sec_rpm ?? 0 }]} fanWarnings={[w("eva1", "fan_pri_rpm"), w("eva1", "fan_sec_rpm")]} />
+                                    </TelemetryHighlight>
                                 </div>
                             </Card>
-                            <Card style={{ flex: "0.56 1 auto" }}>
+                            <Card style={{ flex: "0.56 1 auto" }} severity={sev("eva1", "coolant_storage", "coolant_liquid_pressure", "coolant_gas_pressure")}>
                                 <div style={INNER}>
                                     <EVACoolant coolantStorage={eva1.coolant_storage} liquidPressure={eva1.coolant_liquid_pressure} gasPressure={eva1.coolant_gas_pressure} liquidWarning={w("eva1", "coolant_liquid_pressure")} gasWarning={w("eva1", "coolant_gas_pressure")} />
                                 </div>
