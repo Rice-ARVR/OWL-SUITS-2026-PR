@@ -27,6 +27,8 @@ Our design was selected as one of the top 5 PR designs in the nation, earning us
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [VS Code](https://code.visualstudio.com/) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
 - [Ollama](https://ollama.com/) (Ollama 3.2, Gemma 4, nomic-embed-text)
+- [DUST](https://software.nasa.gov/software/MSC-27522-1)
+- [PR-Tools](https://github.com/Rice-ARVR/PR-Tools) Stream Server Required for Teleop
 - [MongoDB+](https://www.mongodb.com/)
 
 ### Setup
@@ -34,7 +36,8 @@ Our design was selected as one of the top 5 PR designs in the nation, earning us
 1. Clone the repo.
 2. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
 3. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically.
-4. Add .env to server folder
+4. Add .env to client folder
+5. Add .env to server folder
 
 ### Running the App+
 

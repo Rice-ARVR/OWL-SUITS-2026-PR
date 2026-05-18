@@ -1,5 +1,9 @@
 """Simple autonomous drive: travel(goalX, goalY) -> int (0 = success).
 
+Lidar-based driver. Shared geometry, control primitives, and pacing/stuck
+constants live in `..navigation_helpers`; only the lidar-specific
+classification, wall-following, and escape logic lives here.
+
 Conventions:
 - Steering: positive = right (CW), negative = left (CCW); magnitude in [-1, 1].
 - Heading: 0° = +Y, 90° = +X (CW from +Y). `_bearing_to` returns this frame.
@@ -14,8 +18,26 @@ import math
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-import app.services.telemetry.telemetry_service as telemetry_service
-import app.services.telemetry.tss_client as tss_client
+from app.services.navigation.navigation_helpers import (
+    ARRIVAL_THRESHOLD_M,
+    COMMAND_PAUSE_S,
+    MAX_SPEED,
+    STEERING_SIGN,
+    STUCK_DIST_M,
+    STUCK_WINDOW_S,
+    TELEMETRY_FRESH_WAIT_S,
+    THROTTLE_NORMAL,
+    THROTTLE_REVERSE,
+    THROTTLE_SLOW,
+    TRAVEL_TIMEOUT_S,
+    _bound,
+    _brake_pulse,
+    _distance_to,
+    _full_stop,
+    _goal_steering,
+    _read_telemetry,
+    _send_drive,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,30 +46,20 @@ VERBOSE_LOGGING = True
 
 
 # ─── Tunables ─────────────────────────────────────────────────────────────────
+#
+# Shared tunables (ARRIVAL_THRESHOLD_M, TRAVEL_TIMEOUT_S, COMMAND_PAUSE_S,
+# BRAKE_PULSE_S, TELEMETRY_FRESH_WAIT_S, MAX_SPEED, THROTTLE_NORMAL/SLOW/REVERSE,
+# STEERING_GAIN_DEG, STEERING_SIGN, STUCK_DIST_M, STUCK_WINDOW_S) are imported
+# from navigation_helpers. Only lidar-specific tunables are defined here.
 
 #####################
 ## System Settings ##
 #####################
 
-# Goal / Completition Thresholds
-ARRIVAL_THRESHOLD_M = 5.0
-TRAVEL_TIMEOUT_S = 600.0
-
-# Pacing — pause + brake-pulse after every command so TSS state catches up.
-COMMAND_PAUSE_S = 0.5
-BRAKE_PULSE_S = 0.5
-TELEMETRY_FRESH_WAIT_S = 0.5
-
-# Speed / throttle (throttle ±100, speed m/s)
-MAX_SPEED = 6.0
-THROTTLE_NORMAL = 35
-THROTTLE_SLOW = 30
+# Speed / throttle (throttle ±100) — boost is lidar-only (crater climb-out).
 THROTTLE_BOOST = 60
-THROTTLE_REVERSE = -30
 
 # Steering
-STEERING_GAIN_DEG = 60.0  # Higher = aggressive reorientation to target
-STEERING_SIGN = 1.0  # set to -1.0 if the platform inverts turn direction
 AVOID_STEER = 0.8
 SIDE_BIAS_MARGIN_CM = 50.0  # min clearance delta to commit to a side
 CRATER_BIAS_WEIGHT = 0.3
@@ -109,9 +121,7 @@ WALL_LEFT_SIDE_SENSOR = 4  # 30°L at left wheel hub
 ## Escape Protocols ##
 ######################
 
-# Stuck detection / recovery
-STUCK_DIST_M = 1.0
-STUCK_WINDOW_S = 5.0
+# Stuck detection / recovery (STUCK_DIST_M, STUCK_WINDOW_S from navigation_helpers)
 MAX_RECOVERY_ATTEMPTS = 4
 REVERSE_DURATION_S = 5.0
 REORIENT_DURATION_S = 2.5
@@ -163,34 +173,6 @@ def _clean(value: float) -> float:
 def _preprocess_lidar(lidar: List[float]) -> List[float]:
     """Apply `_clean` to every return."""
     return [_clean(v) for v in lidar]
-
-
-def _bound(x: float, lo: float, hi: float) -> float:
-    """Clamp x to [lo, hi]."""
-    return max(lo, min(hi, x))
-
-
-def _bearing_to(goalX: float, goalY: float, posX: float, posY: float) -> float:
-    """Bearing from (posX,posY) to (goalX,goalY) in degrees; 0°=+Y, 90°=+X."""
-    return math.degrees(math.atan2(goalX - posX, goalY - posY))
-
-
-def _distance_to(goalX: float, goalY: float, posX: float, posY: float) -> float:
-    """Euclidean distance between (posX,posY) and (goalX,goalY) in meters."""
-    return math.hypot(goalX - posX, goalY - posY)
-
-
-def _heading_error(target_deg: float, current_deg: float) -> float:
-    """Signed angle from current to target, normalized to (-180, 180]."""
-    return (target_deg - current_deg + 180.0) % 360.0 - 180.0
-
-
-def _goal_steering(tel, goalX: float, goalY: float) -> Tuple[float, float]:
-    """Return (steering, heading_error_deg) for pointing at the goal."""
-    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-    err = _heading_error(bearing, tel.heading)
-    steer = _bound(STEERING_SIGN * err / STEERING_GAIN_DEG, -1.0, 1.0)
-    return steer, err
 
 
 def _side_clearance(lidar: List[float], indices: Tuple[int, ...]) -> float:
@@ -415,55 +397,6 @@ def _in_crater(lidar: List[float], pitch: Optional[float]) -> bool:
     return front_overshoot or side_overshoot or nose_down
 
 
-# ─── Low-level command primitives ────────────────────────────────────────────
-
-
-async def _send_throttle(v: float) -> None:
-    """Forward throttle command through tss_client."""
-    await asyncio.to_thread(tss_client.send_throttle, float(v))
-
-
-async def _send_steering(v: float) -> None:
-    """Forward steering command through tss_client."""
-    await asyncio.to_thread(tss_client.send_steering, float(v))
-
-
-async def _send_brakes(v: float) -> None:
-    """Forward brake command through tss_client."""
-    await asyncio.to_thread(tss_client.send_brakes, float(v))
-
-
-async def _send_drive(throttle: float, steering: float, brakes: float = 0.0) -> None:
-    """Apply brakes, steering, and throttle."""
-    await _send_brakes(brakes)
-    await _send_steering(steering)
-    await _send_throttle(throttle)
-
-
-async def _full_stop() -> None:
-    """Throttle 0, steering centered, full brake."""
-    await _send_throttle(0.0)
-    await _send_steering(0.0)
-    await _send_brakes(1.0)
-
-
-async def _brake_pulse() -> None:
-    """Briefly engage and release brakes so TSS state catches up to the last command."""
-    await _send_brakes(1.0)
-    await asyncio.sleep(BRAKE_PULSE_S)
-    await _send_brakes(0.0)
-    await asyncio.sleep(TELEMETRY_FRESH_WAIT_S)
-
-
-async def _read_telemetry():
-    """Latest rover snapshot's pr_telemetry, or None if unavailable."""
-    rover = telemetry_service.rover_data
-    if rover is None:
-        return None
-    snap = await rover.get_snapshot()
-    return snap.pr_telemetry if snap else None
-
-
 # ─── Mid-level maneuvers ─────────────────────────────────────────────────────
 
 
@@ -650,7 +583,12 @@ async def _wall_follow_step(tel, state: _WallFollow) -> None:
 # ─── Public entry point ──────────────────────────────────────────────────────
 
 
-async def travel(goalX: float, goalY: float) -> int:
+async def travel(
+    goalX: float,
+    goalY: float,
+    arrival_threshold: float = 5.0,
+    interrupt_event: Optional[asyncio.Event] = None,
+) -> int:
     """Drive within ARRIVAL_THRESHOLD_M of (goalX, goalY).
 
     Returns 0 on success, 1 on failure (timeout / stuck-out).
@@ -668,6 +606,12 @@ async def travel(goalX: float, goalY: float) -> int:
 
     try:
         while True:
+            # Check for the interrupt signal from the API
+            if interrupt_event and interrupt_event.is_set():
+                logger.warning("travel: interrupted by manual ping")
+                await _full_stop()  # Turn on the brakes!
+                return 2  # Return the special interrupt code
+
             if loop.time() - started > TRAVEL_TIMEOUT_S:
                 logger.error("travel: timeout")
                 await _full_stop()
@@ -771,5 +715,4 @@ async def travel(goalX: float, goalY: float) -> int:
             await asyncio.sleep(COMMAND_PAUSE_S)
             await _brake_pulse()
     except asyncio.CancelledError:
-        await _full_stop()
         raise

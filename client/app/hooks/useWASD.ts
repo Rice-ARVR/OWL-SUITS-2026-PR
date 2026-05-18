@@ -103,6 +103,8 @@ export function useWASD(): WASDHookState {
         };
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            const tag = (e.target as HTMLElement).tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA") return;
             const key = e.key === " " ? " " : e.key.toLowerCase();
             if (![...ANALOG_KEYS, ...TOGGLE_KEYS].includes(key)) return;
             e.preventDefault();
@@ -140,6 +142,8 @@ export function useWASD(): WASDHookState {
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
+            const tag = (e.target as HTMLElement).tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA") return;
             const key = e.key === " " ? " " : e.key.toLowerCase();
             pressedKeys.current.delete(key);
             // Don't stop the interval here — let applyKeys wind values back to 0 first.
