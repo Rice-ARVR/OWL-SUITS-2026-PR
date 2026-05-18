@@ -192,62 +192,64 @@ export default function Graph({
                         </text>
                     ))}
 
-                {xTicks.map((sec) => {
-                    const idx = MAX_POINTS - 1 - sec;
-                    if (idx < 0) return null;
-                    return (
-                        <text
-                            key={sec}
-                            x={xOf(idx)}
-                            y={H - 4}
-                            textAnchor="middle"
-                            fill="#8b95a6"
-                            fontSize={10}
-                            fontFamily='"Be Vietnam Pro", sans-serif'
-                        >
-                            -{sec}s
-                        </text>
-                    );
-                })}
-                <g clipPath={`url(#${clipId})`}>
-                    {fills.map((d, i) => (
-                        <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
-                    ))}
+                    {xTicks.map((sec) => {
+                        const idx = MAX_POINTS - 1 - sec;
+                        if (idx < 0) return null;
+                        return (
+                            <text
+                                key={sec}
+                                x={xOf(idx)}
+                                y={H - 4}
+                                textAnchor="middle"
+                                fill="#8b95a6"
+                                fontSize={10}
+                                fontFamily='"Be Vietnam Pro", sans-serif'
+                            >
+                                -{sec}s
+                            </text>
+                        );
+                    })}
 
-                    {segments.map((d, i) => (
-                        <path
-                            key={i}
-                            d={d}
-                            fill="none"
-                            stroke={LINE_COLOR}
-                            strokeWidth={1.5}
-                            strokeLinejoin="round"
-                            strokeLinecap="round"
-                        />
-                    ))}
+                    <g clipPath={`url(#${clipId})`}>
+                        {fills.map((d, i) => (
+                            <path key={i} d={d} fill={fillColor} opacity={0.5} stroke="none" />
+                        ))}
 
-                    {currentVal !== null && (
-                        <>
-                            <line
-                                x1={xOf(currentIdx)}
-                                y1={PAD.top}
-                                x2={xOf(currentIdx)}
-                                y2={PAD.top + plotH}
+                        {segments.map((d, i) => (
+                            <path
+                                key={i}
+                                d={d}
+                                fill="none"
                                 stroke={LINE_COLOR}
-                                strokeWidth={1}
-                                strokeDasharray="3 3"
-                                opacity={0.4}
+                                strokeWidth={1.5}
+                                strokeLinejoin="round"
+                                strokeLinecap="round"
                             />
-                            <circle
-                                cx={xOf(currentIdx)}
-                                cy={yOf(currentVal)}
-                                r={3.5}
-                                fill={LINE_COLOR}
-                            />
-                        </>
-                    )}
-                </g>
-            </svg>
+                        ))}
+
+                        {currentVal !== null && (
+                            <>
+                                <line
+                                    x1={xOf(currentIdx)}
+                                    y1={PAD.top}
+                                    x2={xOf(currentIdx)}
+                                    y2={PAD.top + plotH}
+                                    stroke={LINE_COLOR}
+                                    strokeWidth={1}
+                                    strokeDasharray="3 3"
+                                    opacity={0.4}
+                                />
+                                <circle
+                                    cx={xOf(currentIdx)}
+                                    cy={yOf(currentVal)}
+                                    r={3.5}
+                                    fill={LINE_COLOR}
+                                />
+                            </>
+                        )}
+                    </g>
+                </svg>
+            </div> {/* ← closes <div ref={containerRef}> */}
 
             {/* Label + value — fixed width, won't shrink */}
             {label && (
