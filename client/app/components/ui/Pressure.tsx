@@ -55,14 +55,11 @@ export default function Pressure({
             style={{
                 position: "relative",
                 width: 208,
-                height: 108,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                height: 150,
             }}
         >
-            <svg viewBox="0 0 208 108" width="208" height="108" style={{ overflow: "visible" }}>
-                <g transform="translate(104, 104)">
+            <svg viewBox="0 0 208 140" width="208" height="140" style={{ overflow: "hidden" }}>
+                <g transform="translate(104, 130)">
                     {/* Background arc */}
                     <path
                         d={arcPath(RADIUS, 0, 1)}
@@ -109,7 +106,7 @@ export default function Pressure({
             <div
                 style={{
                     position: "absolute",
-                    top: 70,
+                    top: 100,
                     left: 0,
                     right: 0,
                     display: "flex",
