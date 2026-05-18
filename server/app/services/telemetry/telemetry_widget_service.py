@@ -85,7 +85,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "type": "system_action",
             "id": f"{key}_action",
             "title": f"{label} {severity}",
-            "description": "Switch oxygen source or verify oxygen supply?",
+            "description": "Find out how to switch oxygen source or verify oxygen supply?",
             "actionLabel": "Check Oxygen",
             "confirmText": "Yes",
             "cancelText": "No",
@@ -102,7 +102,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "id": f"{key}_action",
             "title": f"{label} {severity}",
             "description": "Activate or inspect the scrubber system?",
-            "actionLabel": "Check Scrubber",
+            "actionLabel": "Find out how to check scrubber?",
             "confirmText": "Yes",
             "cancelText": "No",
             "payload": {
@@ -118,7 +118,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "id": f"{key}_action",
             "title": f"{label} {severity}",
             "description": "Inspect scrubber status?",
-            "actionLabel": "Inspect Scrubber",
+            "actionLabel": "See how to inspect scrubber?",
             "confirmText": "Yes",
             "cancelText": "No",
             "payload": {
@@ -133,7 +133,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "type": "system_action",
             "id": f"{key}_action",
             "title": f"{label} {severity}",
-            "description": "Switch fan channel or inspect ventilation?",
+            "description": "Find out how to switch fan channel or inspect ventilation?",
             "actionLabel": "Check Fan",
             "confirmText": "Yes",
             "cancelText": "No",
@@ -150,7 +150,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "id": f"{key}_action",
             "title": f"{label} {severity}",
             "description": "Inspect coolant system?",
-            "actionLabel": "Check Coolant",
+            "actionLabel": "See how to check coolant?",
             "confirmText": "Yes",
             "cancelText": "No",
             "payload": {
@@ -166,7 +166,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "id": f"{key}_action",
             "title": "Cabin Temperature Low",
             "description": "Turn on fan heating?",
-            "actionLabel": "Turn On Heating",
+            "actionLabel": "Find out how to turn on Heating",
             "confirmText": "Yes",
             "cancelText": "No",
             "payload": {
@@ -198,7 +198,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "id": f"{key}_action",
             "title": f"{label} {severity}",
             "description": "Check pressure system?",
-            "actionLabel": "Check Pressure",
+            "actionLabel": "Find out how to check pressure?",
             "confirmText": "Yes",
             "cancelText": "No",
             "payload": {
@@ -214,7 +214,7 @@ def _build_action_widget(key: str, label: str, status: str) -> dict[str, Any] | 
             "id": f"{key}_action",
             "title": f"{label} {severity}",
             "description": "Run communication signal check?",
-            "actionLabel": "Check Signal",
+            "actionLabel": "See how to check signal?",
             "confirmText": "Yes",
             "cancelText": "No",
             "payload": {
