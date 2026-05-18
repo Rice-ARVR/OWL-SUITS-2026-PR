@@ -37,7 +37,7 @@ export default function Map() {
         setIsSignaling(true);
         setSignalStatus("pending");
 
-        fetch("/navigation/ping/execute", { method: "POST" })
+        fetch(`${import.meta.env.VITE_API_URL ?? ""}/navigation/ping/execute`, { method: "POST" })
             .then(async (res) => {
                 if (res.ok) {
                     const data = await res.json();

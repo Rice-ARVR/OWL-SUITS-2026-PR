@@ -10,4 +10,5 @@ export default [
     route("ui", "routes/ui.tsx"),
     route("map", "routes/map.tsx"),
     route("screen", "routes/screen.tsx"),
+    route("nav-telemetry", "routes/navigation_telemetry.tsx"),
 ] satisfies RouteConfig;
