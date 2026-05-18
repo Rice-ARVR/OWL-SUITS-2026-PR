@@ -140,7 +140,7 @@ async def start_autonomous_loop(force_reset: bool = False):
             resumed_phase, resumed_phase.value.replace("_", " ").title()
         )
 
-        # conditional wake-up target
+        # Conditional wake-up target
         if resumed_phase == SearchPhase.TRANSIT_TO_LNP:
             # Must drive to the actual LNP, not its current spot!
             resume_target = state.session.lnp
@@ -149,6 +149,23 @@ async def start_autonomous_loop(force_reset: bool = False):
             # Active search: wake up exactly where the human left it
             resume_target = state.rover_position or state.session.lnp
             threshold = 5.0
+
+            # Flush stale math if the user drove the rover away while paused
+            if state.session.path_history and state.rover_position:
+                last_auto_pos = state.session.path_history[-1]
+                dist_moved = calculate_distance(
+                    state.rover_position.x,
+                    state.rover_position.y,
+                    last_auto_pos.x,
+                    last_auto_pos.y,
+                )
+                # If user moved it more than 15 meters, force the AI to recalculate bearings
+                if dist_moved > 15.0 and resumed_phase in [
+                    SearchPhase.GRADIENT_ASCENT,
+                    SearchPhase.TIGHT_SPIRAL,
+                ]:
+                    state.session.success_vector = 0.0  # reset bearing
+                    state.session.best_rssi = float("-inf")  # force a fresh evaluation
 
         # 3. Inject the dynamic phase name AND the correct targets
         state.session.current_target = NavigationTarget(
@@ -186,6 +203,9 @@ async def stop_autonomous_loop(apply_brakes: bool = True):
     # Slam the brakes to release controls safely to user (if not overridden)
     if apply_brakes:
         await send_rover_command({"throttle": 0, "steering": 0, "brakes": 1.0})
+
+    # Wipe any lingering countdowns or AI messages from the UI
+    await navigation_state.update_status("System Idle. Manual Control Active.", "info")
 
     logger.info("Autonomous Loop Stopped. User has control.")
 
