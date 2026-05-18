@@ -26,7 +26,7 @@ import { AstronautIcon } from "./map-components/AstronautIcon";
 import mockNavState from "./mock-nav-state.json";
 
 // Set to true to use mock navigation data instead of the live backend
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 
 // ── Main map component ─────────────────────────────────
 
@@ -147,7 +147,12 @@ export default function InteractiveMap({
         prevStatusLevelRef.current = level;
     }, [navState?.status_level, navState?.status_message]);
     const [savedPingHistory, setSavedPingHistory] = useState<
-        { timestamp?: string; rover_position: { x: number; y: number }; rssi: number; signal_category: string }[]
+        {
+            timestamp?: string;
+            rover_position: { x: number; y: number };
+            rssi: number;
+            signal_category: string;
+        }[]
     >([]);
     const [savedSearchArea, setSavedSearchArea] = useState<{
         center: { x: number; y: number };
@@ -285,7 +290,7 @@ export default function InteractiveMap({
 
         if (mode === "addPOI" && poiStep === "placing") {
             if (pendingPOI) {
-                setPendingPOI((prev) => prev ? { ...prev, x, y } : null);
+                setPendingPOI((prev) => (prev ? { ...prev, x, y } : null));
                 setPoiCoordX(String(Math.round(x)));
                 setPoiCoordY(String(Math.round(y)));
                 setMousePos(null);
@@ -1917,9 +1922,15 @@ export default function InteractiveMap({
                                         weak: [200, 500],
                                         very_weak: [500, 1000],
                                     };
-                                    const [rMin, rMax] = rangeByCategory[ping.signal_category] ?? [0, 0];
+                                    const [rMin, rMax] = rangeByCategory[ping.signal_category] ?? [
+                                        0, 0,
+                                    ];
                                     const ts = ping.timestamp
-                                        ? new Date(ping.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                                        ? new Date(ping.timestamp).toLocaleTimeString([], {
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                              second: "2-digit",
+                                          })
                                         : "—";
                                     const px = ping.rover_position.x;
                                     const py = -ping.rover_position.y;
@@ -1956,16 +1967,58 @@ export default function InteractiveMap({
                                                 />
                                             )}
                                             {/* Tooltip */}
-                                            <rect x={tx} y={ty} width={tw} height={th} rx="6" fill="#1e1e22" stroke="#444" strokeWidth="1" pointerEvents="none" />
-                                            <polygon points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`} fill="#1e1e22" stroke="#444" strokeWidth="1" pointerEvents="none" />
-                                            <line x1={px - 6} y1={ty + th} x2={px + 6} y2={ty + th} stroke="#1e1e22" strokeWidth="2" pointerEvents="none" />
-                                            <text x={px} y={ty + 8 + lineH * 1} textAnchor="middle" fill="#6ee7b7" fontSize="11">
+                                            <rect
+                                                x={tx}
+                                                y={ty}
+                                                width={tw}
+                                                height={th}
+                                                rx="6"
+                                                fill="#1e1e22"
+                                                stroke="#444"
+                                                strokeWidth="1"
+                                                pointerEvents="none"
+                                            />
+                                            <polygon
+                                                points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                                fill="#1e1e22"
+                                                stroke="#444"
+                                                strokeWidth="1"
+                                                pointerEvents="none"
+                                            />
+                                            <line
+                                                x1={px - 6}
+                                                y1={ty + th}
+                                                x2={px + 6}
+                                                y2={ty + th}
+                                                stroke="#1e1e22"
+                                                strokeWidth="2"
+                                                pointerEvents="none"
+                                            />
+                                            <text
+                                                x={px}
+                                                y={ty + 8 + lineH * 1}
+                                                textAnchor="middle"
+                                                fill="#6ee7b7"
+                                                fontSize="11"
+                                            >
                                                 {`x: ${Math.round(ping.rover_position.x)}, y: ${Math.round(ping.rover_position.y)}`}
                                             </text>
-                                            <text x={px} y={ty + 8 + lineH * 2} textAnchor="middle" fill="#aaa" fontSize="10">
+                                            <text
+                                                x={px}
+                                                y={ty + 8 + lineH * 2}
+                                                textAnchor="middle"
+                                                fill="#aaa"
+                                                fontSize="10"
+                                            >
                                                 {ts}
                                             </text>
-                                            <text x={px} y={ty + 8 + lineH * 3} textAnchor="middle" fill={color} fontSize="10">
+                                            <text
+                                                x={px}
+                                                y={ty + 8 + lineH * 3}
+                                                textAnchor="middle"
+                                                fill={color}
+                                                fontSize="10"
+                                            >
                                                 {`${Math.round(ping.rssi)} dBm · ${ping.signal_category.replace("_", " ")} · ${rMin}–${rMax} m`}
                                             </text>
                                         </g>
@@ -2267,8 +2320,18 @@ export default function InteractiveMap({
 
                 {/* EVA astronauts */}
                 {[
-                    { imu: eva1Imu, label: "EVA1" as const, hovered: isEva1Hovered, setHovered: setIsEva1Hovered },
-                    { imu: eva2Imu, label: "EVA2" as const, hovered: isEva2Hovered, setHovered: setIsEva2Hovered },
+                    {
+                        imu: eva1Imu,
+                        label: "EVA1" as const,
+                        hovered: isEva1Hovered,
+                        setHovered: setIsEva1Hovered,
+                    },
+                    {
+                        imu: eva2Imu,
+                        label: "EVA2" as const,
+                        hovered: isEva2Hovered,
+                        setHovered: setIsEva2Hovered,
+                    },
                 ].map(({ imu, label, hovered, setHovered }) => {
                     if (!imu) return null;
                     const px = imu.posx;
@@ -2291,10 +2354,39 @@ export default function InteractiveMap({
                             />
                             {hovered && (
                                 <g>
-                                    <rect x={tx} y={ty} width={tw} height={th} rx="6" fill="#1e1e22" stroke="#444" strokeWidth="1" />
-                                    <polygon points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`} fill="#1e1e22" stroke="#444" strokeWidth="1" />
-                                    <line x1={px - 6} y1={ty + th} x2={px + 6} y2={ty + th} stroke="#1e1e22" strokeWidth="2" />
-                                    <text x={px} y={ty + 16} textAnchor="middle" fill={color} fontSize="11">{coordText}</text>
+                                    <rect
+                                        x={tx}
+                                        y={ty}
+                                        width={tw}
+                                        height={th}
+                                        rx="6"
+                                        fill="#1e1e22"
+                                        stroke="#444"
+                                        strokeWidth="1"
+                                    />
+                                    <polygon
+                                        points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                        fill="#1e1e22"
+                                        stroke="#444"
+                                        strokeWidth="1"
+                                    />
+                                    <line
+                                        x1={px - 6}
+                                        y1={ty + th}
+                                        x2={px + 6}
+                                        y2={ty + th}
+                                        stroke="#1e1e22"
+                                        strokeWidth="2"
+                                    />
+                                    <text
+                                        x={px}
+                                        y={ty + 16}
+                                        textAnchor="middle"
+                                        fill={color}
+                                        fontSize="11"
+                                    >
+                                        {coordText}
+                                    </text>
                                 </g>
                             )}
                         </g>
@@ -2316,7 +2408,11 @@ export default function InteractiveMap({
                     onClick={() => setAssetsExpanded((v) => !v)}
                 >
                     <span className={styles.assetsPanelTitle}>All Assets</span>
-                    <span className={`${styles.assetsChevron} ${assetsExpanded ? styles.assetsChevronOpen : ""}`}>▼</span>
+                    <span
+                        className={`${styles.assetsChevron} ${assetsExpanded ? styles.assetsChevronOpen : ""}`}
+                    >
+                        ▼
+                    </span>
                 </div>
 
                 {assetsExpanded && (
@@ -2330,23 +2426,29 @@ export default function InteractiveMap({
                             <span className={styles.assetDot} style={{ background: "#6ee7b7" }} />
                             <div className={styles.assetItemBody}>
                                 <span className={styles.assetLabel}>Rover</span>
-                                <span className={styles.assetCoords}>x: {Math.round(roverPosition.x)}, y: {Math.round(roverPosition.y)}</span>
+                                <span className={styles.assetCoords}>
+                                    x: {Math.round(roverPosition.x)}, y:{" "}
+                                    {Math.round(roverPosition.y)}
+                                </span>
                             </div>
                         </div>
 
                         {/* EVAs */}
-                        {(eva1Imu || eva2Imu) && (
-                            <div className={styles.assetGroup}>EVAs</div>
-                        )}
+                        {(eva1Imu || eva2Imu) && <div className={styles.assetGroup}>EVAs</div>}
                         {eva1Imu && (
                             <div
                                 className={styles.assetItem}
                                 onClick={() => centerOn(eva1Imu.posx, eva1Imu.posy)}
                             >
-                                <span className={styles.assetDot} style={{ background: "#93c5fd" }} />
+                                <span
+                                    className={styles.assetDot}
+                                    style={{ background: "#93c5fd" }}
+                                />
                                 <div className={styles.assetItemBody}>
                                     <span className={styles.assetLabel}>EVA 1</span>
-                                    <span className={styles.assetCoords}>x: {Math.round(eva1Imu.posx)}, y: {Math.round(eva1Imu.posy)}</span>
+                                    <span classsName={styles.assetCoords}>
+                                        x: {Math.round(eva1Imu.posx)}, y: {Math.round(eva1Imu.posy)}
+                                    </span>
                                 </div>
                             </div>
                         )}
@@ -2355,10 +2457,15 @@ export default function InteractiveMap({
                                 className={styles.assetItem}
                                 onClick={() => centerOn(eva2Imu.posx, eva2Imu.posy)}
                             >
-                                <span className={styles.assetDot} style={{ background: "#f9a8d4" }} />
+                                <span
+                                    className={styles.assetDot}
+                                    style={{ background: "#f9a8d4" }}
+                                />
                                 <div className={styles.assetItemBody}>
                                     <span className={styles.assetLabel}>EVA 2</span>
-                                    <span className={styles.assetCoords}>x: {Math.round(eva2Imu.posx)}, y: {Math.round(eva2Imu.posy)}</span>
+                                    <span className={styles.assetCoords}>
+                                        x: {Math.round(eva2Imu.posx)}, y: {Math.round(eva2Imu.posy)}
+                                    </span>
                                 </div>
                             </div>
                         )}
@@ -2375,10 +2482,15 @@ export default function InteractiveMap({
                                     className={styles.assetItem}
                                     onClick={() => centerOn(p.x, p.y)}
                                 >
-                                    <span className={styles.assetDot} style={{ background: "#6ee7b7" }} />
+                                    <span
+                                        className={styles.assetDot}
+                                        style={{ background: "#6ee7b7" }}
+                                    />
                                     <div className={styles.assetItemBody}>
                                         <span className={styles.assetLabel}>{p.label}</span>
-                                        <span className={styles.assetCoords}>x: {Math.round(p.x)}, y: {Math.round(p.y)}</span>
+                                        <span className={styles.assetCoords}>
+                                            x: {Math.round(p.x)}, y: {Math.round(p.y)}
+                                        </span>
                                     </div>
                                 </div>
                             ))}
@@ -2389,29 +2501,40 @@ export default function InteractiveMap({
                         )}
                         {savedPingHistory.map((ping, i) => {
                             const pingColor =
-                                ping.signal_category === "strong" ? "#6ee7b7"
-                                : ping.signal_category === "moderate" ? "#fbbf24"
-                                : ping.signal_category === "weak" ? "#f97316"
-                                : "#ef4444";
+                                ping.signal_category === "strong"
+                                    ? "#6ee7b7"
+                                    : ping.signal_category === "moderate"
+                                      ? "#fbbf24"
+                                      : ping.signal_category === "weak"
+                                        ? "#f97316"
+                                        : "#ef4444";
                             return (
                                 <div
                                     key={i}
                                     className={styles.assetItem}
-                                    onClick={() => centerOn(ping.rover_position.x, ping.rover_position.y)}
+                                    onClick={() =>
+                                        centerOn(ping.rover_position.x, ping.rover_position.y)
+                                    }
                                 >
-                                    <span className={styles.assetDot} style={{ background: pingColor }} />
+                                    <span
+                                        className={styles.assetDot}
+                                        style={{ background: pingColor }}
+                                    />
                                     <div className={styles.assetItemBody}>
-                                        <span className={styles.assetLabel}>Ping {i + 1} · {Math.round(ping.rssi)} dBm</span>
-                                        <span className={styles.assetCoords}>x: {Math.round(ping.rover_position.x)}, y: {Math.round(ping.rover_position.y)}</span>
+                                        <span className={styles.assetLabel}>
+                                            Ping {i + 1} · {Math.round(ping.rssi)} dBm
+                                        </span>
+                                        <span className={styles.assetCoords}>
+                                            x: {Math.round(ping.rover_position.x)}, y:{" "}
+                                            {Math.round(ping.rover_position.y)}
+                                        </span>
                                     </div>
                                 </div>
                             );
                         })}
 
                         {/* Hazards */}
-                        {hazards.length > 0 && (
-                            <div className={styles.assetGroup}>Hazards</div>
-                        )}
+                        {hazards.length > 0 && <div className={styles.assetGroup}>Hazards</div>}
                         {hazards.map((h) => {
                             const cx = h.points.reduce((s, p) => s + p.x, 0) / h.points.length;
                             const cy = h.points.reduce((s, p) => s + p.y, 0) / h.points.length;
@@ -2421,10 +2544,17 @@ export default function InteractiveMap({
                                     className={styles.assetItem}
                                     onClick={() => centerOn(cx, cy)}
                                 >
-                                    <span className={styles.assetDot} style={{ background: "#ff8a75" }} />
+                                    <span
+                                        className={styles.assetDot}
+                                        style={{ background: "#ff8a75" }}
+                                    />
                                     <div className={styles.assetItemBody}>
-                                        <span className={styles.assetLabel}>{h.types.length ? h.types.join(", ") : "Hazard"}</span>
-                                        <span className={styles.assetCoords}>x: {Math.round(cx)}, y: {Math.round(cy)}</span>
+                                        <span className={styles.assetLabel}>
+                                            {h.types.length ? h.types.join(", ") : "Hazard"}
+                                        </span>
+                                        <span className={styles.assetCoords}>
+                                            x: {Math.round(cx)}, y: {Math.round(cy)}
+                                        </span>
                                     </div>
                                 </div>
                             );
