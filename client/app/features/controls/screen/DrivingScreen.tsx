@@ -47,11 +47,8 @@ export default function DrivingScreen() {
                     >
                         <SecondaryComponent />
                     </div>
-                    <div className={styles.aiInformation}>
-                        <h5>Place holder</h5>
-                    </div>
                 </div>
-                <div className={styles.panel}>
+                <div className={`${styles.panel} ${styles.mapPanel}`}>
                     <Minimap />
                 </div>
             </div>

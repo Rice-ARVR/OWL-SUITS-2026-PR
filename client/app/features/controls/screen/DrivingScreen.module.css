@@ -50,11 +50,17 @@
 }
 
 .secondStreamPanel {
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
-    min-height: 0;
+    aspect-ratio: 16 / 9;
     overflow: hidden;
+}
+
+.mapPanel {
+    flex: 1;
+    min-height: 0;
 }
 
 .primaryStream {
