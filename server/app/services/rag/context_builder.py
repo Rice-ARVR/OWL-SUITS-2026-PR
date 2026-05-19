@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from collections import deque
@@ -12,6 +13,13 @@ from app.services.telemetry.telemetry_formatter import flatten_telemetry_text, f
 logger = logging.getLogger(__name__)
 
 CONTEXT_FILE = Path(__file__).parent / "tss_context.txt"
+_NOMINAL_RANGES_FILE = Path(__file__).parent.parent.parent.parent / "data" / "NominalRanges.json"
+
+try:
+    _NOMINAL_RANGES: dict = json.loads(_NOMINAL_RANGES_FILE.read_text(encoding="utf-8"))
+except Exception:
+    logger.warning("Could not load NominalRanges.json — telemetry status annotations disabled")
+    _NOMINAL_RANGES = {}
 
 _TREND_FIELDS = [
     "heart_rate",
@@ -99,7 +107,7 @@ async def build_and_save_context(
         for name, data in sections.items():
             text += f"\n[{name}]\n"
 
-            formatted_lines = flatten_telemetry_text(data)
+            formatted_lines = flatten_telemetry_text(data, nominal_ranges=_NOMINAL_RANGES)
 
             for line in formatted_lines:
                 text += f"- {line}\n"

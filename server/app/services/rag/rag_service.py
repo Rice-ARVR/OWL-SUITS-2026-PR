@@ -112,7 +112,9 @@ Sammy: "Scrubber A is at 62% — vent it now using the CO2 switch on your DCU."
 {procedures}
 
 === RELEVANT MISSION DOCUMENTS ===
-{documents}"""
+{documents}
+
+Keep responses to 50 words. Use bullet points. Be brief"""
 
 
 def _read_telemetry() -> str:
