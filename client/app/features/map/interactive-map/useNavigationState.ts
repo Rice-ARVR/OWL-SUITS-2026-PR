@@ -5,6 +5,8 @@ export interface PingRecord {
     rssi: number;
     signal_category: "strong" | "moderate" | "weak" | "very_weak";
     rover_position: { x: number; y: number };
+    distance_min: number;
+    distance_max: number;
 }
 
 export interface NavState {

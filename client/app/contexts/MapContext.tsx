@@ -2,12 +2,17 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import type { MapPoint, Hazard } from "~/types/map";
 import { useNavigationState } from "~/features/map/interactive-map/useNavigationState";
 import type { NavState } from "~/features/map/interactive-map/useNavigationState";
+import mockNavState from "~/features/map/interactive-map/mock-nav-state.json";
+
+const DEBUG_MODE = false;
 
 export interface SavedPingRecord {
     timestamp?: string;
     rover_position: { x: number; y: number };
     rssi: number;
     signal_category: string;
+    distance_min: number;
+    distance_max: number;
 }
 
 export interface SavedSearchArea {
@@ -25,10 +30,7 @@ export interface SavedSearchArea {
 //   'request'  — a newly refreshed window asking for current state
 //   'response' — any other window answering that request with its current state
 
-type Msg<T> =
-    | { type: "update"; data: T }
-    | { type: "request" }
-    | { type: "response"; data: T };
+type Msg<T> = { type: "update"; data: T } | { type: "request" } | { type: "response"; data: T };
 
 function useBroadcastState<T>(
     channelName: string,
@@ -60,19 +62,13 @@ function useBroadcastState<T>(
         return () => ch.close();
     }, [channelName]);
 
-    const setState: React.Dispatch<React.SetStateAction<T>> = useCallback(
-        (action) => {
-            setStateLocal((prev) => {
-                const next =
-                    typeof action === "function"
-                        ? (action as (p: T) => T)(prev)
-                        : action;
-                channelRef.current?.postMessage({ type: "update", data: next });
-                return next;
-            });
-        },
-        [],
-    );
+    const setState: React.Dispatch<React.SetStateAction<T>> = useCallback((action) => {
+        setStateLocal((prev) => {
+            const next = typeof action === "function" ? (action as (p: T) => T)(prev) : action;
+            channelRef.current?.postMessage({ type: "update", data: next });
+            return next;
+        });
+    }, []);
 
     return [state, setState];
 }
@@ -86,6 +82,8 @@ interface MapContextValue {
     setHazards: React.Dispatch<React.SetStateAction<Hazard[]>>;
     savedPingHistory: SavedPingRecord[];
     setSavedPingHistory: React.Dispatch<React.SetStateAction<SavedPingRecord[]>>;
+    savedPathHistory: { x: number; y: number }[];
+    setSavedPathHistory: React.Dispatch<React.SetStateAction<{ x: number; y: number }[]>>;
     savedSearchArea: SavedSearchArea | null;
     setSavedSearchArea: React.Dispatch<React.SetStateAction<SavedSearchArea | null>>;
     navState: NavState | null;
@@ -105,15 +103,26 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
         "ping-history",
         [],
     );
-    const [savedSearchArea, setSavedSearchArea] =
-        useBroadcastState<SavedSearchArea | null>("search-area", null);
+    const [savedPathHistory, setSavedPathHistory] = useBroadcastState<{ x: number; y: number }[]>(
+        "path-history",
+        [],
+    );
+    const [savedSearchArea, setSavedSearchArea] = useBroadcastState<SavedSearchArea | null>(
+        "search-area",
+        null,
+    );
     const [autonomyRequested, setAutonomyRequested] = useBroadcastState<boolean>(
         "autonomy-requested",
         false,
     );
 
-    const { navState, startAutonomy, stopAutonomy, executePing } =
-        useNavigationState(autonomyRequested);
+    const liveNav = useNavigationState(DEBUG_MODE ? false : autonomyRequested);
+    const { startAutonomy, stopAutonomy, executePing } = liveNav;
+    const navState: NavState | null = DEBUG_MODE
+        ? autonomyRequested
+            ? (mockNavState as NavState)
+            : null
+        : liveNav.navState;
 
     useEffect(() => {
         if (navState?.session?.ping_history && navState.session.ping_history.length > 0) {
@@ -122,10 +131,10 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
     }, [navState?.session?.ping_history]);
 
     useEffect(() => {
-        if (navState?.session?.search_area) {
-            setSavedSearchArea(navState.session.search_area);
+        if (navState?.session?.path_history && navState.session.path_history.length > 0) {
+            setSavedPathHistory(navState.session.path_history);
         }
-    }, [navState?.session?.search_area]);
+    }, [navState?.session?.path_history]);
 
     return (
         <MapContext.Provider
@@ -136,6 +145,8 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
                 setHazards,
                 savedPingHistory,
                 setSavedPingHistory,
+                savedPathHistory,
+                setSavedPathHistory,
                 savedSearchArea,
                 setSavedSearchArea,
                 navState,

@@ -178,12 +178,15 @@ async def start_autonomous_loop(force_reset: bool = False):
                     state.session.success_vector = 0.0  # reset bearing
                     state.session.best_rssi = float("-inf")  # force a fresh evaluation
 
-        # 3. Inject the dynamic phase name AND the correct targets
+        # 3. Inject the dynamic phase name, correct target, and an initial projected path.
+        # The projected path is a straight-line placeholder; the mission loop will replace
+        # it with a hazard-aware path once pathfinding runs.
         state.session.current_target = NavigationTarget(
             position=resume_target,
             description=f"Resuming: {phase_name}",
             arrival_threshold_m=threshold,
         )
+        state.session.projected_path = [resume_target]
         await navigation_state.update_session(state.session)
 
     await navigation_state.set_autonomous_driving(True)
@@ -211,21 +214,25 @@ async def stop_autonomous_loop(apply_brakes: bool = True):
     # must be skipped — the task exits on its own once control returns.
     current_task = asyncio.current_task()
 
+    # Cancel both tasks before awaiting either — if one await raises CancelledError
+    # (a BaseException in Python 3.8+, not caught by `except Exception`), the other
+    # task would never get cancelled and the rover would keep driving.
     if _telemetry_task and not _telemetry_task.done():
         _telemetry_task.cancel()
-        if _telemetry_task is not current_task:
-            try:
-                await _telemetry_task
-            except Exception:
-                pass
-
     if _mission_task and not _mission_task.done():
         _mission_task.cancel()
-        if _mission_task is not current_task:
-            try:
-                await _mission_task
-            except Exception:
-                pass
+
+    if _telemetry_task and not _telemetry_task.done() and _telemetry_task is not current_task:
+        try:
+            await _telemetry_task
+        except BaseException:
+            pass
+
+    if _mission_task and not _mission_task.done() and _mission_task is not current_task:
+        try:
+            await _mission_task
+        except BaseException:
+            pass
 
     # Slam the brakes to release controls safely to user (if not overridden)
     if apply_brakes:
@@ -395,15 +402,53 @@ async def autonomous_mission_loop():
 
                 # TRIGGER THE MANUAL PING INTERRUPT
                 if result == 2:
-                    await navigation_state.update_status(
-                        "Brakes active. Executing ping and recalculating next waypoint...",
-                        "info",
-                    )
-                    await evaluate_phase_and_ping()
-                    await navigation_state.update_status(
-                        "Recalculation complete. Resuming autonomous navigation to next waypoint.",
-                        "success",
-                    )
+                    fresh_state = await navigation_state.get_snapshot()
+                    phase = fresh_state.session.phase if fresh_state.session else None
+
+                    if phase == SearchPhase.TRANSIT_TO_LNP:
+                        # Phase 1: record ping, keep driving to LNP.
+                        await navigation_state.update_status(
+                            "Manual ping recorded. Continuing transit to LNP...", "info"
+                        )
+                        await _record_manual_ping()
+                        lnp_state = await navigation_state.get_snapshot()
+                        if lnp_state.session:
+                            lnp_state.session.current_target = NavigationTarget(
+                                position=lnp_state.session.lnp,
+                                description="Transit to Last Nominal Position",
+                                arrival_threshold_m=50.0,
+                            )
+                            await navigation_state.update_session(lnp_state.session)
+
+                    elif phase == SearchPhase.CONCENTRIC_SEARCH:
+                        # Phase 2: record ping as manual (stored for phase 3 use),
+                        # but do NOT advance the triangle — restore the current waypoint.
+                        await navigation_state.update_status(
+                            "Manual ping recorded. Continuing triangle scan...", "info"
+                        )
+                        await _record_manual_ping()
+                        tri_state = await navigation_state.get_snapshot()
+                        if tri_state.session and ring_waypoints:
+                            tri_state.session.current_target = NavigationTarget(
+                                position=Position(
+                                    x=ring_waypoints[current_ring_index][0],
+                                    y=ring_waypoints[current_ring_index][1],
+                                ),
+                                description=f"Triangle waypoint {current_ring_index + 1}/{len(ring_waypoints)}",
+                                arrival_threshold_m=30.0,
+                            )
+                            await navigation_state.update_session(tri_state.session)
+
+                    else:
+                        await navigation_state.update_status(
+                            "Brakes active. Executing ping and recalculating next waypoint...",
+                            "info",
+                        )
+                        await evaluate_phase_and_ping()
+                        await navigation_state.update_status(
+                            "Recalculation complete. Resuming autonomous navigation to next waypoint.",
+                            "success",
+                        )
                     ping_interrupted = True
                     break  # Exit for-loop; while-loop re-pathfinds to new current_target
 
@@ -668,6 +713,17 @@ async def evaluate_phase_and_ping():
 
     elif session.phase == SearchPhase.CONCENTRIC_SEARCH:
         if success:
+            # Record this waypoint ping in the dedicated concentric list so manual
+            # pings interspersed in ping_history don't corrupt triangulation.
+            waypoint_record = PingRecord(
+                timestamp=last_ping_time or datetime.now(),
+                rssi=rssi,
+                rover_position=rover_pos,
+                signal_category=category,
+                is_manual=False,
+            )
+            session.concentric_waypoint_pings.append(waypoint_record)
+
             if category == DistanceCategory.NOT_IN_RANGE:
                 session.search_area = SearchArea(
                     center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
@@ -683,7 +739,6 @@ async def evaluate_phase_and_ping():
                     "success",
                 )
 
-        if success:
             current_ring_index += 1
             if current_ring_index < len(ring_waypoints):
                 session.current_target = NavigationTarget(
@@ -695,9 +750,10 @@ async def evaluate_phase_and_ping():
                     arrival_threshold_m=30.0,
                 )
             else:
-                # All 3 triangle waypoints visited — triangulate LTV direction
+                # All 3 triangle waypoints visited — triangulate using only the
+                # waypoint pings, not any manual pings taken in between.
                 session.phase = SearchPhase.GRADIENT_ASCENT
-                concentric_pings = session.ping_history[-len(ring_waypoints):]
+                concentric_pings = session.concentric_waypoint_pings
                 session.success_vector = triangulate_ltv_direction(
                     concentric_pings, session.search_center
                 )
@@ -1052,7 +1108,12 @@ async def start_search_session() -> SearchSession:
     return session
 
 
-async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
+async def _record_manual_ping() -> Tuple[bool, float, DistanceCategory]:
+    """Execute a ping and mark it as manual — stored for later use, no state-machine effects."""
+    return await execute_ping(is_manual=True)
+
+
+async def execute_ping(is_manual: bool = False) -> Tuple[bool, float, DistanceCategory]:
     global last_ping_time
     now = datetime.now()
 
@@ -1065,31 +1126,35 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
         logger.warning("Ping aborted: telemetry_service.ltv_data is not initialized.")
         return False, 0.0, DistanceCategory.VERY_WEAK
 
-    # Snapshot update timestamp so we know when a fresh poll arrives post-ping
+    # Record the time we send the ping so we can discard any telemetry poll that was
+    # already in-flight (its data was fetched before TSS processed the ping command).
     pre_ping_update_t = await telemetry_service.ltv_data.get_last_updated()
 
     await asyncio.to_thread(tss_client.send_ltv_ping_normal)
 
-    # Wait for the next telemetry poll to complete (fire-and-forget ping; response
-    # arrives in the next fetch_json cycle). Poll every 250 ms with a 5 s hard timeout.
+    # Wait for two distinct telemetry polls to arrive after the ping is sent.
+    # The first new poll may have been in-flight before TSS processed our command,
+    # so its RSSI could still be stale. The second poll is guaranteed to have been
+    # fetched after TSS had time to process the ping.
     POLL_INTERVAL_S = 0.25
     PING_WAIT_TIMEOUT_S = 5.0
     deadline = asyncio.get_event_loop().time() + PING_WAIT_TIMEOUT_S
-    while True:
+    polls_seen = 0
+    last_seen_t = pre_ping_update_t
+    fresh_snap = None
+    while polls_seen < 2:
         await asyncio.sleep(POLL_INTERVAL_S)
+        fresh_snap = await telemetry_service.ltv_data.get_snapshot()
         fresh_t = await telemetry_service.ltv_data.get_last_updated()
-        if fresh_t is not None and (
-            pre_ping_update_t is None or fresh_t > pre_ping_update_t
-        ):
-            break
+        if fresh_t is not None and (last_seen_t is None or fresh_t > last_seen_t):
+            last_seen_t = fresh_t
+            polls_seen += 1
         if asyncio.get_event_loop().time() >= deadline:
             logger.warning("Ping timed out waiting for fresh telemetry poll.")
             return False, 0.0, DistanceCategory.VERY_WEAK
 
-    ltv_data = await telemetry_service.ltv_data.get_snapshot()
-
-    if ltv_data and ltv_data.signal:
-        rssi = ltv_data.signal.strength
+    if fresh_snap and fresh_snap.signal:
+        rssi = fresh_snap.signal.strength
         category = categorize_rssi(rssi)
         last_ping_time = datetime.now()
 
@@ -1111,33 +1176,36 @@ async def execute_ping() -> Tuple[bool, float, DistanceCategory]:
 
         # Now that we guarantee we have a session AND a position, save the ping.
         if session is not None and rover_pos is not None:
-            session.ping_history.append(
-                PingRecord(
-                    timestamp=last_ping_time,
-                    rssi=rssi,
-                    rover_position=rover_pos,
-                    signal_category=category,
-                )
+            r_min, r_max = get_distance_range(category)
+            record = PingRecord(
+                timestamp=last_ping_time,
+                rssi=rssi,
+                rover_position=rover_pos,
+                signal_category=category,
+                distance_min=r_min,
+                distance_max=r_max,
+                is_manual=is_manual,
             )
+            session.ping_history.append(record)
 
-            # If completely out of range, clear the search donut
-            if category == DistanceCategory.NOT_IN_RANGE:
-                session.search_area = SearchArea(
-                    center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
-                )
-            # Only update best_rssi if it is a VALID signal (less than 0)
-            elif rssi < 0 and rssi > session.best_rssi:
-                session.best_rssi = rssi
-                r_min, r_max = get_distance_range(category)
-                session.search_area = SearchArea(
-                    center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
-                )
+            # Manual pings are stored for later use but must not update search-area
+            # estimates or best_rssi — those are only valid at auto waypoints.
+            if not is_manual:
+                if category == DistanceCategory.NOT_IN_RANGE:
+                    session.search_area = SearchArea(
+                        center=rover_pos, radius_min_m=0.0, radius_max_m=0.0
+                    )
+                elif rssi < 0 and rssi > session.best_rssi:
+                    session.best_rssi = rssi
+                    r_min, r_max = get_distance_range(category)
+                    session.search_area = SearchArea(
+                        center=rover_pos, radius_min_m=r_min, radius_max_m=r_max
+                    )
 
             await navigation_state.update_session(session)
 
-            # Notify user ping is done
             await navigation_state.update_status(
-                f"Manual Ping Recorded. RSSI: {rssi} dBm", "info"
+                f"{'Manual' if is_manual else 'Auto'} ping recorded. RSSI: {rssi} dBm", "info"
             )
 
         return True, rssi, category
