@@ -189,11 +189,20 @@ async def autonomous_mission_loop() -> None:
                             session.phase_2_index = 0
                             await navigation_state.update_session(session)
 
-                elif result == 2:  # Manual Ping Interrupted AI
+                elif result == 2:  # BUG 1 FIX: Manual Ping Interrupted AI
                     logger.info(
-                        "Phase 1 interrupted by manual ping. Data logged. Resuming to LNP."
+                        "Phase 1 interrupted by manual ping. Braking to gather data."
                     )
                     interrupt_event.clear()
+                    await _brake_and_pause(4.0)
+                    await execute_ping(is_autonomous=True)
+
+                elif result == 1:  # BUG 2 FIX: Rover gets boxed in
+                    logger.error("Phase 1: Rover stuck. Aborting autonomy.")
+                    await stop_autonomous_loop()
+                    await navigation_state.update_status(
+                        "Autonomy failed (Stuck). Manual control required.", "critical"
+                    )
 
             # ==========================================
             # PHASE 2: Concentric Search (Equilateral Triangle)
@@ -229,8 +238,6 @@ async def autonomous_mission_loop() -> None:
                     await navigation_state.update_status(
                         f"Reached Triangle Pt {session.phase_2_index + 1}.", "info"
                     )
-
-                    # AI-forced ping ensures we gather intersection data
                     await execute_ping(is_autonomous=True)
 
                     fresh_state = await navigation_state.get_snapshot()
@@ -239,17 +246,25 @@ async def autonomous_mission_loop() -> None:
                         session.phase_2_index += 1
                         await navigation_state.update_session(session)
 
-                elif result == 2:
+                elif result == 2:  # BUG 1 FIX
                     logger.info(
-                        "Phase 2 interrupted by ping. Ignored for Phase 2 navigation. Resuming."
+                        "Phase 2 interrupted by ping. Executing, but ignoring for geometry logic."
                     )
                     interrupt_event.clear()
+                    await _brake_and_pause(4.0)
+                    await execute_ping(is_autonomous=True)
+
+                elif result == 1:  # BUG 2 FIX
+                    logger.error("Phase 2: Rover stuck. Aborting autonomy.")
+                    await stop_autonomous_loop()
+                    await navigation_state.update_status(
+                        "Autonomy failed (Stuck). Manual control required.", "critical"
+                    )
 
             # ==========================================
             # PHASE 3: Gradient Ascent
             # ==========================================
             elif current_phase == SearchPhase.GRADIENT_ASCENT:
-                # Flag check: Triggered if driver did manual pings while manual control was active
                 if session.phase_3_recalc_required:
                     logger.info(
                         "Phase 3 AI Resume triggered. Braking and recalculating..."
@@ -260,10 +275,9 @@ async def autonomous_mission_loop() -> None:
                     )
                     await _brake_and_pause(4.0)
                     session.phase_3_recalc_required = False
-                    session.current_target = None  # Force a fresh calculation
+                    session.current_target = None
                     await navigation_state.update_session(session)
 
-                # Resume Rule: Use existing target if resuming cleanly, otherwise calculate new one
                 if session.current_target:
                     target = session.current_target.position
                 else:
@@ -291,18 +305,16 @@ async def autonomous_mission_loop() -> None:
                         )
                         interrupt_event.clear()
 
-                    # Both AI arrival and Manual AI Ping trigger the pause and forced ping command
                     await _brake_and_pause(4.0)
                     await execute_ping(is_autonomous=True)
 
                     fresh_state = await navigation_state.get_snapshot()
                     if fresh_state.session:
                         session = fresh_state.session
+                        session.current_target = (
+                            None  # Force a fresh math calculation next loop
+                        )
 
-                        # Clear target so the NEXT iteration guarantees a new intersection calculation
-                        session.current_target = None
-
-                        # Strong signal rule check
                         if (
                             session.ping_history
                             and session.ping_history[-1].signal_category
@@ -323,6 +335,13 @@ async def autonomous_mission_loop() -> None:
 
                         await navigation_state.update_session(session)
 
+                elif result == 1:  # BUG 2 FIX
+                    logger.error("Phase 3: Rover stuck. Aborting autonomy.")
+                    await stop_autonomous_loop()
+                    await navigation_state.update_status(
+                        "Autonomy failed (Stuck). Manual control required.", "critical"
+                    )
+
             # ==========================================
             # PHASE 4: Archimedes Spiral (50m bounds)
             # ==========================================
@@ -340,7 +359,6 @@ async def autonomous_mission_loop() -> None:
                     rover_pos.x - anchor.x, rover_pos.y - anchor.y
                 )
 
-                # Resume Check: If driver manually drove away, return to anchor first!
                 if distance_to_anchor > ARRIVAL_BUFFER_M:
                     logger.info(
                         "Phase 4: Rover is away from anchor. Returning to anchor point first."
@@ -364,14 +382,18 @@ async def autonomous_mission_loop() -> None:
                     if result == 0:
                         await _brake_and_pause(4.0)
                     elif result == 2:
-                        interrupt_event.clear()  # Ignore manual pings completely
-                    continue  # Start the loop over to begin the spiral cleanly
+                        interrupt_event.clear()
+                    elif result == 1:  # BUG 2 FIX
+                        await stop_autonomous_loop()
+                        await navigation_state.update_status(
+                            "Autonomy failed returning to anchor. Stuck.", "critical"
+                        )
 
-                # Generate spiral and iterate (If loop breaks, the index properly resets to 0 next time)
+                    continue
+
                 spiral_points = _generate_archimedes_spiral(anchor)
 
                 for i, target in enumerate(spiral_points):
-                    # Check if autonomy was killed between points
                     state = await navigation_state.get_snapshot()
                     if not state.autonomous_driving:
                         break
@@ -394,10 +416,18 @@ async def autonomous_mission_loop() -> None:
                         await _brake_and_pause(4.0)
                         await execute_ping(is_autonomous=True)
                     elif result == 2:
-                        # Ignore manual pings completely in Phase 4
+                        # As requested, manual pings during Phase 4 are strictly ignored
                         interrupt_event.clear()
+                    elif result == 1:  # BUG 2 FIX
+                        logger.error(
+                            "Phase 4: Rover stuck in spiral. Aborting autonomy."
+                        )
+                        await stop_autonomous_loop()
+                        await navigation_state.update_status(
+                            "Autonomy failed in spiral (Stuck).", "critical"
+                        )
+                        break
 
-                # If we finish the entire spiral loop without stopping, idle
                 state = await navigation_state.get_snapshot()
                 if state.autonomous_driving:
                     logger.info("Spiral max radius reached. Idling.")
