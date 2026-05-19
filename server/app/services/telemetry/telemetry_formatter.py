@@ -2,6 +2,41 @@ from typing import Any
 from app.services.telemetry.replacements import get_replacements
 
 
+def _classify_value(key: str, value: float, nominal_ranges: dict) -> str | None:
+    key_lower = key.lower()
+
+    if "eva1" in key_lower:
+        section = "eva1"
+    elif "eva2" in key_lower:
+        section = "eva2"
+    else:
+        section = "rover"
+
+    section_ranges = nominal_ranges.get(section, {})
+    if not section_ranges:
+        return None
+
+    parts = key_lower.split("_")
+    bare_key = None
+    for i in range(len(parts)):
+        candidate = "_".join(parts[i:])
+        if candidate in section_ranges:
+            bare_key = candidate
+            break
+
+    if bare_key is None:
+        return None
+
+    r = section_ranges[bare_key]
+    mn, mx = r.get("min"), r.get("max")
+
+    if mn is not None and value < mn:
+        return f"low (below minimum of {mn})"
+    if mx is not None and value > mx:
+        return f"high (above maximum of {mx})"
+    return "normal"
+
+
 def format_key(key: str) -> str:
     replacements = get_replacements()
 
@@ -19,6 +54,7 @@ def format_key(key: str) -> str:
 def flatten_telemetry_text(
     data: dict[str, Any],
     prefix: str = "",
+    nominal_ranges: dict | None = None,
 ) -> list[str]:
     lines = []
 
@@ -26,14 +62,21 @@ def flatten_telemetry_text(
         current_key = f"{prefix}_{key}" if prefix else key
 
         if isinstance(value, dict):
-            lines.extend(flatten_telemetry_text(value, current_key))
+            lines.extend(flatten_telemetry_text(value, current_key, nominal_ranges))
         else:
             readable_key = format_key(current_key)
 
             if isinstance(value, float):
                 value = round(value, 2)
 
-            lines.append(f"{readable_key} is {value}")
+            line = f"{readable_key} is {value}"
+
+            if nominal_ranges is not None and isinstance(value, (int, float)):
+                status = _classify_value(current_key, float(value), nominal_ranges)
+                if status is not None:
+                    line += f" — {status}"
+
+            lines.append(line)
 
     return lines
 
