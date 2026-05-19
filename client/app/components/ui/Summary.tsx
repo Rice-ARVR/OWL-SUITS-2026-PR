@@ -26,16 +26,12 @@ function useCSTClock() {
 interface SummaryProps {
     image?: string;
     label?: string;
-    showReflection?: boolean;
     warnings?: Warning[];
 }
-
-const imgVector = "https://www.figma.com/api/mcp/asset/ffb45169-31ac-4c37-9ce5-ef097f9a568b";
 
 export default function Summary({
     image = "/rover.png",
     label = "Pressurized Rover",
-    showReflection = true,
     warnings = [],
 }: SummaryProps) {
     const time = useCSTClock();
@@ -48,123 +44,49 @@ export default function Summary({
             style={{
                 width: "100%",
                 height: "100%",
-                position: "relative",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                flexDirection: "column",
             }}
         >
-            {/* Images positioned absolutely */}
-            <div
-                style={
-                    hasWarnings
-                        ? {
-                              position: "absolute",
-                              right: 6,
-                              bottom: 6,
-                              width: 110,
-                              height: 92,
-                              pointerEvents: "none",
-                          }
-                        : {
-                              position: "absolute",
-                              left: "50%",
-                              top: 83,
-                              width: 272,
-                              height: 226,
-                              transform: "translateX(-50%)",
-                              pointerEvents: "none",
-                          }
-                }
+            <p
+                style={{
+                    fontFamily: '"Be Vietnam Pro", sans-serif',
+                    fontSize: 16,
+                    fontWeight: 400,
+                    color: "#c5c9d2",
+                    letterSpacing: "0.64px",
+                    margin: 0,
+                    paddingTop: 20,
+                    paddingLeft: 10,
+                    marginBottom: 10,
+                }}
             >
-                <img
-                    src={image}
-                    alt="Rover"
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        alignContent: "center",
-                    }}
-                />
-            </div>
-            {showReflection && (
-                <div
-                    style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: 83 + 18.73,
-                        width: 263,
-                        height: 184,
-                        transform: "translateX(-50%) scaleY(-1)",
-                        pointerEvents: "none",
-                    }}
-                >
-                    <img
-                        src={imgVector}
-                        alt=""
-                        style={{
-                            width: "100%",
-                            height: "100%",
-                        }}
-                    />
-                </div>
-            )}
+                {time}
+            </p>
 
-            {/* Warnings centered absolutely */}
             <div
                 style={{
-                    position: "absolute",
-                    left: "50%",
-                    top: 50,
-                    transform: "translateX(-50%)",
-                    width: 260,
-                    zIndex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    flex: 1,
+                    justifyContent: "space-between",
                 }}
             >
                 <Warnings warnings={warnings} />
-            </div>
 
-            {/* Text content */}
-            <div
-                style={{
-                    position: "relative",
-                    width: 274,
-                    height: 364,
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                }}
-            >
-                <p
-                    style={{
-                        fontFamily: '"Be Vietnam Pro", sans-serif',
-                        fontSize: 16,
-                        fontWeight: 400,
-                        color: "#c5c9d2",
-                        letterSpacing: "0.64px",
-                        margin: 0,
-                        paddingTop: 20,
-                        paddingLeft: 10,
-                    }}
-                >
-                    {time}
-                </p>
                 <div
                     style={{
                         display: "flex",
-                        gap: 10,
-                        alignItems: "flex-end",
+                        flexDirection: "row",
                         width: "100%",
+                        justifyContent: "space-between",
+                        alignItems: "center",
                     }}
                 >
                     <div
                         style={{
                             display: "flex",
                             flexDirection: "column",
-                            gap: 6,
-                            flex: 1,
                         }}
                     >
                         <p
@@ -194,6 +116,16 @@ export default function Summary({
                             {statusText}
                         </p>
                     </div>
+                    <img
+                        src={image}
+                        alt="Rover"
+                        style={{
+                            width: 110,
+                            height: 92,
+                            objectFit: "contain",
+                            pointerEvents: "none",
+                        }}
+                    />
                 </div>
             </div>
         </div>
