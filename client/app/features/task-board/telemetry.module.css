@@ -16,6 +16,7 @@
     align-items: flex-start;
     box-sizing: border-box;
     background: #29292C;
+    overflow: hidden;
 }
 
 /* Houses the rover frame and the eva frame, side by side. */
@@ -190,13 +191,22 @@
     gap: var(--card-gap);
 }
 
-/* Substack 2: Suit Pressure card — fills the middle. */
-.suitPressureCard {
+/* Substack 2: wrapper constrains height to available space in the row. */
+.suitPressureWrapper {
     flex: 1 0 0;
-    align-items: center;
-    gap: 17px; /* Figma — clean card-to-card spacing (no padding added) */
     align-self: stretch;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.suitPressureCard {
+    align-items: center;
+    gap: 17px; /* Figma — clean card-to-card spacing (no padding added) */
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* Suit pressure: gauge wrapper. Hugs the gauge — Figma's fixed 142px
@@ -212,16 +222,17 @@
 .suitGraphsCard {
     display: flex;
     width: 384px;
-    padding: 0 20px; /* no vertical pad — gap to siblings = the 17px flex gap */
+    padding: 0 20px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px; /* Figma 16 — user-approved tighten (Graph has own padding) */
+    gap: 0;
     box-sizing: border-box;
 }
 
 /* "Other pressure" row card. */
 .otherPressureCard {
     display: flex;
+    margin-top: -17px; /* cancel parent card gap — flush against graphs */
     padding: 12px 20px;
     justify-content: space-between;
     align-items: center;
