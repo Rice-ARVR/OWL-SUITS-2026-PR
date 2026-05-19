@@ -1,4 +1,4 @@
-import { useTrend } from "~/components/ui/trend";
+import { useTrend, TrendArrow } from "~/components/ui/trend";
 
 interface FanStatus {
     label: string;
@@ -11,33 +11,29 @@ interface FansProps {
     fanWarnings?: boolean[];
 }
 
-const imgVector = "/fan.png";
-
-const FanArrowIcon = ({ direction = "up" }: { direction?: "up" | "down" }) => (
-    <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        style={{
-            transform: direction === "down" ? "rotate(180deg)" : "none",
-            flexShrink: 0,
-        }}
-    >
-        <path
-            d="M8 12V4M8 4L4.5 7.5M8 4L11.5 7.5"
-            stroke="#f87171"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
-    </svg>
-);
-
-function FanItem({ fan }: { fan: FanStatus }) {
+function FanItem({ fan, index }: { fan: FanStatus; index: number }) {
     const direction = useTrend(fan.rpm);
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+                style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 5,
+                    background: "#3b3a41",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
+                <img
+                    src={`/fan${index + 1}.svg`}
+                    alt={`${fan.label} icon`}
+                    style={{ width: 34, height: 34, display: "block" }}
+                />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             <p
                 style={{
                     margin: 0,
@@ -76,10 +72,20 @@ function FanItem({ fan }: { fan: FanStatus }) {
                         gap: 4,
                     }}
                 >
-                    <span>{fan.rpm} </span>
+                    <span
+                        style={{
+                            display: "inline-block",
+                            minWidth: 56,
+                            textAlign: "left",
+                            fontVariantNumeric: "tabular-nums",
+                        }}
+                    >
+                        {fan.rpm}
+                    </span>
                     <span style={{ fontSize: 16, letterSpacing: "0.64px" }}>rpm</span>
                 </p>
-                <FanArrowIcon direction={direction === "stable" ? "up" : direction} />
+                <TrendArrow direction={direction === "stable" ? "up" : direction} />
+            </div>
             </div>
         </div>
     );
@@ -103,60 +109,13 @@ export default function Fans({
                 background: "#2e2e32",
                 borderRadius: 12,
                 display: "flex",
-                gap: 16,
+                flexDirection: "column",
+                gap: 9,
                 alignItems: "flex-start",
                 width: "100%",
                 padding: "12px 20px",
             }}
         >
-            <div
-                style={{
-                    width: 46,
-                    height: 46,
-                    borderRadius: 5,
-                    background: "#3b3a41",
-                    position: "relative",
-                    flexShrink: 0,
-                    alignItems: "flex-start",
-                }}
-            >
-                <div
-                    style={{
-                        position: "absolute",
-                        left: 6,
-                        bottom: 4,
-                        width: 30,
-                        height: 4,
-                        borderRadius: "50%",
-                        background:
-                            "radial-gradient(ellipse at center, rgba(255,255,255,0.25) 0%, transparent 100%)",
-                    }}
-                />
-                <div
-                    style={{
-                        position: "absolute",
-                        left: 6,
-                        top: 6.26,
-                        width: 34,
-                        height: 34,
-                    }}
-                >
-                    <img
-                        src={imgVector}
-                        alt="Fan icon"
-                        style={{ width: "100%", height: "100%", display: "block" }}
-                    />
-                </div>
-            </div>
-
-            <div
-                style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 9,
-                    flexShrink: 0,
-                }}
-            >
                 <p
                     style={{
                         fontFamily: '"Be Vietnam Pro", sans-serif',
@@ -173,11 +132,10 @@ export default function Fans({
                 </p>
 
                 <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-                    {fans.map((fan) => (
-                        <FanItem key={fan.label} fan={fan} />
+                    {fans.map((fan, index) => (
+                        <FanItem key={fan.label} fan={fan} index={index} />
                     ))}
                 </div>
-            </div>
         </div>
     );
 }

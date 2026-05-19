@@ -30,9 +30,6 @@ export default function Battery({
     return (
         <div
             style={{
-                background: "#3a3a41",
-                borderRadius: "12px",
-                padding: "4px 0 16px",
                 width: "100%",
                 display: "flex",
                 flexDirection: "column",

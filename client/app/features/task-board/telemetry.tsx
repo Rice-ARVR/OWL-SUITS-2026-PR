@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTelemetry } from "~/hooks/useTelemetry";
 import { useEstimates } from "./hooks/useEstimates";
-
 import { EVA_LIMITS, ROVER_LIMITS } from "~/constants/telemetryLimits";
 import { getTelemetryLabel } from "~/constants/telemetryLabels";
-
 import Battery from "~/components/ui/Battery";
 import Card from "~/components/ui/Card";
 import CO2 from "~/components/ui/CO2";
@@ -18,6 +16,7 @@ import Oxygen from "~/components/ui/Oxygen";
 import Pressure from "~/components/ui/Pressure";
 import Summary from "~/components/ui/Summary";
 import Temperature from "~/components/ui/Temperature";
+import TelemetryHighlight, { type Severity } from "~/components/ui/TelemetryHighlight";
 import type { Warning } from "~/types/warning";
 import styles from "./telemetry.module.css";
 
@@ -38,7 +37,6 @@ export default function Telemetry() {
         let ws: WebSocket | null = null;
         let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
         let active = true;
-
         const connect = () => {
             if (!active) return;
             const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -47,15 +45,12 @@ export default function Telemetry() {
             ws.onmessage = (event: MessageEvent) => {
                 try {
                     setTelemetryWarnings(JSON.parse(event.data as string) as Warning[]);
-                } catch {
-                    // ignore parse errors
-                }
+                } catch {}
             };
             ws.onclose = () => {
                 if (active) reconnectTimeout = setTimeout(connect, 1000);
             };
         };
-
         connect();
         return () => {
             active = false;
@@ -65,125 +60,52 @@ export default function Telemetry() {
     }, []);
 
     const snapshot = telemetry.getSnapshot();
-
     if (!snapshot) return <p className={styles.loading}>Loading...</p>;
 
     const eva1 = snapshot.eva.telemetry.eva1;
     const rover = snapshot.rover.pr_telemetry;
-
     const roverWarnings = telemetryWarnings.filter((w) => w.source === "rover");
     const evaWarnings = telemetryWarnings.filter((w) => w.source === "eva1");
-
     const w = (source: "rover" | "eva1", field: string) =>
         telemetryWarnings.some(
             (warn) => warn.source === source && warn.field === field && warn.out_of_range,
         );
+    const worst = (ws: Warning[]): Severity =>
+        ws.some((x) => x.out_of_range)
+            ? "critical"
+            : ws.some((x) => x.off_nominal)
+              ? "warning"
+              : "nominal";
+    const sev = (source: "rover" | "eva1", ...fields: string[]): Severity =>
+        worst(telemetryWarnings.filter((x) => x.source === source && fields.includes(x.field)));
 
     return (
-        <div className={styles.container}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Row 1 */}
-                <div style={{ display: "flex", gap: 16 }}>
-                    <Card style={{ width: 314, height: 384, flexShrink: 0, padding: 0 }} title="A">
-                        <div
-                            style={{
-                                flex: 1,
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                        >
+        <div className={styles.root}>
+            <div className={styles.inner}>
+                {/* Rover frame — 675px fixed */}
+                <div className={styles.roverFrame}>
+                    {/* Rover Row 1: Summary + Temperature */}
+                    <div className={styles.roverRow1}>
+                        <Card className={styles.summaryCard} severity={worst(roverWarnings)}>
                             <Summary showReflection={false} warnings={roverWarnings} />
-                        </div>
-                    </Card>
-                    <Card style={{ width: 345, height: 384, flexShrink: 0 }} title="B">
-                        <div
-                            style={{
-                                flex: 1,
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
+                        </Card>
+                        <Card
+                            className={styles.temperatureCard}
+                            severity={sev("rover", "cabin_temperature")}
                         >
                             <Temperature
                                 temperature={rover.cabin_temperature}
                                 outsideTemperature={rover.external_temp}
                                 target={rover.cabin_temperature_target}
                             />
-                        </div>
-                    </Card>
-                    <Card
-                        style={{
-                            width: 314,
-                            height: 384,
-                            flexShrink: 0,
-                            padding: 0,
-                            marginLeft: 16,
-                        }}
-                        title="C"
-                    >
-                        <div
-                            style={{
-                                flex: 1,
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                        >
-                            <Summary
-                                image="/astronaut.png"
-                                label="EVA 1"
-                                showReflection={false}
-                                warnings={evaWarnings}
-                            />
-                        </div>
-                    </Card>
-                    <Card
-                        style={{
-                            width: 823,
-                            height: 384,
-                            flexShrink: 0,
-                            overflow: "hidden",
-                        }}
-                        title="D"
-                    >
-                        <img
-                            src="/moon.png"
-                            alt="Moon"
-                            style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                borderRadius: 8,
-                            }}
-                        />
-                    </Card>
-                </div>
-
-                {/* Rows 2–3 */}
-                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                    {/* Col E + J */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <Card
-                            style={{
-                                width: 240,
-                                height: 275,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="E"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
+                        </Card>
+                    </div>
+                    {/* Rover Row 2: Oxygen + Battery | Pressure + Coolant */}
+                    <div className={styles.roverRow2}>
+                        <div className={styles.roverRow2LeftStack}>
+                            <Card
+                                className={styles.oxygenCard}
+                                severity={sev("rover", "oxygen_storage")}
                             >
                                 <Oxygen
                                     level={rover.oxygen_storage ?? 0}
@@ -192,25 +114,11 @@ export default function Telemetry() {
                                         estimates.rover_oxygen_time_remaining_s,
                                     )}
                                 />
-                            </div>
-                        </Card>
-                        <Card
-                            style={{
-                                width: 240,
-                                height: 335,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="J"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
+                            </Card>
+                            <Card
+                                className={styles.batteryCard}
+                                padding="25px 20px"
+                                severity={sev("rover", "primary_battery_level")}
                             >
                                 <Battery
                                     level={rover.primary_battery_level ?? 0}
@@ -219,117 +127,114 @@ export default function Telemetry() {
                                         estimates.rover_battery_time_remaining_s,
                                     )}
                                 />
-                            </div>
+                            </Card>
+                        </div>
+                        <div className={styles.roverRow2RightStack}>
+                            <Card className={styles.pressureCard} padding="24px 20px 20px 20px">
+                                <TelemetryHighlight
+                                    severity={sev("rover", "cabin_pressure")}
+                                    style={{
+                                        width: "100%",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <Pressure
+                                        value={rover.cabin_pressure}
+                                        {...ROVER_LIMITS.cabin_pressure}
+                                        label={getTelemetryLabel("cabin_pressure")}
+                                    />
+                                </TelemetryHighlight>
+                                <TelemetryHighlight
+                                    severity={sev("rover", "oxygen_pressure")}
+                                    style={{ width: "100%" }}
+                                >
+                                    <Graph
+                                        value={rover.oxygen_pressure}
+                                        label={getTelemetryLabel("oxygen_pressure")}
+                                        unit=" psi"
+                                        min={ROVER_LIMITS.oxygen_pressure.min}
+                                        max={ROVER_LIMITS.oxygen_pressure.max}
+                                        isWarning={w("rover", "oxygen_pressure")}
+                                    />
+                                </TelemetryHighlight>
+                            </Card>
+                            <Card className={styles.coolantCard} padding="20px 20px 20px 25px">
+                                <TelemetryHighlight
+                                    severity={sev("rover", "coolant_storage", "coolant_pressure")}
+                                    style={{ width: "100%" }}
+                                >
+                                    <Coolant
+                                        storage={rover.coolant_storage}
+                                        pressure={rover.coolant_pressure}
+                                        storageWarning={w("rover", "coolant_storage")}
+                                        pressureWarning={w("rover", "coolant_pressure")}
+                                    />
+                                </TelemetryHighlight>
+                                <TelemetryHighlight
+                                    severity={sev("rover", "fan_pri_rpm", "fan_sec_rpm")}
+                                    style={{ width: "100%" }}
+                                >
+                                    <Fans
+                                        fans={[
+                                            {
+                                                label: getTelemetryLabel("fan_pri_rpm"),
+                                                rpm: rover.fan_pri_rpm ?? 0,
+                                            },
+                                            {
+                                                label: getTelemetryLabel("fan_sec_rpm"),
+                                                rpm: rover.fan_sec_rpm ?? 0,
+                                            },
+                                        ]}
+                                        fanWarnings={[
+                                            w("rover", "fan_pri_rpm"),
+                                            w("rover", "fan_sec_rpm"),
+                                        ]}
+                                    />
+                                </TelemetryHighlight>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
+
+                {/* EVA frame — flexes to fill remaining 1153px */}
+                <div className={styles.evaFrame}>
+                    {/* EVA Row 1: EVA Summary + Moon */}
+                    <div className={styles.evaRow1}>
+                        <Card
+                            className={styles.evaSummaryCard}
+                            padding="20px 26px 20px 23px"
+                            severity={worst(evaWarnings)}
+                        >
+                            <Summary
+                                image="/astronaut.png"
+                                label="EVA 1"
+                                showReflection={false}
+                                warnings={evaWarnings}
+                            />
+                        </Card>
+                        <Card className={styles.moonCard}>
+                            <img
+                                src="http://192.168.50.27:5000"
+                                alt="Video Stream"
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    borderRadius: 8,
+                                }}
+                                onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = "/moon.png";
+                                }}
+                            />
                         </Card>
                     </div>
-
-                    {/* Col F + K */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <Card
-                            style={{
-                                width: 419,
-                                height: 335,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="F"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 30,
-                                }}
-                            >
-                                <Pressure
-                                    value={rover.cabin_pressure}
-                                    {...ROVER_LIMITS.cabin_pressure}
-                                    label={getTelemetryLabel("cabin_pressure")}
-                                />
-                                <Graph
-                                    value={rover.oxygen_pressure}
-                                    label={getTelemetryLabel("oxygen_pressure")}
-                                    unit=" psi"
-                                    min={ROVER_LIMITS.oxygen_pressure.min}
-                                    max={ROVER_LIMITS.oxygen_pressure.max}
-                                    isWarning={w("rover", "oxygen_pressure")}
-                                />
-                            </div>
-                        </Card>
-                        <Card
-                            style={{
-                                width: 419,
-                                height: 275,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="K"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 12,
-                                }}
-                            >
-                                <Coolant
-                                    storage={rover.coolant_storage}
-                                    pressure={rover.coolant_pressure}
-                                    storageWarning={w("rover", "coolant_storage")}
-                                    pressureWarning={w("rover", "coolant_pressure")}
-                                />
-                                <Fans
-                                    fans={[
-                                        {
-                                            label: getTelemetryLabel("fan_pri_rpm"),
-                                            rpm: rover.fan_pri_rpm ?? 0,
-                                        },
-                                        {
-                                            label: getTelemetryLabel("fan_sec_rpm"),
-                                            rpm: rover.fan_sec_rpm ?? 0,
-                                        },
-                                    ]}
-                                    fanWarnings={[
-                                        w("rover", "fan_pri_rpm"),
-                                        w("rover", "fan_sec_rpm"),
-                                    ]}
-                                />
-                            </div>
-                        </Card>
-                    </div>
-
-                    {/* Col G + M */}
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 16,
-                            marginLeft: 16,
-                        }}
-                    >
-                        <Card
-                            style={{
-                                width: 240,
-                                height: 275,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="G"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
+                    {/* EVA Row 2: EVA Oxygen + Battery | EVA Suit Pressure | EVA Health + CO2 + Coolant */}
+                    <div className={styles.evaRow2}>
+                        <div className={styles.evaRow2Stack1}>
+                            <Card
+                                className={styles.oxygenCard}
+                                severity={sev("eva1", "oxy_pri_storage")}
                             >
                                 <Oxygen
                                     level={eva1.oxy_pri_storage ?? 0}
@@ -338,25 +243,11 @@ export default function Telemetry() {
                                         estimates.eva_oxygen_time_remaining_s,
                                     )}
                                 />
-                            </div>
-                        </Card>
-                        <Card
-                            style={{
-                                width: 240,
-                                height: 335,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="M"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
+                            </Card>
+                            <Card
+                                className={styles.batteryCard}
+                                padding="25px 20px"
+                                severity={sev("eva1", "primary_battery_level")}
                             >
                                 <Battery
                                     level={eva1.primary_battery_level ?? 0}
@@ -365,93 +256,72 @@ export default function Telemetry() {
                                         estimates.eva_battery_time_remaining_s,
                                     )}
                                 />
-                            </div>
-                        </Card>
-                    </div>
-
-                    {/* H — spans both rows */}
-                    <Card
-                        style={{
-                            width: 424,
-                            height: 626,
-                            flexShrink: 0,
-                            overflow: "hidden",
-                        }}
-                        title="H"
-                    >
-                        <div
-                            style={{
-                                flex: 1,
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                        >
-                            <Pressure
-                                value={eva1.suit_pressure_total}
-                                {...EVA_LIMITS.suit_pressure_total}
-                                label={getTelemetryLabel("suit_pressure_total")}
-                            />
-                            <div style={{ height: "34px" }} />
-                            <Graph
-                                value={eva1.suit_pressure_oxy}
-                                label="O2 Pressure"
-                                unit=" psi"
-                                min={EVA_LIMITS.suit_pressure_oxy.min}
-                                max={EVA_LIMITS.suit_pressure_oxy.max}
-                                windowFraction={1}
-                                borderBottom={false}
-                                isWarning={w("eva1", "suit_pressure_oxy")}
-                            />
-                            <Graph
-                                value={eva1.suit_pressure_co2}
-                                label="CO2 Pressure"
-                                unit=" psi"
-                                min={EVA_LIMITS.suit_pressure_co2.min}
-                                max={EVA_LIMITS.suit_pressure_co2.max}
-                                windowFraction={1}
-                                borderBottom={false}
-                                borderTop={false}
-                                isWarning={w("eva1", "suit_pressure_co2")}
-                            />
-                            <Graph
-                                value={eva1.scrubber_a_co2_storage}
-                                label="CO2 Scrubber"
-                                unit="% full"
-                                min={EVA_LIMITS.scrubber_a_co2_storage.min}
-                                max={EVA_LIMITS.scrubber_a_co2_storage.max}
-                                borderTop={false}
-                                isWarning={w("eva1", "scrubber_a_co2_storage")}
-                            />
-                            <OtherPressure
-                                value={eva1.suit_pressure_other}
-                                isWarning={w("eva1", "suit_pressure_other")}
-                            />
+                            </Card>
                         </div>
-                    </Card>
-
-                    {/* Right col I + N + O */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                        <Card
-                            style={{
-                                width: 453,
-                                height: 124,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                                padding: "0 16px",
-                                gap: 0,
-                            }}
-                            title="I"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
+                        <div className={styles.suitPressureWrapper}>
+                            <Card
+                                className={styles.suitPressureCard}
+                                severity={sev(
+                                    "eva1",
+                                    "suit_pressure_total",
+                                    "suit_pressure_oxy",
+                                    "suit_pressure_co2",
+                                    "scrubber_a_co2_storage",
+                                    "suit_pressure_other",
+                                )}
+                            >
+                                <div className={styles.suitPressureGauge}>
+                                    <Pressure
+                                        value={eva1.suit_pressure_total}
+                                        {...EVA_LIMITS.suit_pressure_total}
+                                        label={getTelemetryLabel("suit_pressure_total")}
+                                    />
+                                </div>
+                                <div className={styles.suitGraphsCard}>
+                                    <Graph
+                                        value={eva1.suit_pressure_oxy}
+                                        label="O2 Pressure"
+                                        unit=" psi"
+                                        min={EVA_LIMITS.suit_pressure_oxy.min}
+                                        max={EVA_LIMITS.suit_pressure_oxy.max}
+                                        windowFraction={1}
+                                        borderBottom={false}
+                                        isWarning={w("eva1", "suit_pressure_oxy")}
+                                    />
+                                    <Graph
+                                        value={eva1.suit_pressure_co2}
+                                        label="CO2 Pressure"
+                                        unit=" psi"
+                                        min={EVA_LIMITS.suit_pressure_co2.min}
+                                        max={EVA_LIMITS.suit_pressure_co2.max}
+                                        windowFraction={1}
+                                        borderBottom={false}
+                                        borderTop={false}
+                                        isWarning={w("eva1", "suit_pressure_co2")}
+                                    />
+                                    <Graph
+                                        value={eva1.scrubber_a_co2_storage}
+                                        label="CO2 Scrubber"
+                                        unit="% full"
+                                        min={EVA_LIMITS.scrubber_a_co2_storage.min}
+                                        max={EVA_LIMITS.scrubber_a_co2_storage.max}
+                                        borderTop={false}
+                                        isWarning={w("eva1", "scrubber_a_co2_storage")}
+                                    />
+                                </div>
+                                <div className={styles.otherPressureCard}>
+                                    <OtherPressure
+                                        value={eva1.suit_pressure_other}
+                                        isWarning={w("eva1", "suit_pressure_other")}
+                                    />
+                                </div>
+                            </Card>
+                        </div>
+                        <div className={styles.evaRow2Stack3}>
+                            <Card
+                                className={styles.evaStack3Card}
+                                padding="20px 30px"
+                                severity={sev("eva1", "temperature", "heart_rate")}
                             >
                                 <Health
                                     bodyTemp={eva1.temperature}
@@ -459,62 +329,45 @@ export default function Telemetry() {
                                     bodyTempWarning={w("eva1", "temperature")}
                                     heartRateWarning={w("eva1", "heart_rate")}
                                 />
-                            </div>
-                        </Card>
-                        <Card
-                            style={{
-                                width: 453,
-                                height: 289,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="N"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 10,
-                                }}
-                            >
-                                <CO2
-                                    co2Production={eva1.co2_production}
-                                    helmetCo2Pressure={eva1.helmet_pressure_co2}
-                                    co2ProductionWarning={w("eva1", "co2_production")}
-                                    helmetCo2Warning={w("eva1", "helmet_pressure_co2")}
-                                />
-                                <Fans
-                                    fans={[
-                                        { label: "Fan 1", rpm: eva1.fan_pri_rpm ?? 0 },
-                                        { label: "Fan 2", rpm: eva1.fan_sec_rpm ?? 0 },
-                                    ]}
-                                    fanWarnings={[
-                                        w("eva1", "fan_pri_rpm"),
-                                        w("eva1", "fan_sec_rpm"),
-                                    ]}
-                                />
-                            </div>
-                        </Card>
-                        <Card
-                            style={{
-                                width: 453,
-                                height: 175,
-                                flexShrink: 0,
-                                overflow: "hidden",
-                            }}
-                            title="O"
-                        >
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                }}
+                            </Card>
+                            <Card className={styles.evaStack3Card} padding="20px">
+                                <TelemetryHighlight
+                                    severity={sev("eva1", "co2_production", "helmet_pressure_co2")}
+                                    radius={10}
+                                    style={{ width: "100%" }}
+                                >
+                                    <CO2
+                                        co2Production={eva1.co2_production}
+                                        helmetCo2Pressure={eva1.helmet_pressure_co2}
+                                        co2ProductionWarning={w("eva1", "co2_production")}
+                                        helmetCo2Warning={w("eva1", "helmet_pressure_co2")}
+                                    />
+                                </TelemetryHighlight>
+                                <TelemetryHighlight
+                                    severity={sev("eva1", "fan_pri_rpm", "fan_sec_rpm")}
+                                    style={{ width: "100%" }}
+                                >
+                                    <Fans
+                                        fans={[
+                                            { label: "Fan 1", rpm: eva1.fan_pri_rpm ?? 0 },
+                                            { label: "Fan 2", rpm: eva1.fan_sec_rpm ?? 0 },
+                                        ]}
+                                        fanWarnings={[
+                                            w("eva1", "fan_pri_rpm"),
+                                            w("eva1", "fan_sec_rpm"),
+                                        ]}
+                                    />
+                                </TelemetryHighlight>
+                            </Card>
+                            <Card
+                                className={styles.evaStack3Card}
+                                padding="20px 20px 20px 25px"
+                                severity={sev(
+                                    "eva1",
+                                    "coolant_storage",
+                                    "coolant_liquid_pressure",
+                                    "coolant_gas_pressure",
+                                )}
                             >
                                 <EVACoolant
                                     coolantStorage={eva1.coolant_storage}
@@ -523,8 +376,8 @@ export default function Telemetry() {
                                     liquidWarning={w("eva1", "coolant_liquid_pressure")}
                                     gasWarning={w("eva1", "coolant_gas_pressure")}
                                 />
-                            </div>
-                        </Card>
+                            </Card>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,26 +1,32 @@
 import type { CSSProperties } from "react";
+import { SeverityGlow, type Severity } from "~/components/ui/TelemetryHighlight";
 
 interface CardProps {
-    title?: string;
-    children: React.ReactNode;
-    style?: CSSProperties;
-    padding?: CSSProperties["padding"];
+  title?: string;
+  children: React.ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  padding?: CSSProperties["padding"];
+  severity?: Severity;
 }
 
-export default function Card({ title, children, style, padding = "16px" }: CardProps) {
-    return (
-        <div
-            style={{
-                background: "#3A3A41",
-                borderRadius: 12,
-                padding,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                ...style,
-            }}
-        >
-            {children}
-        </div>
-    );
+export default function Card({ title, children, className, style, padding = "var(--card-padding, 20px)", severity = "nominal" }: CardProps) {
+  return (
+    <div
+      className={className}
+      style={{
+        background: "#3A3A41",
+        borderRadius: "var(--card-radius, 12px)",
+        padding,
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        ...style,
+      }}
+    >
+      {children}
+      <SeverityGlow severity={severity} radius={12} />
+    </div>
+  );
 }

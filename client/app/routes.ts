@@ -7,6 +7,7 @@ export default [
     route("wasd_controls", "routes/wasd_controls.tsx"),
     route("gamepad_controls", "routes/gamepad_controls.tsx"),
     route("telemetry", "routes/telemetry.tsx"),
+    route("telemetry-mock", "routes/telemetry-mock.tsx"),
     route("ui", "routes/ui.tsx"),
     route("map", "routes/map.tsx"),
     route("screen", "routes/screen.tsx"),
