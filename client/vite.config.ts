@@ -8,8 +8,8 @@ export default defineConfig({
     server: {
         host: true, // listen on 0.0.0.0 so Docker port mapping works
         proxy: {
-            "/navigation": {
-                target: "http://localhost:8000", // your FastAPI server
+            "/navigation/": {
+                target: "http://localhost:8000",
                 changeOrigin: true,
             },
         },

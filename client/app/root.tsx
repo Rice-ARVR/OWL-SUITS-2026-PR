@@ -1,6 +1,7 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 
 import { GamepadProvider } from "~/contexts/GamepadContext";
+import { MapProvider } from "~/contexts/MapContext";
 import "./app.css";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -24,7 +25,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
     return (
         <GamepadProvider>
-            <Outlet />
+            <MapProvider>
+                <Outlet />
+            </MapProvider>
         </GamepadProvider>
     );
 }

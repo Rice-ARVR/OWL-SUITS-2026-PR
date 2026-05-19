@@ -7,6 +7,8 @@ import InteractiveMap from "./interactive-map/InteractiveMap";
 export type ManualPingResult = {
     rssi_value: number;
     category: string;
+    distance_min: number;
+    distance_max: number;
 } | null;
 
 export default function Map() {
@@ -37,19 +39,34 @@ export default function Map() {
         setIsSignaling(true);
         setSignalStatus("pending");
 
-        fetch("/navigation/ping/execute", { method: "POST" })
+        fetch(`${import.meta.env.VITE_API_URL ?? ""}/navigation/ping/execute`, { method: "POST" })
             .then(async (res) => {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.success) {
-                        if (data.rssi_value != 1) {
-                            setLastManualPing({
-                                rssi_value: data.rssi_value,
-                                category: data.category,
-                            });
-                            setSignalStatus("success");
+                        if (data.rssi_value !== undefined) {
+                            // Manual ping (not autonomous) — actual RSSI returned directly
+                            const outOfRange = isNaN(data.rssi_value) || data.rssi_value === 1;
+                            if (outOfRange) {
+                                setLastManualPing({
+                                    rssi_value: data.rssi_value,
+                                    category: "not_in_range",
+                                    distance_min: 0,
+                                    distance_max: 0,
+                                });
+                                setSignalStatus("not in range");
+                            } else {
+                                setLastManualPing({
+                                    rssi_value: data.rssi_value,
+                                    category: data.category,
+                                    distance_min: data.distance_min ?? 0,
+                                    distance_max: data.distance_max ?? 0,
+                                });
+                                setSignalStatus("success");
+                            }
                         } else {
-                            setSignalStatus("not in range");
+                            // Autonomous mode — interrupt fired, result arrives via status stream
+                            setSignalStatus("success");
                         }
                     } else {
                         setSignalStatus("failed");
@@ -72,14 +89,6 @@ export default function Map() {
 
     return (
         <div className={styles.layout}>
-            <SideBar
-                isAutonomous={isAutonomous}
-                onStopAutonomy={() => stopAutonomyRef.current?.()}
-                isSignaling={isSignaling}
-                onSignalLTV={handleSignalLTV}
-                onHeadlightToggle={handleHeadlightToggle}
-            />
-
             <div className={styles.main}>
                 <TopBar isAutonomous={isAutonomous} currentTargetPos={currentTargetPos} />
                 <div className={styles.mapContainer}>
@@ -94,6 +103,13 @@ export default function Map() {
                     />
                 </div>
             </div>
+            <SideBar
+                isAutonomous={isAutonomous}
+                onStopAutonomy={() => stopAutonomyRef.current?.()}
+                isSignaling={isSignaling}
+                onSignalLTV={handleSignalLTV}
+                onHeadlightToggle={handleHeadlightToggle}
+            />
         </div>
     );
 }

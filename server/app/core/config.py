@@ -12,13 +12,9 @@ class Settings(BaseSettings):
     # Obstacle-avoidance algorithm used by the autonomous mission loop's
     # waypoint traversal: "lidar" (auto_drive) or "cv" (auto_drive_vision).
     NAV_TRAVEL_ALGORITHM: Literal["lidar", "cv"] = "cv"
-
-    # Obstacle-avoidance algorithm used by the autonomous mission loop's
-    # waypoint traversal: "lidar" (auto_drive) or "cv" (auto_drive_vision).
-    NAV_TRAVEL_ALGORITHM: Literal["lidar", "cv"] = "cv"
     OLLAMA_URL: str = "http://host.docker.internal:11434"
     EMBED_MODEL: str = "nomic-embed-text"
-    AIA_MODEL: str = "llama3.2"
+    AIA_MODEL: str = "gemma4"
 
     DUST_CV_WS_URL: str = "ws://host.docker.internal:8766"
 

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import styles from "./InteractiveMap.module.css";
 import { useNavigationState } from "./useNavigationState";
 import { useTelemetry } from "~/hooks/useTelemetry";
-import { VirtualJoystick } from "~/features/controls/joystick";
+import { useMapContext } from "~/contexts/MapContext";
 
 import type {
     Point,
@@ -33,6 +33,8 @@ const DEBUG_MODE = false;
 type ManualPingResult = {
     rssi_value: number;
     category: string;
+    distance_min: number;
+    distance_max: number;
 } | null;
 
 interface InteractiveMapProps {
@@ -57,25 +59,43 @@ export default function InteractiveMap({
     const svgRef = useRef<SVGSVGElement>(null);
     const coordXInputRef = useRef<HTMLInputElement>(null);
 
-    // Only connect to the navigation/stream SSE once the user starts autonomy
-    const [autonomyRequested, setAutonomyRequested] = useState(false);
+    // Shared map state — single source of truth used by both InteractiveMap and Minimap
+    const {
+        points,
+        setPoints,
+        hazards,
+        setHazards,
+        savedPingHistory,
+        setSavedPingHistory,
+        savedPathHistory,
+        savedSearchArea,
+        setSavedSearchArea,
+        navState: liveNavState,
+        autonomyRequested,
+        setAutonomyRequested,
+        startAutonomy: ctxStartAutonomy,
+        stopAutonomy: ctxStopAutonomy,
+        executePing,
+    } = useMapContext();
 
-    // ── Navigation SSE hook ──
-    const liveNav = useNavigationState(autonomyRequested);
+    // ── Navigation SSE hook (mock shim for debug) ──
+    const liveNav = useNavigationState(false); // unused when not in DEBUG_MODE
 
-    const { navState, connected, startAutonomy, stopAutonomy, executePing } = DEBUG_MODE
+    const { navState, startAutonomy, stopAutonomy } = DEBUG_MODE
         ? {
               navState: autonomyRequested ? (mockNavState as typeof liveNav.navState) : null,
-              connected: true,
               startAutonomy: async () => {
                   setAutonomyRequested(true);
               },
               stopAutonomy: async () => {
                   setAutonomyRequested(false);
               },
-              executePing: async () => {},
           }
-        : liveNav;
+        : {
+              navState: liveNavState,
+              startAutonomy: ctxStartAutonomy,
+              stopAutonomy: ctxStopAutonomy,
+          };
 
     const telemetry = useTelemetry();
     const pos = telemetry.getRoverPosition() ?? { x: 0, y: 0, z: 0 };
@@ -100,6 +120,28 @@ export default function InteractiveMap({
         onCurrentTargetChange?.(target ?? null);
     }, [navState?.session?.current_target, onCurrentTargetChange]);
 
+    // Drop a persistent POI at the current autonomous target (once per unique position)
+    useEffect(() => {
+        const target = navState?.session?.current_target;
+        if (!isAutonomous || !target) return;
+        const { x, y } = target.position;
+        setPoints((prev) => {
+            const already = prev.some((p) => p.x === x && p.y === y);
+            if (already) return prev;
+            return [
+                ...prev,
+                {
+                    id: `auto-target-${x}-${y}`,
+                    x,
+                    y,
+                    label: target.description,
+                    description: "Used for autonomous navigation",
+                    type: "poi",
+                },
+            ];
+        });
+    }, [navState?.session?.current_target, isAutonomous]);
+
     // Auto-center map on rover when position changes significantly
     const lastCenteredRef = useRef<{ x: number; y: number } | null>(null);
     useEffect(() => {
@@ -119,8 +161,6 @@ export default function InteractiveMap({
         }
     }, [roverPosition.x, roverPosition.y]);
 
-    const [points, setPoints] = useState<MapPoint[]>([]);
-    const [hazards, setHazards] = useState<Hazard[]>([]);
     const [activeHazard, setActiveHazard] = useState<Hazard | null>(null);
     const [mousePos, setMousePos] = useState<Point | null>(null);
     const [mode, setMode] = useState<Mode>("navigate");
@@ -141,77 +181,45 @@ export default function InteractiveMap({
             navState?.status_message
         ) {
             setCriticalAlert(navState.status_message);
-            const timer = setTimeout(() => setCriticalAlert(null), 5000);
-            return () => clearTimeout(timer);
         }
         prevStatusLevelRef.current = level;
     }, [navState?.status_level, navState?.status_message]);
-    const [savedPingHistory, setSavedPingHistory] = useState<
-        {
-            timestamp?: string;
-            rover_position: { x: number; y: number };
-            rssi: number;
-            signal_category: string;
-        }[]
-    >([]);
-    const [savedSearchArea, setSavedSearchArea] = useState<{
-        center: { x: number; y: number };
-        radius_min_m: number;
-        radius_max_m: number;
-    } | null>(null);
-
-    // Sync ping history from navState into persistent local state
-    useEffect(() => {
-        if (navState?.session?.ping_history && navState.session.ping_history.length > 0) {
-            setSavedPingHistory(navState.session.ping_history);
-        }
-    }, [navState?.session?.ping_history]);
-
-    // Sync search area from navState into persistent local state
-    useEffect(() => {
-        if (navState?.session?.search_area) {
-            setSavedSearchArea(navState.session.search_area);
-        }
-    }, [navState?.session?.search_area]);
-
     // Append manual pings (fired outside of autonomous mode) to saved history
     const lastProcessedPingRef = useRef<ManualPingResult>(null);
-
-    // Match backend get_distance_range()
-    const getDistanceRange = (category: string): [number, number] => {
-        switch (category) {
-            case "strong":
-                return [0, 100];
-            case "moderate":
-                return [100, 462];
-            case "weak":
-                return [462, 1200];
-            default:
-                return [1200, 2000];
-        }
-    };
 
     useEffect(() => {
         if (!lastManualPing || lastManualPing === lastProcessedPingRef.current) return;
         lastProcessedPingRef.current = lastManualPing;
+
+        const rssi = lastManualPing.rssi_value;
+        const outOfRange = isNaN(rssi) || rssi === 1;
+        const category = outOfRange ? "not_in_range" : lastManualPing.category;
+
+        const rMin = lastManualPing.distance_min;
+        const rMax = lastManualPing.distance_max;
 
         setSavedPingHistory((prev) => [
             ...prev,
             {
                 timestamp: new Date().toISOString(),
                 rover_position: { x: roverPosition.x, y: roverPosition.y },
-                rssi: lastManualPing.rssi_value,
-                signal_category: lastManualPing.category,
+                rssi,
+                signal_category: category,
+                distance_min: rMin,
+                distance_max: rMax,
             },
         ]);
 
-        // Update search area from manual ping
-        const [rMin, rMax] = getDistanceRange(lastManualPing.category);
-        setSavedSearchArea({
-            center: { x: roverPosition.x, y: roverPosition.y },
-            radius_min_m: rMin,
-            radius_max_m: rMax,
-        });
+        // Update search area from manual ping (clear it if out of range)
+        if (outOfRange) {
+            setSavedSearchArea(null);
+        } else {
+            setSavedSearchArea({
+                center: { x: roverPosition.x, y: roverPosition.y },
+                radius_min_m: rMin,
+                radius_max_m: rMax,
+            });
+        }
     }, [lastManualPing, roverPosition.x, roverPosition.y]);
 
     // FAB menu
@@ -237,6 +245,7 @@ export default function InteractiveMap({
         }
     }, [pendingPOI?.id]);
     const [hoveredPingIndex, setHoveredPingIndex] = useState<number | null>(null);
+    const [isTargetHovered, setIsTargetHovered] = useState(false);
     const [isRoverHovered, setIsRoverHovered] = useState(false);
     const [isEva1Hovered, setIsEva1Hovered] = useState(false);
     const [isEva2Hovered, setIsEva2Hovered] = useState(false);
@@ -1037,6 +1046,22 @@ export default function InteractiveMap({
                                 <span className={styles.panelTitle} style={{ color: "#e74c3c" }}>
                                     Autonomous Navigation Stopped
                                 </span>
+                                <button
+                                    onClick={() => setCriticalAlert(null)}
+                                    style={{
+                                        marginLeft: "auto",
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        color: "#888",
+                                        padding: "0 2px",
+                                        lineHeight: 1,
+                                        fontSize: "16px",
+                                    }}
+                                    aria-label="Dismiss"
+                                >
+                                    ✕
+                                </button>
                             </div>
                             <div style={{ padding: "0 12px 10px" }}>
                                 <span
@@ -1785,8 +1810,8 @@ export default function InteractiveMap({
 
                 {/* ── Autonomous Nav Overlays ── */}
 
-                {/* Search area donut */}
-                {savedSearchArea &&
+                {/* Search area donut — only shown in manual mode; hidden during autonomy */}
+                {!isAutonomous && savedSearchArea &&
                     (savedSearchArea.radius_min_m !== 0 || savedSearchArea.radius_max_m !== 0) && (
                         <g>
                             {/* Outer circle (max radius) */}
@@ -1842,11 +1867,9 @@ export default function InteractiveMap({
                     )}
 
                 {/* Breadcrumb trail */}
-                {navState?.session?.path_history && navState.session.path_history.length >= 2 && (
+                {savedPathHistory.length >= 2 && (
                     <polyline
-                        points={navState.session.path_history
-                            .map((p) => `${p.x},${-p.y}`)
-                            .join(" ")}
+                        points={savedPathHistory.map((p) => `${p.x},${-p.y}`).join(" ")}
                         fill="none"
                         stroke="#6ee7b7"
                         strokeWidth="1.5"
@@ -1881,6 +1904,13 @@ export default function InteractiveMap({
                               : ping.signal_category === "weak"
                                 ? "#f97316"
                                 : "#ef4444";
+                    const isLast = i === savedPingHistory.length - 1;
+                    const isHovered = hoveredPingIndex === i;
+                    const showRange = isHovered || (isLast && hoveredPingIndex === null);
+                    const rMin = ping.distance_min;
+                    const rMax = ping.distance_max;
+                    const px = ping.rover_position.x;
+                    const py = -ping.rover_position.y;
                     return (
                         <g
                             key={`ping-${i}`}
@@ -1889,24 +1919,18 @@ export default function InteractiveMap({
                             style={{ cursor: "default" }}
                         >
                             <circle
-                                cx={ping.rover_position.x}
-                                cy={-ping.rover_position.y}
+                                cx={px}
+                                cy={py}
                                 r="8"
                                 fill="transparent"
                                 stroke={color}
                                 strokeWidth="2"
                                 opacity="0.6"
                             />
-                            <circle
-                                cx={ping.rover_position.x}
-                                cy={-ping.rover_position.y}
-                                r="3"
-                                fill={color}
-                                opacity="0.8"
-                            />
+                            <circle cx={px} cy={py} r="3" fill={color} opacity="0.8" />
                             <text
-                                x={ping.rover_position.x}
-                                y={-ping.rover_position.y - 14}
+                                x={px}
+                                y={py - 14}
                                 textAnchor="middle"
                                 fill={color}
                                 fontSize="8"
@@ -1914,26 +1938,44 @@ export default function InteractiveMap({
                             >
                                 {Math.round(ping.rssi)}dBm
                             </text>
-                            {hoveredPingIndex === i &&
+                            {showRange && (
+                                <g>
+                                    <circle
+                                        cx={px}
+                                        cy={py}
+                                        r={rMax}
+                                        fill={`${color}0d`}
+                                        stroke={color}
+                                        strokeWidth="1.5"
+                                        strokeDasharray="8 4"
+                                        opacity="0.5"
+                                        pointerEvents="none"
+                                    />
+                                    {rMin > 0 && (
+                                        <circle
+                                            cx={px}
+                                            cy={py}
+                                            r={rMin}
+                                            fill="#1e1e2240"
+                                            stroke={color}
+                                            strokeWidth="1"
+                                            strokeDasharray="4 4"
+                                            opacity="0.4"
+                                            pointerEvents="none"
+                                        />
+                                    )}
+                                </g>
+                            )}
+                            {isHovered &&
                                 (() => {
-                                    const rangeByCategory: Record<string, [number, number]> = {
-                                        strong: [0, 50],
-                                        moderate: [50, 200],
-                                        weak: [200, 500],
-                                        very_weak: [500, 1000],
-                                    };
-                                    const [rMin, rMax] = rangeByCategory[ping.signal_category] ?? [
-                                        0, 0,
-                                    ];
                                     const ts = ping.timestamp
                                         ? new Date(ping.timestamp).toLocaleTimeString([], {
                                               hour: "2-digit",
                                               minute: "2-digit",
                                               second: "2-digit",
+                                              timeZone: "America/Chicago",
                                           })
                                         : "—";
-                                    const px = ping.rover_position.x;
-                                    const py = -ping.rover_position.y;
                                     const tw = 180;
                                     const lineH = 17;
                                     const th = lineH * 3 + 14;
@@ -1941,31 +1983,6 @@ export default function InteractiveMap({
                                     const ty = py - 36 - th;
                                     return (
                                         <g>
-                                            {/* Range donuts */}
-                                            <circle
-                                                cx={px}
-                                                cy={py}
-                                                r={rMax}
-                                                fill={`${color}0d`}
-                                                stroke={color}
-                                                strokeWidth="1.5"
-                                                strokeDasharray="8 4"
-                                                opacity="0.5"
-                                                pointerEvents="none"
-                                            />
-                                            {rMin > 0 && (
-                                                <circle
-                                                    cx={px}
-                                                    cy={py}
-                                                    r={rMin}
-                                                    fill="#1e1e2240"
-                                                    stroke={color}
-                                                    strokeWidth="1"
-                                                    strokeDasharray="4 4"
-                                                    opacity="0.4"
-                                                    pointerEvents="none"
-                                                />
-                                            )}
                                             {/* Tooltip */}
                                             <rect
                                                 x={tx}
@@ -2029,48 +2046,106 @@ export default function InteractiveMap({
                 })}
 
                 {/* Current autonomous target */}
-                {isAutonomous && navState?.session?.current_target && (
-                    <g>
-                        <circle
-                            cx={navState.session.current_target.position.x}
-                            cy={-navState.session.current_target.position.y}
-                            r="10"
-                            fill="none"
-                            stroke="#6ee7b7"
-                            strokeWidth="2"
-                            strokeDasharray="4 2"
-                        >
-                            <animate
-                                attributeName="r"
-                                values="8;12;8"
-                                dur="2s"
-                                repeatCount="indefinite"
-                            />
-                            <animate
-                                attributeName="opacity"
-                                values="1;0.4;1"
-                                dur="2s"
-                                repeatCount="indefinite"
-                            />
-                        </circle>
-                        <circle
-                            cx={navState.session.current_target.position.x}
-                            cy={-navState.session.current_target.position.y}
-                            r="3"
-                            fill="#6ee7b7"
-                        />
-                        <text
-                            x={navState.session.current_target.position.x}
-                            y={-navState.session.current_target.position.y + 20}
-                            textAnchor="middle"
-                            fill="#6ee7b7"
-                            fontSize="9"
-                            opacity="0.8"
-                        >
-                            {navState.session.current_target.description}
-                        </text>
-                    </g>
-                )}
+                {isAutonomous &&
+                    navState?.session?.current_target &&
+                    (() => {
+                        const tx = navState.session.current_target.position.x;
+                        const ty = -navState.session.current_target.position.y;
+                        const tw = 160;
+                        const th = 44;
+                        const ttx = tx - tw / 2;
+                        const tty = ty - 36 - th;
+                        return (
+                            <g
+                                onMouseEnter={() => setIsTargetHovered(true)}
+                                onMouseLeave={() => setIsTargetHovered(false)}
+                                style={{ cursor: "default" }}
+                            >
+                                <circle
+                                    cx={tx}
+                                    cy={ty}
+                                    r="10"
+                                    fill="none"
+                                    stroke="#6ee7b7"
+                                    strokeWidth="2"
+                                    strokeDasharray="4 2"
+                                >
+                                    <animate
+                                        attributeName="r"
+                                        values="8;12;8"
+                                        dur="2s"
+                                        repeatCount="indefinite"
+                                    />
+                                    <animate
+                                        attributeName="opacity"
+                                        values="1;0.4;1"
+                                        dur="2s"
+                                        repeatCount="indefinite"
+                                    />
+                                </circle>
+                                <circle cx={tx} cy={ty} r="3" fill="#6ee7b7" />
+                                {/* Invisible hit area so hover works when cursor is near but not on the small dot */}
+                                <circle
+                                    cx={tx}
+                                    cy={ty}
+                                    r="16"
+                                    fill="transparent"
+                                    pointerEvents="all"
+                                />
+                                {isTargetHovered && (
+                                    <g>
+                                        <rect
+                                            x={ttx}
+                                            y={tty}
+                                            width={tw}
+                                            height={th}
+                                            rx="6"
+                                            fill="#1e1e22"
+                                            stroke="#444"
+                                            strokeWidth="1"
+                                            pointerEvents="none"
+                                        />
+                                        <polygon
+                                            points={`${tx - 6},${tty + th} ${tx + 6},${tty + th} ${tx},${tty + th + 8}`}
+                                            fill="#1e1e22"
+                                            stroke="#444"
+                                            strokeWidth="1"
+                                            pointerEvents="none"
+                                        />
+                                        <line
+                                            x1={tx - 6}
+                                            y1={tty + th}
+                                            x2={tx + 6}
+                                            y2={tty + th}
+                                            stroke="#1e1e22"
+                                            strokeWidth="2"
+                                            pointerEvents="none"
+                                        />
+                                        <text
+                                            x={tx}
+                                            y={tty + 17}
+                                            textAnchor="middle"
+                                            fill="#6ee7b7"
+                                            fontSize="11"
+                                            pointerEvents="none"
+                                        >
+                                            {`x: ${Math.round(navState.session.current_target.position.x)}`}
+                                        </text>
+                                        <text
+                                            x={tx}
+                                            y={tty + 34}
+                                            textAnchor="middle"
+                                            fill="#6ee7b7"
+                                            fontSize="11"
+                                            pointerEvents="none"
+                                        >
+                                            {`y: ${Math.round(navState.session.current_target.position.y)}`}
+                                        </text>
+                                    </g>
+                                )}
+                            </g>
+                        );
+                    })()}
 
                 {/* Route path */}
                 {routePath.length >= 2 && (
@@ -2394,13 +2469,6 @@ export default function InteractiveMap({
                 })}
             </svg>
 
-            {/* ── Virtual Joystick (bottom-left) ── */}
-            {!isAutonomous && (
-                <div className={styles.joystickArea}>
-                    <VirtualJoystick />
-                </div>
-            )}
-
             {/* ── All Assets panel (top-right) ── */}
             <div className={styles.assetsPanel}>
                 <div
@@ -2446,7 +2514,7 @@ export default function InteractiveMap({
                                 />
                                 <div className={styles.assetItemBody}>
                                     <span className={styles.assetLabel}>EVA 1</span>
-                                    <span classsName={styles.assetCoords}>
+                                    <span className={styles.assetCoords}>
                                         x: {Math.round(eva1Imu.posx)}, y: {Math.round(eva1Imu.posy)}
                                     </span>
                                 </div>

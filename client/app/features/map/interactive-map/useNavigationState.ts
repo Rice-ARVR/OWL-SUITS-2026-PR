@@ -5,6 +5,8 @@ export interface PingRecord {
     rssi: number;
     signal_category: "strong" | "moderate" | "weak" | "very_weak";
     rover_position: { x: number; y: number };
+    distance_min: number;
+    distance_max: number;
 }
 
 export interface NavState {
@@ -39,7 +41,7 @@ export interface NavState {
     } | null;
 }
 
-const API_BASE = "";
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export function useNavigationState(enabled: boolean = false) {
     const [navState, setNavState] = useState<NavState | null>(null);

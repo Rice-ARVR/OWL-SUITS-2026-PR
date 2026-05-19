@@ -30,6 +30,14 @@ import logging
 from typing import List, Optional, Tuple
 
 import app.services.navigation.vision.cv_service as cv_service
+from app.models.navigation_telemetry import (
+    Detection as TelemetryDetection,
+)
+from app.models.navigation_telemetry import (
+    HealthStatus,
+    SteeringComponents,
+    VisionTelemetry,
+)
 from app.services.navigation.navigation_helpers import (
     ARRIVAL_THRESHOLD_M,
     COMMAND_PAUSE_S,
@@ -48,11 +56,17 @@ from app.services.navigation.navigation_helpers import (
     _send_drive,
 )
 from app.services.navigation.vision.cv_service import CVResult, Detection
+from app.services.telemetry.navigation_telemetry_service import (
+    broadcast_navigation_telemetry,
+)
 
 logger = logging.getLogger(__name__)
 
 # Set False to silence per-loop INFO chatter; WARNING/ERROR still go through.
 VERBOSE_LOGGING = True
+
+# Telemetry sequence counter for frontend tracking
+_telemetry_sequence = 0
 
 
 # ─── Tunables ─────────────────────────────────────────────────────────────────
@@ -205,6 +219,78 @@ def _drain_latest(q: "asyncio.Queue[CVResult]") -> Optional[CVResult]:
     return latest
 
 
+# ─── Telemetry snapshot builder ────────────────────────────────────────────
+
+
+def _build_telemetry_snapshot(
+    now: float,
+    mode: str,
+    tel,
+    targetX: float,
+    targetY: float,
+    danger: List[float],
+    center_blocked: bool,
+    total_danger: float,
+    avoid_steer: float,
+    heading_steer: float,
+    steering: float,
+    throttle: float,
+    detections: List[Detection],
+    boxed_streak: int,
+    stuck_moved_m: float,
+    frame_age_s: float,
+) -> VisionTelemetry:
+    """Build a VisionTelemetry snapshot for the current control iteration."""
+    global _telemetry_sequence
+    _telemetry_sequence += 1
+
+    dist_to_goal = _distance_to(targetX, targetY, tel.rover_pos_x, tel.rover_pos_y)
+
+    # Convert YOLO detections to telemetry format (use label instead of class_name)
+    telem_detections = [
+        TelemetryDetection(
+            bbox=det.bbox,
+            class_name=det.label,
+        )
+        for det in detections
+    ]
+
+    steering_comps = SteeringComponents(
+        heading_steer=heading_steer,
+        avoid_steer=avoid_steer,
+        heading_blend_factor=HEADING_BLEND,
+    )
+
+    health = HealthStatus(
+        boxed_streak=boxed_streak,
+        stuck_moved_m=stuck_moved_m,
+        stuck_threshold_m=STUCK_DIST_M,
+        stuck_window_s=STUCK_WINDOW_S,
+        frame_age_s=frame_age_s,
+        no_frame_timeout_s=NO_FRAME_TIMEOUT_S,
+    )
+
+    return VisionTelemetry(
+        timestamp=now,
+        sequence_number=_telemetry_sequence,
+        mode=mode,
+        active=True,
+        position_x=tel.rover_pos_x,
+        position_y=tel.rover_pos_y,
+        heading=tel.heading,
+        speed=tel.speed,
+        distance_to_goal=dist_to_goal,
+        detections=telem_detections,
+        column_danger=danger,
+        total_danger=total_danger,
+        center_blocked=center_blocked,
+        steering_components=steering_comps,
+        final_steering=steering,
+        final_throttle=throttle,
+        health=health,
+    )
+
+
 # ─── Public entry point ───────────────────────────────────────────────────────
 
 
@@ -324,27 +410,66 @@ async def travel_vision(
                 )
 
             # ── Stuck detection over a rolling window -> hand back control ───
+            stuck_moved_m = 0.0
             if stuck_anchor is None:
                 stuck_anchor = (tel.rover_pos_x, tel.rover_pos_y)
                 stuck_anchor_t = now
             elif now - stuck_anchor_t >= STUCK_WINDOW_S:
-                moved = _distance_to(
+                stuck_moved_m = _distance_to(
                     stuck_anchor[0],
                     stuck_anchor[1],
                     tel.rover_pos_x,
                     tel.rover_pos_y,
                 )
-                if moved < STUCK_DIST_M:
+                if stuck_moved_m < STUCK_DIST_M:
                     logger.error(
                         "travel_vision: stuck (moved %.2fm in %.1fs) — "
                         "handing back control",
-                        moved,
+                        stuck_moved_m,
                         now - stuck_anchor_t,
                     )
                     await _full_stop()
                     return 1
                 stuck_anchor = (tel.rover_pos_x, tel.rover_pos_y)
                 stuck_anchor_t = now
+            else:
+                # Calculate partial stuck distance within current window
+                stuck_moved_m = _distance_to(
+                    stuck_anchor[0],
+                    stuck_anchor[1],
+                    tel.rover_pos_x,
+                    tel.rover_pos_y,
+                )
+
+            # ── Build and broadcast telemetry snapshot ──────────────────────
+            frame_age = now - last_frame_t if last_frame_t is not None else 0.0
+            mode = "AVOID" if total >= AVOID_TRIGGER else "CLEAR"
+            if boxed_streak >= BOXED_IN_STEPS:
+                mode = "BOXED"
+
+            snapshot = _build_telemetry_snapshot(
+                now=now,
+                mode=mode,
+                tel=tel,
+                targetX=targetX,
+                targetY=targetY,
+                danger=danger,
+                center_blocked=center_blocked,
+                total_danger=total,
+                avoid_steer=avoid_steer,
+                heading_steer=heading_steer,
+                steering=steering,
+                throttle=throttle,
+                detections=last_result.detections,
+                boxed_streak=boxed_streak,
+                stuck_moved_m=stuck_moved_m,
+                frame_age_s=frame_age,
+            )
+            try:
+                await broadcast_navigation_telemetry(snapshot)
+            except Exception as e:
+                # Don't let telemetry broadcast failures block driving
+                logger.warning("Failed to broadcast telemetry: %s", e)
 
             # ── Issue the command, then pace so TSS state catches up ─────────
             if not await _apply_speed_cap(tel, steering):

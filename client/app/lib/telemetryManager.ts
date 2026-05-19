@@ -426,6 +426,14 @@ class TelemetryManager {
         return this.data?.rover.pr_telemetry.lights_on ?? null;
     }
 
+    getRoverCabinCooling(): boolean | null {
+        return this.data?.rover.pr_telemetry.cabin_cooling ?? null;
+    }
+
+    getRoverCabinHeating(): boolean | null {
+        return this.data?.rover.pr_telemetry.cabin_heating ?? null;
+    }
+
     // --- LTV ---
 
     getLtvSnapshot(): LtvSnapshot | null {

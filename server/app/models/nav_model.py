@@ -47,6 +47,9 @@ class PingRecord(BaseModel):
     rssi: float
     rover_position: Position
     signal_category: DistanceCategory
+    distance_min: float = 0.0
+    distance_max: float = 0.0
+    is_manual: bool = False
 
 
 class SearchArea(BaseModel):
@@ -86,6 +89,9 @@ class SearchSession(BaseModel):
 
     success_vector: float
     ping_history: List[PingRecord]
+    # Only the pings taken at the 3 triangle vertices — used for phase-3 triangulation.
+    # Manual pings during phase 2 go into ping_history but NOT here.
+    concentric_waypoint_pings: List[PingRecord] = []
 
     # Arrays for the frontend map UI
     path_history: List[Position] = []
