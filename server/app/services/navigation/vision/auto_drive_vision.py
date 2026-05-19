@@ -28,7 +28,7 @@ Steering model (12-column scan):
 
 import asyncio
 import logging
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import app.services.navigation.vision.cv_service as cv_service
 from app.models.navigation_telemetry import (
@@ -101,7 +101,7 @@ FIRST_FRAME_TIMEOUT_S = 15.0  # never got a first frame => hand back to user
 # ─── Logging helper ───────────────────────────────────────────────────────────
 
 
-def _log_info(msg: str, *args) -> None:
+def _log_info(msg: str, *args: Any) -> None:
     """Gated INFO log — silenced when VERBOSE_LOGGING is False."""
     if VERBOSE_LOGGING:
         logger.info(msg, *args)
@@ -204,7 +204,7 @@ def _both_sides_blocked(danger: List[float]) -> bool:
 # ─── CV feed helper ───────────────────────────────────────────────────────────
 
 
-def _drain_latest(q: "asyncio.Queue[CVResult]") -> Optional[CVResult]:
+def _drain_latest(q: asyncio.Queue) -> Optional[CVResult]:
     """Pop everything queued and return only the newest CVResult (or None)."""
     latest: Optional[CVResult] = None
     while True:
@@ -221,7 +221,7 @@ def _drain_latest(q: "asyncio.Queue[CVResult]") -> Optional[CVResult]:
 def _build_telemetry_snapshot(
     now: float,
     mode: str,
-    tel,
+    tel: Any,  # Satisfy Pylance Strict
     targetX: float,
     targetY: float,
     danger: List[float],
@@ -240,9 +240,15 @@ def _build_telemetry_snapshot(
     global _telemetry_sequence
     _telemetry_sequence += 1
 
-    dist_to_goal = _distance_to(targetX, targetY, tel.rover_pos_x, tel.rover_pos_y)
+    # Extract floats safely
+    rover_x = float(tel.rover_pos_x)
+    rover_y = float(tel.rover_pos_y)
+    rover_heading = float(tel.heading)
+    rover_speed = float(tel.speed)
 
-    # Convert YOLO detections to telemetry format (use label instead of class_name)
+    dist_to_goal = _distance_to(targetX, targetY, rover_x, rover_y)
+
+    # Convert YOLO detections to telemetry format
     telem_detections = [
         TelemetryDetection(
             bbox=det.bbox,
@@ -271,10 +277,10 @@ def _build_telemetry_snapshot(
         sequence_number=_telemetry_sequence,
         mode=mode,
         active=True,
-        position_x=tel.rover_pos_x,
-        position_y=tel.rover_pos_y,
-        heading=tel.heading,
-        speed=tel.speed,
+        position_x=rover_x,
+        position_y=rover_y,
+        heading=rover_heading,
+        speed=rover_speed,
         distance_to_goal=dist_to_goal,
         detections=telem_detections,
         column_danger=danger,
@@ -293,7 +299,7 @@ def _build_telemetry_snapshot(
 async def travel_vision(
     targetX: float,
     targetY: float,
-    arrival_threshold: float = 20.0,  # Updated buffer size!
+    arrival_threshold: float = 20.0,
     interrupt_event: Optional[asyncio.Event] = None,
 ) -> int:
     """Drive within arrival_threshold of (targetX, targetY) using vision only.
@@ -304,7 +310,7 @@ async def travel_vision(
     loop = asyncio.get_event_loop()
     started = loop.time()
 
-    q = await cv_service.subscribe()
+    q: asyncio.Queue = await cv_service.subscribe()
 
     last_frame_t: Optional[float] = None
     last_result: Optional[CVResult] = None
@@ -334,8 +340,12 @@ async def travel_vision(
                 await asyncio.sleep(COMMAND_PAUSE_S)
                 continue
 
-            dist = _distance_to(targetX, targetY, tel.rover_pos_x, tel.rover_pos_y)
-            # Use dynamic arrival threshold instead of hardcoded 5m
+            # Explicit type casting for strict Pylance
+            rover_x = float(tel.rover_pos_x)
+            rover_y = float(tel.rover_pos_y)
+            rover_heading = float(tel.heading)
+
+            dist = _distance_to(targetX, targetY, rover_x, rover_y)
             if dist <= arrival_threshold:
                 await _full_stop()
                 logger.info("travel_vision: arrived (dist=%.1fm)", dist)
@@ -422,7 +432,7 @@ async def travel_vision(
                 _log_info(
                     "CLEAR dist=%.1f hdg=%.1f err=%+.1f -> steer=%+.2f",
                     dist,
-                    tel.heading,
+                    rover_heading,
                     err,
                     steering,
                 )
@@ -430,14 +440,14 @@ async def travel_vision(
             # ── Stuck detection over a rolling window -> hand back control ───
             stuck_moved_m = 0.0
             if stuck_anchor is None:
-                stuck_anchor = (tel.rover_pos_x, tel.rover_pos_y)
+                stuck_anchor = (rover_x, rover_y)
                 stuck_anchor_t = now
             elif now - stuck_anchor_t >= STUCK_WINDOW_S:
                 stuck_moved_m = _distance_to(
                     stuck_anchor[0],
                     stuck_anchor[1],
-                    tel.rover_pos_x,
-                    tel.rover_pos_y,
+                    rover_x,
+                    rover_y,
                 )
                 if stuck_moved_m < STUCK_DIST_M:
                     logger.error(
@@ -448,15 +458,15 @@ async def travel_vision(
                     )
                     await _full_stop()
                     return 1
-                stuck_anchor = (tel.rover_pos_x, tel.rover_pos_y)
+                stuck_anchor = (rover_x, rover_y)
                 stuck_anchor_t = now
             else:
                 # Calculate partial stuck distance within current window
                 stuck_moved_m = _distance_to(
                     stuck_anchor[0],
                     stuck_anchor[1],
-                    tel.rover_pos_x,
-                    tel.rover_pos_y,
+                    rover_x,
+                    rover_y,
                 )
 
             # ── Build and broadcast telemetry snapshot ──────────────────────

@@ -17,7 +17,7 @@ Conventions:
 import asyncio
 import logging
 import math
-from typing import Tuple
+from typing import Any, Optional, Tuple
 
 import app.services.telemetry.telemetry_service as telemetry_service
 import app.services.telemetry.tss_client as tss_client
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # ─── Shared tunables ──────────────────────────────────────────────────────────
 
 # Goal / completion thresholds
-ARRIVAL_THRESHOLD_M = 5.0
+ARRIVAL_THRESHOLD_M = 20.0  # UPDATED: 20-meter fuzzy waypoint arrival
 TRAVEL_TIMEOUT_S = 600.0
 
 # Pacing — pause + brake-pulse after every command so TSS state catches up.
@@ -38,9 +38,9 @@ TELEMETRY_FRESH_WAIT_S = 0.5
 
 # Speed / throttle (throttle ±100, speed m/s)
 MAX_SPEED = 6.0
-THROTTLE_NORMAL = 35
-THROTTLE_SLOW = 30
-THROTTLE_REVERSE = -30
+THROTTLE_NORMAL = 35.0
+THROTTLE_SLOW = 30.0
+THROTTLE_REVERSE = -30.0
 
 # Steering
 STEERING_GAIN_DEG = 60.0  # Higher = aggressive reorientation to target
@@ -74,10 +74,10 @@ def _heading_error(target_deg: float, current_deg: float) -> float:
     return (target_deg - current_deg + 180.0) % 360.0 - 180.0
 
 
-def _goal_steering(tel, goalX: float, goalY: float) -> Tuple[float, float]:
+def _goal_steering(tel: Any, goalX: float, goalY: float) -> Tuple[float, float]:
     """Return (steering, heading_error_deg) for pointing at the goal."""
-    bearing = _bearing_to(goalX, goalY, tel.rover_pos_x, tel.rover_pos_y)
-    err = _heading_error(bearing, tel.heading)
+    bearing = _bearing_to(goalX, goalY, float(tel.rover_pos_x), float(tel.rover_pos_y))
+    err = _heading_error(bearing, float(tel.heading))
     steer = _bound(STEERING_SIGN * err / STEERING_GAIN_DEG, -1.0, 1.0)
     return steer, err
 
@@ -122,9 +122,9 @@ async def _brake_pulse() -> None:
     await asyncio.sleep(TELEMETRY_FRESH_WAIT_S)
 
 
-async def _apply_speed_cap(tel, steering: float) -> bool:
+async def _apply_speed_cap(tel: Any, steering: float) -> bool:
     """If over MAX_SPEED, brake while holding steering. Returns True if applied."""
-    if tel.speed < MAX_SPEED:
+    if float(tel.speed) < MAX_SPEED:
         return False
     await _send_steering(steering)
     await _send_throttle(0.0)
@@ -132,7 +132,7 @@ async def _apply_speed_cap(tel, steering: float) -> bool:
     return True
 
 
-async def _read_telemetry():
+async def _read_telemetry() -> Optional[Any]:
     """Latest rover snapshot's pr_telemetry, or None if unavailable."""
     rover = telemetry_service.rover_data
     if rover is None:
