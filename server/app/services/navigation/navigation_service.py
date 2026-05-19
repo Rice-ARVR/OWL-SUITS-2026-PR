@@ -38,7 +38,6 @@ ARRIVAL_BUFFER_M = 20.0  # Pure math waypoint fuzzy arrival
 
 async def _brake_and_pause(seconds: float = 4.0) -> None:
     """Slam the brakes and hold position for the required calculation window."""
-    # Passing True as a purely positional argument to satisfy Pylance
     await send_rover_command(0.0, 0.0, True)
     await asyncio.sleep(seconds)
 
@@ -90,10 +89,14 @@ def _calculate_intersection_waypoint(ping_history: List[PingRecord]) -> Position
     p1 = ping_history[-2]
     p2 = ping_history[-1]
 
-    # If signal improved, continue along that vector. If it got worse, flip it.
     vector_x = p2.rover_position.x - p1.rover_position.x
     vector_y = p2.rover_position.y - p1.rover_position.y
 
+    # Failsafe: Prevent zero-vector trapping if pings occurred in the exact same spot
+    if math.hypot(vector_x, vector_y) < 1.0:
+        vector_x, vector_y = 10.0, 10.0
+
+    # If signal improved, continue along that vector. If it got worse, flip it 180 deg.
     multiplier = 1.5 if p2.rssi > p1.rssi else -1.0
 
     return Position(
@@ -105,7 +108,7 @@ def _calculate_intersection_waypoint(ping_history: List[PingRecord]) -> Position
 def _generate_archimedes_spiral(
     anchor: Position, max_radius: float = 50.0
 ) -> List[Position]:
-    """Phase 4: Archimedes spiral outwards from the STRONG ping location."""
+    """Phase 4: Archimedes spiral outwards from the STRONG ping location up to 50 meters."""
     points: List[Position] = []
     b = 2.0  # Spiral tightness
     theta = 0.0
@@ -166,7 +169,7 @@ async def autonomous_mission_loop() -> None:
                     await navigation_state.update_status(
                         "Reached LNP. Pausing for initial ping.", "success"
                     )
-                    ping_success, _, _ = await execute_ping()
+                    ping_success, _, _ = await execute_ping(is_autonomous=True)
 
                     if ping_success:
                         fresh_state = await navigation_state.get_snapshot()
@@ -226,7 +229,9 @@ async def autonomous_mission_loop() -> None:
                     await navigation_state.update_status(
                         f"Reached Triangle Pt {session.phase_2_index + 1}.", "info"
                     )
-                    await execute_ping()
+
+                    # AI-forced ping ensures we gather intersection data
+                    await execute_ping(is_autonomous=True)
 
                     fresh_state = await navigation_state.get_snapshot()
                     if fresh_state.session:
@@ -255,9 +260,15 @@ async def autonomous_mission_loop() -> None:
                     )
                     await _brake_and_pause(4.0)
                     session.phase_3_recalc_required = False
+                    session.current_target = None  # Force a fresh calculation
                     await navigation_state.update_session(session)
 
-                target = _calculate_intersection_waypoint(session.ping_history)
+                # Resume Rule: Use existing target if resuming cleanly, otherwise calculate new one
+                if session.current_target:
+                    target = session.current_target.position
+                else:
+                    target = _calculate_intersection_waypoint(session.ping_history)
+
                 session.current_target = NavigationTarget(
                     position=target,
                     description="Calculated Intersection",
@@ -280,15 +291,21 @@ async def autonomous_mission_loop() -> None:
                         )
                         interrupt_event.clear()
 
-                    # Both AI arrival and Manual AI Ping trigger the 4 second pause and a ping command
+                    # Both AI arrival and Manual AI Ping trigger the pause and forced ping command
                     await _brake_and_pause(4.0)
-                    await execute_ping()
+                    await execute_ping(is_autonomous=True)
 
                     fresh_state = await navigation_state.get_snapshot()
-                    if fresh_state.session and fresh_state.session.ping_history:
+                    if fresh_state.session:
                         session = fresh_state.session
+
+                        # Clear target so the NEXT iteration guarantees a new intersection calculation
+                        session.current_target = None
+
+                        # Strong signal rule check
                         if (
-                            session.ping_history[-1].signal_category
+                            session.ping_history
+                            and session.ping_history[-1].signal_category
                             == DistanceCategory.STRONG
                         ):
                             logger.info(
@@ -303,7 +320,8 @@ async def autonomous_mission_loop() -> None:
                             session.phase_4_anchor = session.ping_history[
                                 -1
                             ].rover_position
-                            await navigation_state.update_session(session)
+
+                        await navigation_state.update_session(session)
 
             # ==========================================
             # PHASE 4: Archimedes Spiral (50m bounds)
@@ -318,7 +336,6 @@ async def autonomous_mission_loop() -> None:
                     await navigation_state.update_session(session)
                     continue
 
-                # Bulletproof Math Check: Calculate Euclidean distance manually
                 distance_to_anchor = math.hypot(
                     rover_pos.x - anchor.x, rover_pos.y - anchor.y
                 )
@@ -350,7 +367,7 @@ async def autonomous_mission_loop() -> None:
                         interrupt_event.clear()  # Ignore manual pings completely
                     continue  # Start the loop over to begin the spiral cleanly
 
-                # Generate spiral and iterate
+                # Generate spiral and iterate (If loop breaks, the index properly resets to 0 next time)
                 spiral_points = _generate_archimedes_spiral(anchor)
 
                 for i, target in enumerate(spiral_points):
@@ -375,12 +392,12 @@ async def autonomous_mission_loop() -> None:
 
                     if result == 0:
                         await _brake_and_pause(4.0)
-                        await execute_ping()
+                        await execute_ping(is_autonomous=True)
                     elif result == 2:
                         # Ignore manual pings completely in Phase 4
                         interrupt_event.clear()
 
-                # If we finish the spiral without stopping, idle
+                # If we finish the entire spiral loop without stopping, idle
                 state = await navigation_state.get_snapshot()
                 if state.autonomous_driving:
                     logger.info("Spiral max radius reached. Idling.")
@@ -404,7 +421,6 @@ async def start_autonomous_loop(force_reset: bool = False) -> None:
     if force_reset or not state.session:
         # Standard Initialization
         try:
-            # Type-cast the raw JSON payload to explicitly satisfy strict Pylance rules
             tss_raw = await tss_client.fetch_json(tss_client.COMMAND_ROVER)
             tss_state = cast(Dict[str, Any], tss_raw)
 
@@ -473,8 +489,13 @@ async def stop_autonomous_loop() -> None:
     logger.info("Autonomous driving aborted by manual override.")
 
 
-async def execute_ping() -> Tuple[bool, Optional[float], Optional[DistanceCategory]]:
-    """Execute a manual or AI ping, respecting the 20-second cooldown."""
+async def execute_ping(
+    is_autonomous: bool = False,
+) -> Tuple[bool, Optional[float], Optional[DistanceCategory]]:
+    """
+    Execute a ping. If autonomous, it will hold brakes and wait for the cooldown if necessary.
+    If manual (is_autonomous=False), it instantly fails if the cooldown isn't met.
+    """
     state = await navigation_state.get_snapshot()
     session = state.session
     if not session:
@@ -484,13 +505,30 @@ async def execute_ping() -> Tuple[bool, Optional[float], Optional[DistanceCatego
     if session.ping_history:
         delta = (now - session.ping_history[-1].timestamp).total_seconds()
         if delta < PING_COOLDOWN_S:
-            await navigation_state.update_status(
-                f"Ping Cooldown: Wait {int(PING_COOLDOWN_S - delta)}s", "warning"
-            )
-            return False, None, None
+            if is_autonomous:
+                # The AI must wait for the cooldown before gathering data
+                wait_time = PING_COOLDOWN_S - delta
+                logger.info(f"AI holding for ping cooldown: {wait_time:.1f}s")
+                await navigation_state.update_status(
+                    f"Holding for Ping Cooldown ({wait_time:.0f}s)...", "info"
+                )
+                await _brake_and_pause(wait_time)
+
+                # Check if the user killed autonomy while we were waiting!
+                state = await navigation_state.get_snapshot()
+                if not state.autonomous_driving:
+                    return False, None, None
+
+                now = datetime.utcnow()
+            else:
+                # Manual pings instantly fail
+                await navigation_state.update_status(
+                    f"Ping Cooldown: Wait {int(PING_COOLDOWN_S - delta)}s", "warning"
+                )
+                return False, None, None
 
     try:
-        # 1. Fetch Rover Position from TSS
+        # Fetch Position
         tss_raw = await tss_client.fetch_json(tss_client.COMMAND_ROVER)
         tss_state = cast(Dict[str, Any], tss_raw)
 
@@ -500,13 +538,11 @@ async def execute_ping() -> Tuple[bool, Optional[float], Optional[DistanceCatego
             heading=float(tss_state["imu"]["rover"]["yaw"]),
         )
 
-        # 2. Trigger the Ping on the TSS Server
+        # Trigger the Ping & Wait for TSS to process
         await asyncio.to_thread(tss_client.send_ltv_ping_normal)
-
-        # 3. Wait for the TSS to process and return the new data
         await asyncio.sleep(1.0)
 
-        # 4. Pull the clean RSSI data from your existing background service!
+        # Pull the clean RSSI data from telemetry service
         if telemetry_service.ltv_data is None:
             logger.warning(
                 "Ping failed: telemetry_service.ltv_data is not initialized yet."
@@ -540,7 +576,7 @@ async def execute_ping() -> Tuple[bool, Optional[float], Optional[DistanceCatego
         timestamp=now, rssi=rssi, rover_position=rover_pos, signal_category=cat
     )
 
-    # Must get a fresh session snapshot before modifying
+    # Update Session State
     fresh_state = await navigation_state.get_snapshot()
     if not fresh_state.session:
         return False, None, None
@@ -557,17 +593,31 @@ async def execute_ping() -> Tuple[bool, Optional[float], Optional[DistanceCatego
         session.phase_3_recalc_required = True
 
     await navigation_state.update_session(session)
-
     logger.info(
         f"Ping Executed at ({rover_pos.x:.1f}, {rover_pos.y:.1f}) -> RSSI: {rssi}"
     )
     return True, rssi, cat
 
 
-async def request_autonomous_ping() -> Dict[str, str]:
+async def request_autonomous_ping() -> Dict[str, Any]:
     """Hook called by the router when a manual ping is requested while AI is driving."""
+    state = await navigation_state.get_snapshot()
+    session = state.session
+
+    # Pre-check the cooldown to prevent interrupting the AI drive unnecessarily
+    if session and session.ping_history:
+        delta = (datetime.utcnow() - session.ping_history[-1].timestamp).total_seconds()
+        if delta < PING_COOLDOWN_S:
+            return {
+                "success": False,
+                "status": f"Cooldown active. Please wait {int(PING_COOLDOWN_S - delta)}s.",
+            }
+
     navigation_state.get_ping_interrupt_event().set()
-    return {"status": "Interrupting autonomous loop for manual ping calculation."}
+    return {
+        "success": True,
+        "status": "Interrupting autonomous loop for manual ping calculation.",
+    }
 
 
 async def telemetry_monitoring_loop() -> None:
@@ -580,7 +630,6 @@ async def telemetry_monitoring_loop() -> None:
                 continue
 
             try:
-                # Type-cast the raw JSON payload to explicitly satisfy strict Pylance rules
                 tss_raw = await tss_client.fetch_json(tss_client.COMMAND_ROVER)
                 tss_state = cast(Dict[str, Any], tss_raw)
 
@@ -595,7 +644,6 @@ async def telemetry_monitoring_loop() -> None:
                 if fresh_state.session:
                     session = fresh_state.session
 
-                    # Bulletproof manual math check to avoid function argument typing errors
                     is_far_enough = True
                     if session.path_history:
                         last_pt = session.path_history[-1]
