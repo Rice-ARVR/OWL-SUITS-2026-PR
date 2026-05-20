@@ -12,15 +12,15 @@ interface GraphProps {
     borderTop?: boolean;
     borderBottom?: boolean;
     isWarning?: boolean;
+    height?: number;
 }
 
 const MAX_POINTS = 20;
 const W = 160;
-const H = 120;
+const DEFAULT_H = 120;
 const LINE_COLOR = "#A1A4AF";
 const PAD = { top: 10, right: 12, bottom: 28, left: 44 };
 const plotW = W - PAD.left - PAD.right;
-const plotH = H - PAD.top - PAD.bottom;
 
 export default function Graph({
     value,
@@ -32,7 +32,9 @@ export default function Graph({
     borderTop = true,
     borderBottom = true,
     isWarning,
+    height: H = DEFAULT_H,
 }: GraphProps) {
+    const plotH = H - PAD.top - PAD.bottom;
     const clipId = useId();
     const statusLabel = isWarning !== undefined ? (isWarning ? "Unsafe" : "Safe") : null;
     const statusColor = isWarning ? "#F59095" : "#9DE4CE";
