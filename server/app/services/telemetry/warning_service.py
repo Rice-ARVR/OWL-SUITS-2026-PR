@@ -68,6 +68,9 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
             "fan_sec_rpm",
         ):
             continue
+        if model_class == Eva2Telemetry:
+            # we only care about EVA1 this year
+            continue
         # loop through all telemetry values in given field and check against NominalRange metadata
         for meta in field_info.metadata:
             if isinstance(meta, NominalRange):
