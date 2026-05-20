@@ -132,6 +132,7 @@ export default function InteractiveMap({
     useEffect(() => {
         const target = navState?.session?.current_target;
         if (!isAutonomous || !target) return;
+        if (navState?.session?.phase === "transit_to_lnp") return;
         const { x, y } = target.position;
         setPoints((prev) => {
             const already = prev.some((p) => p.x === x && p.y === y);
@@ -148,7 +149,7 @@ export default function InteractiveMap({
                 },
             ];
         });
-    }, [navState?.session?.current_target, isAutonomous]);
+    }, [navState?.session?.current_target, navState?.session?.phase, isAutonomous, setPoints]);
 
     // Auto-center map on rover when position changes significantly
     const lastCenteredRef = useRef<{ x: number; y: number } | null>(null);
