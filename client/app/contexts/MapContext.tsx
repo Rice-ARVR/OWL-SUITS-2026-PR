@@ -4,7 +4,7 @@ import { useNavigationState } from "~/features/map/interactive-map/useNavigation
 import type { NavState } from "~/features/map/interactive-map/useNavigationState";
 import mockNavState from "~/features/map/interactive-map/mock-nav-state.json";
 
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 export interface SavedPingRecord {
     timestamp?: string;

@@ -11,22 +11,30 @@ import type {
     Mode,
     POIStep,
     Hazard,
-    DirectionsStep,
     RoverPosition,
     ViewBox,
 } from "~/types/map.ts";
 
-import { dist, findPathAroundHazards } from "./Geometry"; // Geometry utilities for pathfinding
 import { Grid } from "./map-components/Grid";
 import { Marker } from "./map-components/Marker"; // Pins
 import { HazardShape } from "./map-components/HazardShape";
 import { RoverIcon } from "./map-components/RoverIcon";
 import { AstronautIcon } from "./map-components/AstronautIcon";
+import { LtvIcon } from "./map-components/LtvIcon";
+import { AutonomousLTVPanel } from "./map-components/panels/AutonomousLTVPanel";
+import { ManualConfirmModal } from "./map-components/panels/ManualConfirmModal";
+import { CriticalAlertPanel } from "./map-components/panels/CriticalAlertPanel";
+import { AutonomousStatusPanel } from "./map-components/panels/AutonomousStatusPanel";
+import { SignalingPanel } from "./map-components/panels/SignalingPanel";
+import { HeadlightNoticePanel } from "./map-components/panels/HeadlightNoticePanel";
+import { HazardPOIPanel } from "./map-components/panels/HazardPOIPanel";
+import { HazardDetailsPanel } from "./map-components/panels/HazardDetailsPanel";
+import { AssetsPanel } from "./map-components/panels/AssetsPanel";
 
 import mockNavState from "./mock-nav-state.json";
 
 // Set to true to use mock navigation data instead of the live backend
-const DEBUG_MODE = false;
+const DEBUG_MODE = true;
 
 // ── Main map component ─────────────────────────────────
 
@@ -106,6 +114,7 @@ export default function InteractiveMap({
 
     const eva1Imu = telemetry.getEvaImu("eva1");
     const eva2Imu = telemetry.getEvaImu("eva2");
+    const ltvLocation = telemetry.getLtvLocation();
 
     const isAutonomous = navState?.autonomous_driving ?? false;
 
@@ -134,8 +143,8 @@ export default function InteractiveMap({
                     id: `auto-target-${x}-${y}`,
                     x,
                     y,
-                    label: target.description,
-                    description: "Used for autonomous navigation",
+                    label: "Waypoint",
+                    description: target.description,
                     type: "poi",
                 },
             ];
@@ -249,15 +258,8 @@ export default function InteractiveMap({
     const [isRoverHovered, setIsRoverHovered] = useState(false);
     const [isEva1Hovered, setIsEva1Hovered] = useState(false);
     const [isEva2Hovered, setIsEva2Hovered] = useState(false);
+    const [isLtvHovered, setIsLtvHovered] = useState(false);
     const [assetsExpanded, setAssetsExpanded] = useState(false);
-
-    // Directions workflow
-    const [directionsStep, setDirectionsStep] = useState<DirectionsStep>("selectDestination");
-    const [waypoints, setWaypoints] = useState<MapPoint[]>([]);
-    const [routePath, setRoutePath] = useState<Point[]>([]);
-    const [dragIndex, setDragIndex] = useState<number | null>(null);
-    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-    const [segmentDistances, setSegmentDistances] = useState<number[]>([]);
 
     const [viewBox, setViewBox] = useState<ViewBox>({
         x: -500,
@@ -334,47 +336,6 @@ export default function InteractiveMap({
                 setActiveHazard((prev) =>
                     prev ? { ...prev, points: [...prev.points, { x, y }] } : null,
                 );
-            }
-        }
-
-        // Directions — click near a POI or ping to add it as waypoint
-        if (
-            mode === "directions" &&
-            (directionsStep === "selectDestination" || directionsStep === "review")
-        ) {
-            // Scale click radius to current zoom level so it feels consistent
-            const clickRadius = Math.max(30, viewBox.w * 0.04);
-
-            // Check POIs — check both pin tip (p.x, p.y) and pin center (p.x, p.y - 26)
-            const nearestPOI = points.find((p) => {
-                const dTip = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
-                const dCenter = Math.sqrt((p.x - x) ** 2 + (p.y - 26 - y) ** 2);
-                return Math.min(dTip, dCenter) < clickRadius;
-            });
-            if (nearestPOI && !waypoints.find((w) => w.id === nearestPOI.id)) {
-                setWaypoints((prev) => [...prev, nearestPOI]);
-                setDirectionsStep("review");
-                return;
-            }
-
-            // Check pings
-            const nearestPing = savedPingHistory.find((p) => {
-                const d = Math.sqrt((p.rover_position.x - x) ** 2 + (p.rover_position.y - y) ** 2);
-                return d < clickRadius;
-            });
-            if (nearestPing) {
-                const pingWaypoint: MapPoint = {
-                    id: `ping-${nearestPing.rover_position.x}-${nearestPing.rover_position.y}`,
-                    x: nearestPing.rover_position.x,
-                    y: nearestPing.rover_position.y,
-                    label: `Ping ${Math.round(nearestPing.rssi)} dBm`,
-                    description: nearestPing.signal_category,
-                    type: "poi",
-                };
-                if (!waypoints.find((w) => w.id === pingWaypoint.id)) {
-                    setWaypoints((prev) => [...prev, pingWaypoint]);
-                    setDirectionsStep("review");
-                }
             }
         }
     };
@@ -506,10 +467,6 @@ export default function InteractiveMap({
         setPoiCoordY("");
         setMousePos(null);
         setSelectedTypes([]);
-        setWaypoints([]);
-        setRoutePath([]);
-        setSegmentDistances([]);
-        setDirectionsStep("selectDestination");
         setLtvX("");
         setLtvY("");
         setMode("navigate");
@@ -555,87 +512,6 @@ export default function InteractiveMap({
             stopAutonomyRef.current = confirmStopAutonomy;
         }
     });
-
-    // ── Directions workflow ──
-
-    const handleStartDirections = () => {
-        setShowAddMenu(false);
-        setWaypoints([]);
-        setRoutePath([]);
-        setDirectionsStep("selectDestination");
-        setMode("directions");
-    };
-
-    const removeWaypoint = (index: number) => {
-        setWaypoints((prev) => prev.filter((_, i) => i !== index));
-        if (waypoints.length <= 1) {
-            setDirectionsStep("selectDestination");
-        }
-    };
-
-    const reorderWaypoints = (fromIndex: number, toIndex: number) => {
-        setWaypoints((prev) => {
-            const updated = [...prev];
-            const [moved] = updated.splice(fromIndex, 1);
-            updated.splice(toIndex, 0, moved);
-            return updated;
-        });
-    };
-
-    const handleDragEnd = () => {
-        if (dragIndex !== null && dragOverIndex !== null && dragIndex !== dragOverIndex) {
-            reorderWaypoints(dragIndex, dragOverIndex);
-        }
-        setDragIndex(null);
-        setDragOverIndex(null);
-    };
-
-    const computeRoute = () => {
-        setDirectionsStep("computing");
-
-        setTimeout(() => {
-            // Build ordered list of stops: rover → waypoint1 → waypoint2 → ...
-            const stops: Point[] = [
-                { x: roverPosition.x, y: roverPosition.y },
-                ...waypoints.map((w) => ({ x: w.x, y: w.y })),
-            ];
-
-            const closedHazards = hazards.filter((h) => h.closed);
-
-            // For each segment, find a path that avoids hazards
-            const fullPath: Point[] = [stops[0]];
-            const distances: number[] = [];
-            for (let i = 0; i < stops.length - 1; i++) {
-                const segmentPath = findPathAroundHazards(stops[i], stops[i + 1], closedHazards);
-                let segDist = 0;
-                for (let j = 0; j < segmentPath.length - 1; j++) {
-                    segDist += dist(segmentPath[j], segmentPath[j + 1]);
-                }
-                distances.push(Math.round(segDist));
-                fullPath.push(...segmentPath.slice(1));
-            }
-
-            // TODO: Replace with backend call
-            // const response = await fetch('/api/compute-route', {
-            //   method: 'POST',
-            //   body: JSON.stringify({ start: roverPosition, waypoints, hazards }),
-            // });
-            // const data = await response.json();
-            // setRoutePath(data.path);
-
-            setSegmentDistances(distances);
-            setRoutePath(fullPath);
-            setDirectionsStep("active");
-        }, 1500);
-    };
-
-    const cancelDirections = () => {
-        setWaypoints([]);
-        setRoutePath([]);
-        setSegmentDistances([]);
-        setDirectionsStep("selectDestination");
-        setMode("navigate");
-    };
 
     const undoLastPoint = () => {
         if (!activeHazard) return;
@@ -755,259 +631,27 @@ export default function InteractiveMap({
     };
 
     const cursorClass =
-        mode === "navigate"
-            ? isPanning
-                ? styles.grabbing
-                : styles.grab
-            : mode === "directions"
-              ? styles.pointer
-              : styles.crosshair;
+        mode === "navigate" ? (isPanning ? styles.grabbing : styles.grab) : styles.crosshair;
 
     const showPanel = mode === "plotHazard" || mode === "addPOI";
     const showDetailsPanel = mode === "hazardDetails";
 
     return (
         <div className={styles.wrapper}>
-            {/* ── Directions Panel (top-left) ── */}
-            {mode === "directions" && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <path
-                                d="M3 12h4l3-9 4 18 3-9h4"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                fill="none"
-                                strokeLinejoin="round"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <span className={styles.panelTitle}>
-                            {directionsStep === "computing"
-                                ? "Computing..."
-                                : directionsStep === "active"
-                                  ? "Route Active"
-                                  : "Directions"}
-                        </span>
-                        <button className={styles.panelClose} onClick={cancelDirections}>
-                            ×
-                        </button>
-                    </div>
-
-                    {directionsStep === "selectDestination" && waypoints.length === 0 && (
-                        <p className={styles.panelHint}>Click a POI or ping to set destination</p>
-                    )}
-
-                    {(directionsStep === "review" || directionsStep === "selectDestination") &&
-                        waypoints.length > 0 && (
-                            <div className={styles.routeList}>
-                                {/* Rover origin */}
-                                <div className={styles.routeItem}>
-                                    <div className={styles.routeIcon}>
-                                        <div className={styles.routeDot} />
-                                    </div>
-                                    <div className={styles.routeLabel}>Rover</div>
-                                </div>
-                                <div className={styles.routeConnector}>
-                                    <div className={styles.routeDots}>⋮</div>
-                                </div>
-
-                                {/* Waypoints */}
-                                {waypoints.map((wp, index) => (
-                                    <div key={wp.id}>
-                                        <div
-                                            className={`${styles.routeItem} ${styles.routeItemDraggable} ${
-                                                dragIndex === index ? styles.routeItemDragging : ""
-                                            } ${dragOverIndex === index ? styles.routeItemDragOver : ""}`}
-                                            draggable
-                                            onDragStart={() => setDragIndex(index)}
-                                            onDragOver={(e) => {
-                                                e.preventDefault();
-                                                setDragOverIndex(index);
-                                            }}
-                                            onDragEnd={handleDragEnd}
-                                        >
-                                            <div className={styles.routeIcon}>
-                                                {index === waypoints.length - 1 ? (
-                                                    <svg
-                                                        width="14"
-                                                        height="14"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                    >
-                                                        <path
-                                                            d="M12 21c0 0-7-7.5-7-12a7 7 0 1 1 14 0c0 4.5-7 12-7 12z"
-                                                            fill="#e74c3c"
-                                                            stroke="#1e1e22"
-                                                            strokeWidth="1"
-                                                        />
-                                                        <circle
-                                                            cx="12"
-                                                            cy="9"
-                                                            r="2.5"
-                                                            fill="#1e1e22"
-                                                        />
-                                                    </svg>
-                                                ) : (
-                                                    <div className={styles.routeDot} />
-                                                )}
-                                            </div>
-                                            <div className={styles.routeLabel}>{wp.label}</div>
-                                            <button
-                                                className={styles.routeRemove}
-                                                onClick={() => removeWaypoint(index)}
-                                            >
-                                                ×
-                                            </button>
-                                            <div className={styles.routeDragHandle}>⠿</div>
-                                        </div>
-                                        {index < waypoints.length - 1 && (
-                                            <div className={styles.routeConnector}>
-                                                <div className={styles.routeDots}>⋮</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-
-                                <p className={styles.panelHint} style={{ marginTop: "8px" }}>
-                                    Click more POIs or pings to add to path
-                                </p>
-                                <div className={styles.routeActions}>
-                                    <button className={styles.letsGoBtn} onClick={computeRoute}>
-                                        Let's go
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                    {directionsStep === "computing" && (
-                        <div className={styles.computingState}>
-                            <div className={styles.spinner} />
-                            <span className={styles.panelHint}>Computing best path...</span>
-                        </div>
-                    )}
-
-                    {directionsStep === "active" && (
-                        <div className={styles.routeList}>
-                            <div className={styles.routeItem}>
-                                <div className={styles.routeIcon}>
-                                    <div className={styles.routeDot} />
-                                </div>
-                                <div className={styles.routeLabel}>Rover</div>
-                            </div>
-                            {waypoints.map((wp, index) => (
-                                <div key={wp.id}>
-                                    <div className={styles.routeConnector}>
-                                        <div className={styles.routeDots}>⋮</div>
-                                        <span className={styles.segmentDistance}>
-                                            {segmentDistances[index] ?? 0}m
-                                        </span>
-                                    </div>
-                                    <div className={styles.routeItem}>
-                                        <div className={styles.routeIcon}>
-                                            {index === waypoints.length - 1 ? (
-                                                <svg
-                                                    width="14"
-                                                    height="14"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                >
-                                                    <path
-                                                        d="M12 21c0 0-7-7.5-7-12a7 7 0 1 1 14 0c0 4.5-7 12-7 12z"
-                                                        fill="#e74c3c"
-                                                        stroke="#1e1e22"
-                                                        strokeWidth="1"
-                                                    />
-                                                    <circle cx="12" cy="9" r="2.5" fill="#1e1e22" />
-                                                </svg>
-                                            ) : (
-                                                <div className={styles.routeDot} />
-                                            )}
-                                        </div>
-                                        <div className={styles.routeLabel}>{wp.label}</div>
-                                    </div>
-                                </div>
-                            ))}
-
-                            <div className={styles.totalDistance}>
-                                Total: {segmentDistances.reduce((a, b) => a + b, 0)}m
-                            </div>
-
-                            <button
-                                className={styles.finishBtn}
-                                onClick={cancelDirections}
-                                style={{ marginTop: "8px" }}
-                            >
-                                End Navigation
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
-
             {/* ── Autonomous LTV Panel (top-left) ── */}
             {mode === "autonomousLTV" && (
-                <div className={styles.panel}>
-                    <div className={styles.panelHeader}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <circle
-                                cx="11"
-                                cy="11"
-                                r="7"
-                                stroke="#6ee7b7"
-                                strokeWidth="2"
-                                fill="none"
-                            />
-                            <line
-                                x1="16.5"
-                                y1="16.5"
-                                x2="21"
-                                y2="21"
-                                stroke="#6ee7b7"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                            />
-                            <path
-                                d="M11 8a3 3 0 0 1 3 3"
-                                stroke="#6ee7b7"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <span className={styles.panelTitle}>Autonomous LTV Search</span>
-                        <button className={styles.panelClose} onClick={cancelAutonomousLTV}>
-                            ×
-                        </button>
-                    </div>
-
-                    <div className={styles.poiForm}>
-                        <button className={styles.finishBtn} onClick={handleLaunchAutonomy}>
-                            Start Autonomous Navigation
-                        </button>
-                    </div>
-                </div>
+                <AutonomousLTVPanel
+                    onLaunch={handleLaunchAutonomy}
+                    onCancel={cancelAutonomousLTV}
+                />
             )}
 
             {/* ── Manual mode confirmation overlay ── */}
             {showManualConfirm && (
-                <div className={styles.confirmOverlay}>
-                    <div className={styles.confirmBox}>
-                        <p className={styles.confirmText}>
-                            Are you sure? This will stop autonomous navigation.
-                        </p>
-                        <div className={styles.confirmActions}>
-                            <button
-                                className={styles.confirmCancelBtn}
-                                onClick={() => setShowManualConfirm(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button className={styles.confirmStopBtn} onClick={confirmStopAutonomy}>
-                                Stop Autonomy
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ManualConfirmModal
+                    onCancel={() => setShowManualConfirm(false)}
+                    onConfirm={confirmStopAutonomy}
+                />
             )}
 
             {/* ── All top-left panels (stacked) ── */}
@@ -1018,507 +662,68 @@ export default function InteractiveMap({
                 headlightNotice ||
                 criticalAlert) && (
                 <div className={styles.panelStack}>
-                    {/* Critical alert panel */}
                     {criticalAlert && (
-                        <div
-                            className={styles.panel}
-                            style={{ position: "relative", borderLeft: "3px solid #e74c3c" }}
-                        >
-                            <div className={styles.panelHeader}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                    <polygon
-                                        points="12,2 22,20 2,20"
-                                        stroke="#e74c3c"
-                                        strokeWidth="2"
-                                        fill="none"
-                                    />
-                                    <line
-                                        x1="12"
-                                        y1="9"
-                                        x2="12"
-                                        y2="14"
-                                        stroke="#e74c3c"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                    />
-                                    <circle cx="12" cy="17" r="1" fill="#e74c3c" />
-                                </svg>
-                                <span className={styles.panelTitle} style={{ color: "#e74c3c" }}>
-                                    Autonomous Navigation Stopped
-                                </span>
-                                <button
-                                    onClick={() => setCriticalAlert(null)}
-                                    style={{
-                                        marginLeft: "auto",
-                                        background: "none",
-                                        border: "none",
-                                        cursor: "pointer",
-                                        color: "#888",
-                                        padding: "0 2px",
-                                        lineHeight: 1,
-                                        fontSize: "16px",
-                                    }}
-                                    aria-label="Dismiss"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                            <div style={{ padding: "0 12px 10px" }}>
-                                <span
-                                    className={styles.autoValue}
-                                    style={{ color: "#ccc", fontSize: "12px" }}
-                                >
-                                    {criticalAlert}
-                                </span>
-                                <p style={{ color: "#888", fontSize: "11px", margin: "6px 0 0" }}>
-                                    Control has been returned to the user.
-                                </p>
-                            </div>
-                        </div>
+                        <CriticalAlertPanel
+                            message={criticalAlert}
+                            onDismiss={() => setCriticalAlert(null)}
+                        />
                     )}
 
                     {isAutonomous && mode !== "autonomousLTV" && navState?.session && (
-                        <div className={styles.panel} style={{ position: "relative" }}>
-                            <div className={styles.panelHeader}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                    <circle
-                                        cx="11"
-                                        cy="11"
-                                        r="7"
-                                        stroke="#6ee7b7"
-                                        strokeWidth="2"
-                                        fill="none"
-                                    />
-                                    <line
-                                        x1="16.5"
-                                        y1="16.5"
-                                        x2="21"
-                                        y2="21"
-                                        stroke="#6ee7b7"
-                                        strokeWidth="2.5"
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-                                <span className={styles.panelTitle}>Autonomous Navigation</span>
-                                <button
-                                    className={styles.panelClose}
-                                    onClick={handleManualModeRequest}
-                                >
-                                    ×
-                                </button>
-                            </div>
-
-                            <div className={styles.autoStatusBody}>
-                                <div className={styles.autoPhaseRow}>
-                                    <span className={styles.autoLabel}>Phase</span>
-                                    <span className={styles.autoPhaseBadge}>
-                                        {navState.session.phase.replace(/_/g, " ")}
-                                    </span>
-                                </div>
-
-                                {navState.session.current_target && (
-                                    <div className={styles.autoTargetBox}>
-                                        <span className={styles.autoLabel}>Current Target</span>
-                                        <span className={styles.autoTargetDesc}>
-                                            {navState.session.current_target.description}
-                                        </span>
-                                    </div>
-                                )}
-
-                                {navState.status_message && (
-                                    <div className={styles.autoPhaseRow}>
-                                        <span className={styles.autoLabel}>Status</span>
-                                        <span
-                                            className={styles.autoValue}
-                                            style={{
-                                                color:
-                                                    navState.status_level === "critical"
-                                                        ? "#e74c3c"
-                                                        : navState.status_level === "warning"
-                                                          ? "#fbbf24"
-                                                          : navState.status_level === "success"
-                                                            ? "#6ee7b7"
-                                                            : "#ccc",
-                                            }}
-                                        >
-                                            {navState.status_message}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-
-                            <button
-                                className={styles.stopAutonomyBtn}
-                                onClick={handleManualModeRequest}
-                            >
-                                Stop Autonomous Navigation
-                            </button>
-                        </div>
+                        <AutonomousStatusPanel
+                            session={navState.session}
+                            statusMessage={navState.status_message}
+                            statusLevel={navState.status_level}
+                            onStop={handleManualModeRequest}
+                        />
                     )}
 
                     {isSignaling && (
-                        <div className={styles.panel} style={{ position: "relative" }}>
-                            <div className={styles.panelHeader}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                    <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="2.5"
-                                        fill={
-                                            signalStatus === "failed" ||
-                                            signalStatus === "not in range"
-                                                ? "#e74c3c"
-                                                : "#6ee7b7"
-                                        }
-                                    />
-                                    <path
-                                        d="M8.5 15.5A5 5 0 0 1 8.5 8.5"
-                                        stroke={
-                                            signalStatus === "failed" ||
-                                            signalStatus === "not in range"
-                                                ? "#e74c3c"
-                                                : "#6ee7b7"
-                                        }
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                    />
-                                    <path
-                                        d="M15.5 8.5A5 5 0 0 1 15.5 15.5"
-                                        stroke={
-                                            signalStatus === "failed" ||
-                                            signalStatus === "not in range"
-                                                ? "#e74c3c"
-                                                : "#6ee7b7"
-                                        }
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                    />
-                                    <path
-                                        d="M5.5 18.5A10 10 0 0 1 5.5 5.5"
-                                        stroke={
-                                            signalStatus === "failed" ||
-                                            signalStatus === "not in range"
-                                                ? "#e74c3c"
-                                                : "#6ee7b7"
-                                        }
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                    />
-                                    <path
-                                        d="M18.5 5.5A10 10 0 0 1 18.5 18.5"
-                                        stroke={
-                                            signalStatus === "failed" ||
-                                            signalStatus === "not in range"
-                                                ? "#e74c3c"
-                                                : "#6ee7b7"
-                                        }
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-                                <span className={styles.panelTitle}>
-                                    {signalStatus === "pending"
-                                        ? "Signaling LTV"
-                                        : signalStatus === "success"
-                                          ? "Signal Success"
-                                          : signalStatus === "failed"
-                                            ? "Signal Failed"
-                                            : "Signal Not In Range"}
-                                </span>
-                            </div>
-                            {signalStatus === "success" && lastManualPing && (
-                                <div style={{ padding: "0 12px 8px" }}>
-                                    <span
-                                        className={styles.autoValue}
-                                        style={{ color: "#6ee7b7", fontSize: "12px" }}
-                                    >
-                                        RSSI: {Math.round(lastManualPing.rssi_value)} dBm ·{" "}
-                                        {lastManualPing.category}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
+                        <SignalingPanel
+                            signalStatus={signalStatus}
+                            lastManualPing={lastManualPing}
+                        />
                     )}
 
-                    {/* Headlight notification */}
-                    {headlightNotice && (
-                        <div className={styles.panel} style={{ position: "relative" }}>
-                            <div className={styles.panelHeader}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                    <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="4"
-                                        fill={headlightNotice === "on" ? "#6ee7b7" : "#888"}
-                                    />
-                                    {headlightNotice === "on" && (
-                                        <>
-                                            <line
-                                                x1="12"
-                                                y1="2"
-                                                x2="12"
-                                                y2="5"
-                                                stroke="#6ee7b7"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                            />
-                                            <line
-                                                x1="12"
-                                                y1="19"
-                                                x2="12"
-                                                y2="22"
-                                                stroke="#6ee7b7"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                            />
-                                            <line
-                                                x1="2"
-                                                y1="12"
-                                                x2="5"
-                                                y2="12"
-                                                stroke="#6ee7b7"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                            />
-                                            <line
-                                                x1="19"
-                                                y1="12"
-                                                x2="22"
-                                                y2="12"
-                                                stroke="#6ee7b7"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                            />
-                                        </>
-                                    )}
-                                </svg>
-                                <span className={styles.panelTitle}>
-                                    {headlightNotice === "on" ? "Headlights On" : "Headlights Off"}
-                                </span>
-                            </div>
-                        </div>
-                    )}
+                    {headlightNotice && <HeadlightNoticePanel state={headlightNotice} />}
 
-                    {/* Plot Hazard / Add POI Panel */}
                     {showPanel && (
-                        <div className={styles.panel} style={{ position: "relative" }}>
-                            <div className={styles.panelHeader}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                    {mode === "plotHazard" ? (
-                                        <polygon
-                                            points="12,2 22,20 2,20"
-                                            stroke="#6ee7b7"
-                                            strokeWidth="2"
-                                            fill="none"
-                                            strokeDasharray="3 2"
-                                        />
-                                    ) : (
-                                        <>
-                                            <circle cx="12" cy="12" r="3" fill="#6ee7b7" />
-                                            <circle
-                                                cx="12"
-                                                cy="12"
-                                                r="9"
-                                                stroke="#6ee7b7"
-                                                strokeWidth="2"
-                                                fill="none"
-                                            />
-                                        </>
-                                    )}
-                                </svg>
-                                <span className={styles.panelTitle}>
-                                    {mode === "plotHazard" ? "Plot a Hazard" : "Add POI"}
-                                </span>
-                                <button
-                                    className={styles.panelClose}
-                                    onClick={() => {
-                                        if (mode === "addPOI" && pendingPOI) {
-                                            cancelPOI();
-                                        } else {
-                                            cancelAll();
-                                        }
-                                    }}
-                                >
-                                    ×
-                                </button>
-                            </div>
-
-                            {mode === "plotHazard" && activeHazard && (
-                                <>
-                                    <span className={styles.pointCount}>
-                                        {activeHazard.points.length} point
-                                        {activeHazard.points.length !== 1 ? "s" : ""} placed
-                                    </span>
-                                    <div className={styles.panelActions}>
-                                        <button className={styles.undoBtn} onClick={undoLastPoint}>
-                                            Undo
-                                        </button>
-                                        {activeHazard.points.length >= 2 && (
-                                            <button
-                                                className={styles.doneBtn}
-                                                onClick={finishPlotting}
-                                            >
-                                                ✓ Done
-                                            </button>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-
-                            {mode === "plotHazard" && !activeHazard && (
-                                <p className={styles.panelHint}>Click on the map to place points</p>
-                            )}
-
-                            {mode === "addPOI" && poiStep === "placing" && (
-                                <div>
-                                    <p className={styles.panelHint}>
-                                        {pendingPOI
-                                            ? "Confirm location or edit coordinates"
-                                            : "Click on the map to place a POI"}
-                                    </p>
-                                    {!pendingPOI && (
-                                        <p
-                                            className={styles.panelHint}
-                                            style={{ opacity: 0.5, margin: "4px 0" }}
-                                        >
-                                            — or enter coordinates —
-                                        </p>
-                                    )}
-                                    <div className={styles.poiForm}>
-                                        <input
-                                            ref={coordXInputRef}
-                                            type="number"
-                                            className={styles.poiInput}
-                                            value={poiCoordX}
-                                            onChange={(e) => setPoiCoordX(e.target.value)}
-                                            placeholder="X coordinate"
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    placePOIFromCoords();
-                                                }
-                                            }}
-                                        />
-                                        <input
-                                            type="number"
-                                            className={styles.poiInput}
-                                            value={poiCoordY}
-                                            onChange={(e) => setPoiCoordY(e.target.value)}
-                                            placeholder="Y coordinate"
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
-                                                    e.preventDefault();
-                                                    placePOIFromCoords();
-                                                }
-                                            }}
-                                        />
-                                        <button
-                                            className={styles.doneBtn}
-                                            onClick={placePOIFromCoords}
-                                            disabled={!poiCoordX || !poiCoordY}
-                                            style={{ opacity: !poiCoordX || !poiCoordY ? 0.4 : 1 }}
-                                        >
-                                            {pendingPOI ? "Confirm" : "Place POI"}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {mode === "addPOI" && poiStep === "naming" && pendingPOI && (
-                                <div className={styles.poiForm}>
-                                    <label className={styles.poiLabel}>Name</label>
-                                    <input
-                                        type="text"
-                                        className={styles.poiInput}
-                                        value={poiName}
-                                        onChange={(e) => setPoiName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                confirmPOIName();
-                                            }
-                                        }}
-                                        autoFocus
-                                        placeholder="POI name..."
-                                    />
-                                    <button className={styles.doneBtn} onClick={confirmPOIName}>
-                                        Next
-                                    </button>
-                                </div>
-                            )}
-
-                            {mode === "addPOI" && poiStep === "describing" && pendingPOI && (
-                                <div className={styles.poiForm}>
-                                    <label className={styles.poiLabel}>Description</label>
-                                    <textarea
-                                        className={styles.poiTextarea}
-                                        value={poiDescription}
-                                        onChange={(e) => setPoiDescription(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter" && !e.shiftKey) {
-                                                e.preventDefault();
-                                                confirmPOIDescription();
-                                            }
-                                        }}
-                                        autoFocus
-                                        placeholder="Description (optional)..."
-                                        rows={3}
-                                    />
-                                    <button
-                                        className={styles.doneBtn}
-                                        onClick={confirmPOIDescription}
-                                    >
-                                        ✓ Add POI
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        <HazardPOIPanel
+                            mode={mode}
+                            activeHazard={activeHazard}
+                            pendingPOI={pendingPOI}
+                            poiStep={poiStep}
+                            poiName={poiName}
+                            setPoiName={setPoiName}
+                            poiDescription={poiDescription}
+                            setPoiDescription={setPoiDescription}
+                            poiCoordX={poiCoordX}
+                            setPoiCoordX={setPoiCoordX}
+                            poiCoordY={poiCoordY}
+                            setPoiCoordY={setPoiCoordY}
+                            coordXInputRef={coordXInputRef}
+                            onClose={() => {
+                                if (mode === "addPOI" && pendingPOI) {
+                                    cancelPOI();
+                                } else {
+                                    cancelAll();
+                                }
+                            }}
+                            undoLastPoint={undoLastPoint}
+                            finishPlotting={finishPlotting}
+                            placePOIFromCoords={placePOIFromCoords}
+                            confirmPOIName={confirmPOIName}
+                            confirmPOIDescription={confirmPOIDescription}
+                        />
                     )}
 
-                    {/* Add Details Panel */}
                     {showDetailsPanel && (
-                        <div className={styles.panel} style={{ position: "relative" }}>
-                            <div className={styles.panelHeader}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                    <polygon
-                                        points="12,2 22,20 2,20"
-                                        stroke="#ff8a75"
-                                        strokeWidth="2"
-                                        fill="none"
-                                    />
-                                </svg>
-                                <span className={styles.panelTitle}>Add Details</span>
-                                <button className={styles.panelClose} onClick={cancelAll}>
-                                    ×
-                                </button>
-                            </div>
-
-                            <div className={styles.detailsBody}>
-                                <span className={styles.detailsLabel}>Hazard Type</span>
-                                <div className={styles.typeChips}>
-                                    {(["regolith", "debris", "crater"] as HazardType[]).map(
-                                        (type) => (
-                                            <button
-                                                key={type}
-                                                className={`${styles.typeChip} ${
-                                                    selectedTypes.includes(type)
-                                                        ? styles.typeChipSelected
-                                                        : ""
-                                                }`}
-                                                onClick={() => toggleHazardType(type)}
-                                            >
-                                                {type.charAt(0).toUpperCase() + type.slice(1)}
-                                            </button>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
-
-                            <button className={styles.finishBtn} onClick={finishHazard}>
-                                Finish
-                            </button>
-                        </div>
+                        <HazardDetailsPanel
+                            selectedTypes={selectedTypes}
+                            toggleHazardType={toggleHazardType}
+                            onCancel={cancelAll}
+                            onFinish={finishHazard}
+                        />
                     )}
                 </div>
             )}
@@ -1560,16 +765,14 @@ export default function InteractiveMap({
                         mode === "addPOI" ? styles.fabActivePOI : ""
                     } ${
                         mode === "plotHazard" || mode === "hazardDetails" ? styles.fabActive : ""
-                    } ${mode === "directions" ? styles.fabActiveDirections : ""} ${
-                        mode === "autonomousLTV" ? styles.fabActiveDirections : ""
-                    }`}
+                    } ${mode === "autonomousLTV" ? styles.fabActiveDirections : ""}`}
                     onClick={() => {
                         if (mode === "navigate") {
                             setShowAddMenu(!showAddMenu);
                         }
                     }}
                 >
-                    {mode === "navigate" && (
+                    {(mode === "navigate" || mode === "autonomousLTV") && (
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                             <line
                                 x1="12"
@@ -1615,20 +818,16 @@ export default function InteractiveMap({
                             />
                         </svg>
                     )}
-                    {mode === "directions" && (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                            <path
-                                d="M3 12h4l3-9 4 18 3-9h4"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                fill="none"
-                                strokeLinejoin="round"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                    )}
-                    {mode === "autonomousLTV" && (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                </button>
+
+                {/* Zoom in / out buttons */}
+                <div className={styles.fabZoomRow}>
+                    <button
+                        className={styles.fabSecondary}
+                        onClick={() => zoomBy(1)}
+                        title="Zoom in"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                             <circle
                                 cx="11"
                                 cy="11"
@@ -1646,37 +845,65 @@ export default function InteractiveMap({
                                 strokeWidth="2.5"
                                 strokeLinecap="round"
                             />
-                            <path
-                                d="M11 8a3 3 0 0 1 3 3"
+                            <line
+                                x1="8"
+                                y1="11"
+                                x2="14"
+                                y2="11"
                                 stroke="currentColor"
-                                strokeWidth="1.5"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            />
+                            <line
+                                x1="11"
+                                y1="8"
+                                x2="11"
+                                y2="14"
+                                stroke="currentColor"
+                                strokeWidth="2"
                                 strokeLinecap="round"
                             />
                         </svg>
-                    )}
-                </button>
-
-                {/* Directions button */}
-                <button
-                    className={`${styles.fabSecondary} ${mode === "directions" ? styles.fabSecondaryActive : ""}`}
-                    onClick={() => {
-                        if (!isAutonomous && mode !== "directions") {
-                            handleStartDirections();
-                        }
-                    }}
-                    style={{
-                        opacity: isAutonomous ? 0.4 : undefined,
-                        cursor: isAutonomous ? "not-allowed" : undefined,
-                    }}
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7z" fill="currentColor" />
-                    </svg>
-                </button>
+                    </button>
+                    <button
+                        className={styles.fabSecondary}
+                        onClick={() => zoomBy(-1)}
+                        title="Zoom out"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <circle
+                                cx="11"
+                                cy="11"
+                                r="7"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                            />
+                            <line
+                                x1="16.5"
+                                y1="16.5"
+                                x2="21"
+                                y2="21"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                            />
+                            <line
+                                x1="8"
+                                y1="11"
+                                x2="14"
+                                y2="11"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            />
+                        </svg>
+                    </button>
+                </div>
 
                 {/* Autonomous LTV button */}
                 <button
-                    className={`${styles.fabSecondary} ${
+                    className={`${styles.fabSecondary} ${styles.fabSecondaryWide} ${
                         mode === "autonomousLTV" || isAutonomous ? styles.fabSecondaryActive : ""
                     }`}
                     onClick={() => {
@@ -1712,77 +939,7 @@ export default function InteractiveMap({
                             strokeLinecap="round"
                         />
                     </svg>
-                </button>
-
-                {/* Zoom in / out buttons */}
-                <button className={styles.fabSecondary} onClick={() => zoomBy(1)} title="Zoom in">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <circle
-                            cx="11"
-                            cy="11"
-                            r="7"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            fill="none"
-                        />
-                        <line
-                            x1="16.5"
-                            y1="16.5"
-                            x2="21"
-                            y2="21"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="8"
-                            y1="11"
-                            x2="14"
-                            y2="11"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="11"
-                            y1="8"
-                            x2="11"
-                            y2="14"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                        />
-                    </svg>
-                </button>
-                <button className={styles.fabSecondary} onClick={() => zoomBy(-1)} title="Zoom out">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <circle
-                            cx="11"
-                            cy="11"
-                            r="7"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            fill="none"
-                        />
-                        <line
-                            x1="16.5"
-                            y1="16.5"
-                            x2="21"
-                            y2="21"
-                            stroke="currentColor"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                        />
-                        <line
-                            x1="8"
-                            y1="11"
-                            x2="14"
-                            y2="11"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                        />
-                    </svg>
+                    <span>LTV Search</span>
                 </button>
             </div>
 
@@ -1811,7 +968,8 @@ export default function InteractiveMap({
                 {/* ── Autonomous Nav Overlays ── */}
 
                 {/* Search area donut — only shown in manual mode; hidden during autonomy */}
-                {!isAutonomous && savedSearchArea &&
+                {!isAutonomous &&
+                    savedSearchArea &&
                     (savedSearchArea.radius_min_m !== 0 || savedSearchArea.radius_max_m !== 0) && (
                         <g>
                             {/* Outer circle (max radius) */}
@@ -2147,39 +1305,6 @@ export default function InteractiveMap({
                         );
                     })()}
 
-                {/* Route path */}
-                {routePath.length >= 2 && (
-                    <g>
-                        {routePath.map((p, i) => {
-                            if (i === 0) return null;
-                            return (
-                                <line
-                                    key={`route-${i}`}
-                                    x1={routePath[i - 1].x}
-                                    y1={-routePath[i - 1].y}
-                                    x2={p.x}
-                                    y2={-p.y}
-                                    stroke="#6ee7b7"
-                                    strokeWidth="2.5"
-                                    strokeDasharray="10 6"
-                                    opacity="0.8"
-                                />
-                            );
-                        })}
-                        {routePath.map((p, i) => (
-                            <circle
-                                key={`route-dot-${i}`}
-                                cx={p.x}
-                                cy={-p.y}
-                                r="4"
-                                fill="#6ee7b7"
-                                stroke="#1e1e22"
-                                strokeWidth="1.5"
-                            />
-                        ))}
-                    </g>
-                )}
-
                 {/* Pending hazard (waiting for details) */}
                 {pendingHazard && (
                     <g>
@@ -2263,33 +1388,6 @@ export default function InteractiveMap({
                             onLeave={() => setHoveredPointId(null)}
                         />
                     ))}
-
-                {/* Directions mode — invisible hit areas over POIs and pings for reliable clicking */}
-                {mode === "directions" &&
-                    (directionsStep === "selectDestination" || directionsStep === "review") && (
-                        <g>
-                            {points.map((p) => (
-                                <circle
-                                    key={`hit-${p.id}`}
-                                    cx={p.x}
-                                    cy={-p.y - 13}
-                                    r={Math.max(20, viewBox.w * 0.025)}
-                                    fill="transparent"
-                                    style={{ cursor: "pointer" }}
-                                />
-                            ))}
-                            {savedPingHistory.map((ping, i) => (
-                                <circle
-                                    key={`hit-ping-${i}`}
-                                    cx={ping.rover_position.x}
-                                    cy={-ping.rover_position.y}
-                                    r={Math.max(15, viewBox.w * 0.02)}
-                                    fill="transparent"
-                                    style={{ cursor: "pointer" }}
-                                />
-                            ))}
-                        </g>
-                    )}
 
                 {/* Ghost POI — follows cursor while repositioning after first click */}
                 {mode === "addPOI" && poiStep === "placing" && pendingPOI && mousePos && (
@@ -2393,6 +1491,73 @@ export default function InteractiveMap({
                         );
                     })()}
 
+                {/* LTV — last known location from telemetry */}
+                {ltvLocation && (
+                    <>
+                        <LtvIcon
+                            x={ltvLocation.x}
+                            y={ltvLocation.y}
+                            onHover={() => setIsLtvHovered(true)}
+                            onLeave={() => setIsLtvHovered(false)}
+                        />
+                        {isLtvHovered &&
+                            (() => {
+                                const px = ltvLocation.x;
+                                const py = -ltvLocation.y;
+                                const tw = 180;
+                                const th = 38;
+                                const tx = px - tw / 2;
+                                const ty = py - 40 - th;
+                                return (
+                                    <g pointerEvents="none">
+                                        <rect
+                                            x={tx}
+                                            y={ty}
+                                            width={tw}
+                                            height={th}
+                                            rx="6"
+                                            fill="#1e1e22"
+                                            stroke="#444"
+                                            strokeWidth="1"
+                                        />
+                                        <polygon
+                                            points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                            fill="#1e1e22"
+                                            stroke="#444"
+                                            strokeWidth="1"
+                                        />
+                                        <line
+                                            x1={px - 6}
+                                            y1={ty + th}
+                                            x2={px + 6}
+                                            y2={ty + th}
+                                            stroke="#1e1e22"
+                                            strokeWidth="2"
+                                        />
+                                        <text
+                                            x={px}
+                                            y={ty + 15}
+                                            textAnchor="middle"
+                                            fill="#fbbf24"
+                                            fontSize="11"
+                                        >
+                                            LTV (last known)
+                                        </text>
+                                        <text
+                                            x={px}
+                                            y={ty + 30}
+                                            textAnchor="middle"
+                                            fill="#ccc"
+                                            fontSize="11"
+                                        >
+                                            {`x: ${Math.round(ltvLocation.x)}, y: ${Math.round(ltvLocation.y)}`}
+                                        </text>
+                                    </g>
+                                );
+                            })()}
+                    </>
+                )}
+
                 {/* EVA astronauts */}
                 {[
                     {
@@ -2470,166 +1635,17 @@ export default function InteractiveMap({
             </svg>
 
             {/* ── All Assets panel (top-right) ── */}
-            <div className={styles.assetsPanel}>
-                <div
-                    className={styles.assetsPanelHeader}
-                    onClick={() => setAssetsExpanded((v) => !v)}
-                >
-                    <span className={styles.assetsPanelTitle}>All Assets</span>
-                    <span
-                        className={`${styles.assetsChevron} ${assetsExpanded ? styles.assetsChevronOpen : ""}`}
-                    >
-                        ▼
-                    </span>
-                </div>
-
-                {assetsExpanded && (
-                    <div className={styles.assetsList}>
-                        {/* Rover */}
-                        <div className={styles.assetGroup}>Rover</div>
-                        <div
-                            className={styles.assetItem}
-                            onClick={() => centerOn(roverPosition.x, roverPosition.y)}
-                        >
-                            <span className={styles.assetDot} style={{ background: "#6ee7b7" }} />
-                            <div className={styles.assetItemBody}>
-                                <span className={styles.assetLabel}>Rover</span>
-                                <span className={styles.assetCoords}>
-                                    x: {Math.round(roverPosition.x)}, y:{" "}
-                                    {Math.round(roverPosition.y)}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* EVAs */}
-                        {(eva1Imu || eva2Imu) && <div className={styles.assetGroup}>EVAs</div>}
-                        {eva1Imu && (
-                            <div
-                                className={styles.assetItem}
-                                onClick={() => centerOn(eva1Imu.posx, eva1Imu.posy)}
-                            >
-                                <span
-                                    className={styles.assetDot}
-                                    style={{ background: "#93c5fd" }}
-                                />
-                                <div className={styles.assetItemBody}>
-                                    <span className={styles.assetLabel}>EVA 1</span>
-                                    <span className={styles.assetCoords}>
-                                        x: {Math.round(eva1Imu.posx)}, y: {Math.round(eva1Imu.posy)}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                        {eva2Imu && (
-                            <div
-                                className={styles.assetItem}
-                                onClick={() => centerOn(eva2Imu.posx, eva2Imu.posy)}
-                            >
-                                <span
-                                    className={styles.assetDot}
-                                    style={{ background: "#f9a8d4" }}
-                                />
-                                <div className={styles.assetItemBody}>
-                                    <span className={styles.assetLabel}>EVA 2</span>
-                                    <span className={styles.assetCoords}>
-                                        x: {Math.round(eva2Imu.posx)}, y: {Math.round(eva2Imu.posy)}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* POIs */}
-                        {points.filter((p) => p.type === "poi").length > 0 && (
-                            <div className={styles.assetGroup}>POIs</div>
-                        )}
-                        {points
-                            .filter((p) => p.type === "poi")
-                            .map((p) => (
-                                <div
-                                    key={p.id}
-                                    className={styles.assetItem}
-                                    onClick={() => centerOn(p.x, p.y)}
-                                >
-                                    <span
-                                        className={styles.assetDot}
-                                        style={{ background: "#6ee7b7" }}
-                                    />
-                                    <div className={styles.assetItemBody}>
-                                        <span className={styles.assetLabel}>{p.label}</span>
-                                        <span className={styles.assetCoords}>
-                                            x: {Math.round(p.x)}, y: {Math.round(p.y)}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-
-                        {/* Pings */}
-                        {savedPingHistory.length > 0 && (
-                            <div className={styles.assetGroup}>Pings</div>
-                        )}
-                        {savedPingHistory.map((ping, i) => {
-                            const pingColor =
-                                ping.signal_category === "strong"
-                                    ? "#6ee7b7"
-                                    : ping.signal_category === "moderate"
-                                      ? "#fbbf24"
-                                      : ping.signal_category === "weak"
-                                        ? "#f97316"
-                                        : "#ef4444";
-                            return (
-                                <div
-                                    key={i}
-                                    className={styles.assetItem}
-                                    onClick={() =>
-                                        centerOn(ping.rover_position.x, ping.rover_position.y)
-                                    }
-                                >
-                                    <span
-                                        className={styles.assetDot}
-                                        style={{ background: pingColor }}
-                                    />
-                                    <div className={styles.assetItemBody}>
-                                        <span className={styles.assetLabel}>
-                                            Ping {i + 1} · {Math.round(ping.rssi)} dBm
-                                        </span>
-                                        <span className={styles.assetCoords}>
-                                            x: {Math.round(ping.rover_position.x)}, y:{" "}
-                                            {Math.round(ping.rover_position.y)}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {/* Hazards */}
-                        {hazards.length > 0 && <div className={styles.assetGroup}>Hazards</div>}
-                        {hazards.map((h) => {
-                            const cx = h.points.reduce((s, p) => s + p.x, 0) / h.points.length;
-                            const cy = h.points.reduce((s, p) => s + p.y, 0) / h.points.length;
-                            return (
-                                <div
-                                    key={h.id}
-                                    className={styles.assetItem}
-                                    onClick={() => centerOn(cx, cy)}
-                                >
-                                    <span
-                                        className={styles.assetDot}
-                                        style={{ background: "#ff8a75" }}
-                                    />
-                                    <div className={styles.assetItemBody}>
-                                        <span className={styles.assetLabel}>
-                                            {h.types.length ? h.types.join(", ") : "Hazard"}
-                                        </span>
-                                        <span className={styles.assetCoords}>
-                                            x: {Math.round(cx)}, y: {Math.round(cy)}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
+            <AssetsPanel
+                expanded={assetsExpanded}
+                onToggleExpanded={() => setAssetsExpanded((v) => !v)}
+                roverPosition={roverPosition}
+                eva1Imu={eva1Imu}
+                eva2Imu={eva2Imu}
+                points={points}
+                savedPingHistory={savedPingHistory}
+                hazards={hazards}
+                centerOn={centerOn}
+            />
         </div>
     );
 }
