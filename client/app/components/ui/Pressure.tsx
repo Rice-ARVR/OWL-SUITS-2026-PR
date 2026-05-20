@@ -64,7 +64,7 @@ export default function Pressure({
                     <path
                         d={arcPath(RADIUS, 0, 1)}
                         fill="none"
-                        stroke="#4F4F59"
+                        stroke={isSafe ? "#4F4F59" : "#5d5357"}
                         strokeWidth={8}
                         strokeLinecap="round"
                     />

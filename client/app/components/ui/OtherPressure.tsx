@@ -1,3 +1,5 @@
+import { IconChartBubble } from "@tabler/icons-react";
+
 interface OtherPressureProps {
     value: number | null;
     unit?: string;
@@ -20,11 +22,7 @@ export default function OtherPressure({ value, unit = "psi", isWarning }: OtherP
                 width: "100%",
             }}
         >
-            {/* Icon */}
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="5" cy="8" r="4" stroke="#9ca3af" strokeWidth="1.5" />
-                <circle cx="11" cy="8" r="4" stroke="#9ca3af" strokeWidth="1.5" />
-            </svg>
+            <IconChartBubble size={16} color="#9ca3af" />
 
             {/* Status + label */}
             <span

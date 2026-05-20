@@ -1,3 +1,4 @@
+import { IconScubaDivingTank } from "@tabler/icons-react";
 import { CX, CY, BG_PATH, FILL_PATH, TICK_PATHS, gaugePoint } from "~/components/ui/gaugeGeometry";
 
 // Outer ring — same angular geometry as EVACoolant, scaled up (182×143)
@@ -157,42 +158,7 @@ export default function Oxygen({
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div
-                        style={{
-                            width: 24,
-                            height: 24,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}
-                    >
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                            <rect
-                                x="8"
-                                y="4"
-                                width="8"
-                                height="16"
-                                rx="3"
-                                fill="#c5c9d2"
-                                opacity="0.28"
-                            />
-                            <rect
-                                x="10"
-                                y="2"
-                                width="4"
-                                height="4"
-                                rx="1"
-                                fill="#c5c9d2"
-                                opacity="0.28"
-                            />
-                            <path
-                                d="M10 9H14M10 13H14"
-                                stroke="#9de4ce"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                    </div>
+                    <IconScubaDivingTank size={24} color="#c5c9d2" />
                     <span
                         style={{
                             fontFamily: '"Be Vietnam Pro", sans-serif',
