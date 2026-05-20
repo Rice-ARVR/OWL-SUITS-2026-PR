@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     NAV_TRAVEL_ALGORITHM: Literal["lidar", "cv"] = "cv"
     OLLAMA_URL: str = "http://host.docker.internal:11434"
     EMBED_MODEL: str = "nomic-embed-text"
-    AIA_MODEL: str = "gemma4"
+    AIA_MODEL: str = "llama3.2"
 
     DUST_CV_WS_URL: str = "ws://host.docker.internal:8766"
 
