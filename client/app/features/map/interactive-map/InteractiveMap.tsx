@@ -20,7 +20,6 @@ import { Marker } from "./map-components/Marker"; // Pins
 import { HazardShape } from "./map-components/HazardShape";
 import { RoverIcon } from "./map-components/RoverIcon";
 import { AstronautIcon } from "./map-components/AstronautIcon";
-import { LtvIcon } from "./map-components/LtvIcon";
 import { AutonomousLTVPanel } from "./map-components/panels/AutonomousLTVPanel";
 import { ManualConfirmModal } from "./map-components/panels/ManualConfirmModal";
 import { CriticalAlertPanel } from "./map-components/panels/CriticalAlertPanel";
@@ -34,7 +33,7 @@ import { AssetsPanel } from "./map-components/panels/AssetsPanel";
 import mockNavState from "./mock-nav-state.json";
 
 // Set to true to use mock navigation data instead of the live backend
-const DEBUG_MODE = true;
+const DEBUG_MODE = false;
 
 // ── Main map component ─────────────────────────────────
 
@@ -1491,24 +1490,38 @@ export default function InteractiveMap({
                         );
                     })()}
 
-                {/* LTV — last known location from telemetry */}
-                {ltvLocation && (
-                    <>
-                        <LtvIcon
-                            x={ltvLocation.x}
-                            y={ltvLocation.y}
-                            onHover={() => setIsLtvHovered(true)}
-                            onLeave={() => setIsLtvHovered(false)}
-                        />
-                        {isLtvHovered &&
-                            (() => {
-                                const px = ltvLocation.x;
-                                const py = -ltvLocation.y;
-                                const tw = 180;
-                                const th = 38;
-                                const tx = px - tw / 2;
-                                const ty = py - 40 - th;
-                                return (
+                {/* LTV last known position — POI pin */}
+                {ltvLocation &&
+                    (() => {
+                        const lx = ltvLocation.x;
+                        const ly = -ltvLocation.y;
+                        const color = "#fbbf24";
+                        const tw = 180;
+                        const th = 38;
+                        const tx = lx - tw / 2;
+                        const ty = ly - 55 - th;
+                        return (
+                            <g
+                                onMouseEnter={() => setIsLtvHovered(true)}
+                                onMouseLeave={() => setIsLtvHovered(false)}
+                            >
+                                <path
+                                    d={`M ${lx} ${ly} C ${lx - 4} ${ly - 6}, ${lx - 14} ${ly - 16}, ${lx - 14} ${ly - 26} A 14 14 0 1 1 ${lx + 14} ${ly - 26} C ${lx + 14} ${ly - 16}, ${lx + 4} ${ly - 6}, ${lx} ${ly} Z`}
+                                    fill={color}
+                                    stroke="#1e1e22"
+                                    strokeWidth="2"
+                                />
+                                <circle cx={lx} cy={ly - 26} r="5" fill="#1e1e22" />
+                                <text
+                                    x={lx}
+                                    y={ly + 14}
+                                    textAnchor="middle"
+                                    fill="#ccc"
+                                    fontSize="11"
+                                >
+                                    LTV LNP
+                                </text>
+                                {isLtvHovered && (
                                     <g pointerEvents="none">
                                         <rect
                                             x={tx}
@@ -1521,30 +1534,30 @@ export default function InteractiveMap({
                                             strokeWidth="1"
                                         />
                                         <polygon
-                                            points={`${px - 6},${ty + th} ${px + 6},${ty + th} ${px},${ty + th + 8}`}
+                                            points={`${lx - 6},${ty + th} ${lx + 6},${ty + th} ${lx},${ty + th + 8}`}
                                             fill="#1e1e22"
                                             stroke="#444"
                                             strokeWidth="1"
                                         />
                                         <line
-                                            x1={px - 6}
+                                            x1={lx - 6}
                                             y1={ty + th}
-                                            x2={px + 6}
+                                            x2={lx + 6}
                                             y2={ty + th}
                                             stroke="#1e1e22"
                                             strokeWidth="2"
                                         />
                                         <text
-                                            x={px}
+                                            x={lx}
                                             y={ty + 15}
                                             textAnchor="middle"
-                                            fill="#fbbf24"
+                                            fill={color}
                                             fontSize="11"
                                         >
-                                            LTV (last known)
+                                            LTV Last Known Position
                                         </text>
                                         <text
-                                            x={px}
+                                            x={lx}
                                             y={ty + 30}
                                             textAnchor="middle"
                                             fill="#ccc"
@@ -1553,10 +1566,10 @@ export default function InteractiveMap({
                                             {`x: ${Math.round(ltvLocation.x)}, y: ${Math.round(ltvLocation.y)}`}
                                         </text>
                                     </g>
-                                );
-                            })()}
-                    </>
-                )}
+                                )}
+                            </g>
+                        );
+                    })()}
 
                 {/* EVA astronauts */}
                 {[
@@ -1641,6 +1654,7 @@ export default function InteractiveMap({
                 roverPosition={roverPosition}
                 eva1Imu={eva1Imu}
                 eva2Imu={eva2Imu}
+                ltvLocation={ltvLocation}
                 points={points}
                 savedPingHistory={savedPingHistory}
                 hazards={hazards}
