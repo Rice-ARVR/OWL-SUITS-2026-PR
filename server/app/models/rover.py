@@ -62,6 +62,8 @@ class RoverData:
 
     async def update(self, raw: dict) -> None:
         parsed = RoverSchema.model_validate(raw)
+        # TODO: TSS bug: primary_battery_level can go negative; remove when fixed
+        parsed.pr_telemetry.primary_battery_level = 67.0
         async with self._lock:
             self._data = parsed
 

@@ -1,3 +1,4 @@
+import { IconBattery } from "@tabler/icons-react";
 import typo from "~/components/ui/typography.module.css";
 
 interface BatteryProps {
@@ -6,13 +7,6 @@ interface BatteryProps {
     showIcon?: boolean;
     remaining?: string;
 }
-
-const BatteryIcon = () => (
-    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2}>
-        <rect x="2" y="7" width="18" height="13" rx="2" ry="2" />
-        <line x1="22" y1="11" x2="22" y2="17" />
-    </svg>
-);
 
 export default function Battery({
     level,
@@ -131,7 +125,7 @@ export default function Battery({
                 >
                     {/* Label with icon */}
                     <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                        {showIcon && <BatteryIcon />}
+                        {showIcon && <IconBattery size={22} color="white" />}
                         <span className={typo.h5} style={{ color: "#F4F4F4" }}>
                             {label}
                         </span>

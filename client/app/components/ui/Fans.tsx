@@ -1,4 +1,7 @@
+import { IconCarFan, IconCarFan2 } from "@tabler/icons-react";
 import { useTrend, TrendArrow } from "~/components/ui/trend";
+
+const FAN_ICONS = [IconCarFan, IconCarFan2];
 
 interface FanStatus {
     label: string;
@@ -13,6 +16,7 @@ interface FansProps {
 
 function FanItem({ fan, index }: { fan: FanStatus; index: number }) {
     const direction = useTrend(fan.rpm);
+    const FanIcon = FAN_ICONS[index] ?? IconCarFan;
     return (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
@@ -27,11 +31,7 @@ function FanItem({ fan, index }: { fan: FanStatus; index: number }) {
                     justifyContent: "center",
                 }}
             >
-                <img
-                    src={`/fan${index + 1}.svg`}
-                    alt={`${fan.label} icon`}
-                    style={{ width: 34, height: 34, display: "block" }}
-                />
+                <FanIcon size={34} color="#c5c9d2" />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             <p

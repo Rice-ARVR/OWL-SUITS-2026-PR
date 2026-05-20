@@ -14,13 +14,10 @@ import app.services.telemetry.telemetry_service as telemetry_service
 
 
 # --- Pure math (synchronous) ---
-def rover_battery_time_remaining(
-    battery_level: float | None, speed: float | None
-) -> float | None:
+def rover_battery_time_remaining(battery_level: float | None) -> float | None:
     if battery_level is None:
         return None
-    rate = 0.02857 + (speed or 0.0) * 0.00508
-    return battery_level / rate if rate > 0 else None
+    return max(0.0, battery_level / 0.02)
 
 
 def rover_oxygen_time_remaining(oxygen_storage: float | None) -> float | None:
@@ -43,9 +40,10 @@ def eva_oxygen_time_remaining(oxygen_storage: float | None) -> float | None:
 
 # --- From current telemetry (asynchronous) ---
 async def current_rover_battery_time_remaining() -> float | None:
+    if telemetry_service.rover_data is None:
+        return None
     battery_level = await telemetry_service.rover_data.get_pr_primary_battery_level()
-    speed = await telemetry_service.rover_data.get_pr_speed()
-    return rover_battery_time_remaining(battery_level, speed)
+    return rover_battery_time_remaining(battery_level)
 
 
 async def current_rover_oxygen_time_remaining() -> float | None:

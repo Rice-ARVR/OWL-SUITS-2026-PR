@@ -27,6 +27,7 @@ interface SummaryProps {
     image?: string;
     label?: string;
     warnings?: Warning[];
+    showReflection?: boolean;
 }
 
 export default function Summary({
@@ -72,7 +73,29 @@ export default function Summary({
                     justifyContent: "space-between",
                 }}
             >
-                <Warnings warnings={warnings} />
+                {hasWarnings ? (
+                    <Warnings warnings={warnings} />
+                ) : (
+                    <div
+                        style={{
+                            flex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        <img
+                            src={image}
+                            alt="Rover"
+                            style={{
+                                width: 227,
+                                height: 188,
+                                objectFit: "contain",
+                                pointerEvents: "none",
+                            }}
+                        />
+                    </div>
+                )}
 
                 <div
                     style={{
@@ -116,16 +139,18 @@ export default function Summary({
                             {statusText}
                         </p>
                     </div>
-                    <img
-                        src={image}
-                        alt="Rover"
-                        style={{
-                            width: 110,
-                            height: 92,
-                            objectFit: "contain",
-                            pointerEvents: "none",
-                        }}
-                    />
+                    {hasWarnings && (
+                        <img
+                            src={image}
+                            alt="Rover"
+                            style={{
+                                width: 110,
+                                height: 92,
+                                objectFit: "contain",
+                                pointerEvents: "none",
+                            }}
+                        />
+                    )}
                 </div>
             </div>
         </div>

@@ -52,7 +52,7 @@ function Metric({ label, value, unit, min, max, safeMin, safeMax, trend, isWarni
                         left: 0,
                         right: 0,
                         height: 8,
-                        background: "#4a4a52",
+                        background: isWarning ? "#5d5357" : "#4a4a52",
                         borderRadius: 99,
                     }}
                 />

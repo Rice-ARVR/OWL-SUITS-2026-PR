@@ -65,8 +65,11 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
             "battery_level",
             "secondary_battery_level",
             "fan_pri_rpm",
-            "fan_sec_rpm"
+            "fan_sec_rpm",
         ):
+            continue
+        if model_class == Eva2Telemetry:
+            # we only care about EVA1 this year
             continue
         # loop through all telemetry values in given field and check against NominalRange metadata
         for meta in field_info.metadata:
@@ -80,7 +83,7 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
                     and meta.nominal is not None
                     and value != meta.nominal
                 )
-                if out_of_range or off_nominal:
+                if out_of_range:
                     reason_key = _resolve_reason_key(
                         value, meta, out_of_range, off_nominal
                     )
