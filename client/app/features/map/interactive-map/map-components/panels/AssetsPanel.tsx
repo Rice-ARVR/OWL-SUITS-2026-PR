@@ -9,6 +9,7 @@ interface AssetsPanelProps {
     roverPosition: RoverPosition;
     eva1Imu: ImuUnit | null | undefined;
     eva2Imu: ImuUnit | null | undefined;
+    ltvLocation: { x: number; y: number } | null | undefined;
     points: MapPoint[];
     savedPingHistory: SavedPingRecord[];
     hazards: Hazard[];
@@ -21,6 +22,7 @@ export function AssetsPanel({
     roverPosition,
     eva1Imu,
     eva2Imu,
+    ltvLocation,
     points,
     savedPingHistory,
     hazards,
@@ -54,6 +56,26 @@ export function AssetsPanel({
                             </span>
                         </div>
                     </div>
+
+                    {/* LTV LNP */}
+                    {ltvLocation && (
+                        <>
+                            <div className={styles.assetGroup}>LTV</div>
+                            <div
+                                className={styles.assetItem}
+                                onClick={() => centerOn(ltvLocation.x, ltvLocation.y)}
+                            >
+                                <span className={styles.assetDot} style={{ background: "#fbbf24" }} />
+                                <div className={styles.assetItemBody}>
+                                    <span className={styles.assetLabel}>LTV LNP</span>
+                                    <span className={styles.assetCoords}>
+                                        x: {Math.round(ltvLocation.x)}, y:{" "}
+                                        {Math.round(ltvLocation.y)}
+                                    </span>
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     {/* EVAs */}
                     {(eva1Imu || eva2Imu) && <div className={styles.assetGroup}>EVAs</div>}
