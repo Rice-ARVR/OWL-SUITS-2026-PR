@@ -194,7 +194,6 @@
 /* Substack 2: wrapper constrains height to available space in the row. */
 .suitPressureWrapper {
     flex: 1 0 0;
-    align-self: stretch;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
@@ -204,7 +203,7 @@
 
 .suitPressureCard {
     align-items: center;
-    gap: 17px; /* Figma — clean card-to-card spacing (no padding added) */
+    gap: 10px; /* Figma — clean card-to-card spacing (no padding added) */
     min-height: 0;
     overflow: hidden;
 }
@@ -216,6 +215,7 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
+    margin-top: -20px;
 }
 
 /* The card grouping the 3 stacked graphs. */

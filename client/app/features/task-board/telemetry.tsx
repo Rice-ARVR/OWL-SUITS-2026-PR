@@ -287,6 +287,7 @@ export default function Telemetry() {
                                         windowFraction={1}
                                         borderBottom={false}
                                         isWarning={w("eva1", "suit_pressure_oxy")}
+                                        height={110}
                                     />
                                     <Graph
                                         value={eva1.suit_pressure_co2}
@@ -298,6 +299,7 @@ export default function Telemetry() {
                                         borderBottom={false}
                                         borderTop={false}
                                         isWarning={w("eva1", "suit_pressure_co2")}
+                                        height={110}
                                     />
                                     <Graph
                                         value={eva1.scrubber_a_co2_storage}
@@ -307,6 +309,7 @@ export default function Telemetry() {
                                         max={EVA_LIMITS.scrubber_a_co2_storage.max}
                                         borderTop={false}
                                         isWarning={w("eva1", "scrubber_a_co2_storage")}
+                                        height={110}
                                     />
                                 </div>
                                 <div className={styles.otherPressureCard}>
