@@ -54,13 +54,14 @@ const INITIAL_CURRENT: Task = {
         },
         {
             id: 7,
-            title: "Drop Pin at LTV Last Known Position",
-            description: "Drop pin at LTV last known position, verbally confirm success",
+            title: "Check Pin at LTV Last Known Position",
+            description: "Check that pin is at LTV last known position, verbally confirm success",
         },
         {
             id: 8,
             title: "Calculate Optimal Path",
-            description: "Calculate optimal path to the LTV last nominal position",
+            description:
+                "Start LTV Search to calculate optimal path to the LTV last nominal position",
         },
         {
             id: 9,
@@ -126,7 +127,7 @@ const INITIAL_UPCOMING: Task[] = [
                 id: 17,
                 title: "Set Pin for Next Ping Location",
                 description:
-                    "Set pin for next ping location and calculate optimal path of navigation",
+                    "Set pin for next ping location (waypoint) and calculate optimal path of navigation",
             },
             {
                 id: 18,
@@ -441,8 +442,7 @@ export default function TaskPanel() {
                             onClick={() => setCompletedExpanded(!completedExpanded)}
                         >
                             <span className={styles.completedText}>
-                                {completed.length} task{completed.length !== 1 ? "s" : ""}{" "}
-                                completed
+                                {completed.length} task{completed.length !== 1 ? "s" : ""} completed
                             </span>
                             <svg
                                 width="18"

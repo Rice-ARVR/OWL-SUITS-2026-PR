@@ -182,6 +182,7 @@ export default function BottomBar({
                             strokeLinecap="round"
                         />
                     </svg>
+                    <span>Headlights</span>
                 </button>
 
                 <button
@@ -221,6 +222,7 @@ export default function BottomBar({
                             strokeLinecap="round"
                         />
                     </svg>
+                    <span>Signal LTV</span>
                 </button>
             </div>
         </div>
