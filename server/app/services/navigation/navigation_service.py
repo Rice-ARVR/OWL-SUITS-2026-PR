@@ -222,7 +222,11 @@ async def stop_autonomous_loop(apply_brakes: bool = True):
     if _mission_task and not _mission_task.done():
         _mission_task.cancel()
 
-    if _telemetry_task and not _telemetry_task.done() and _telemetry_task is not current_task:
+    if (
+        _telemetry_task
+        and not _telemetry_task.done()
+        and _telemetry_task is not current_task
+    ):
         try:
             await _telemetry_task
         except BaseException:
@@ -1130,7 +1134,7 @@ async def execute_ping(is_manual: bool = False) -> Tuple[bool, float, DistanceCa
     # already in-flight (its data was fetched before TSS processed the ping command).
     pre_ping_update_t = await telemetry_service.ltv_data.get_last_updated()
 
-    await asyncio.to_thread(tss_client.send_ltv_ping_normal)
+    await asyncio.to_thread(tss_client.send_ltv_ping_normal, 1.0)
 
     # Wait for two distinct telemetry polls to arrive after the ping is sent.
     # The first new poll may have been in-flight before TSS processed our command,
@@ -1205,7 +1209,8 @@ async def execute_ping(is_manual: bool = False) -> Tuple[bool, float, DistanceCa
             await navigation_state.update_session(session)
 
             await navigation_state.update_status(
-                f"{'Manual' if is_manual else 'Auto'} ping recorded. RSSI: {rssi} dBm", "info"
+                f"{'Manual' if is_manual else 'Auto'} ping recorded. RSSI: {rssi} dBm",
+                "info",
             )
 
         return True, rssi, category

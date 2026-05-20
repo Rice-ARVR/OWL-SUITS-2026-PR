@@ -76,9 +76,9 @@ def send_steering(value: float) -> None:
     _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
 
 
-def send_ltv_ping_normal() -> None:
+def send_ltv_ping_normal(value: float) -> None:
     """Send LTV ping command (normal, 20s throttle)."""
-    packet = _build_packet(COMMAND_LTV_PING_NORMAL)
+    packet = _build_control_packet(COMMAND_LTV_PING_NORMAL, value)
     _send_command(settings.TSS_HOST, settings.TSS_PORT, packet, settings.TSS_TIMEOUT)
 
 
