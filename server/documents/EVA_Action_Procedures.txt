@@ -1,0 +1,304 @@
+EVA SUIT & ROVER TELEMETRY — ACTION PROCEDURES
+===============================================
+
+This document defines required actions when suit or rover telemetry enters a low, below-nominal, above-nominal, or critically high state. Cross-reference related systems when multiple readings are abnormal — many faults manifest across several telemetry channels simultaneously.
+
+
+=====================================
+SECTION 1: OXYGEN SYSTEM — PRIMARY TANK
+Parameters: oxy_pri_storage/Primary O2 Storage, oxy_pri_pressure/Primary O2 Pressure, suit_pressure_oxy/O2 Suit Pressure
+Context: The primary tank feeds suit atmosphere continuously. Depletion is expected; rapid depletion relative to oxy_consumption/O2 Consumption rate indicates a leak. Target O2 partial pressure in suit: 4.0 psi.
+=====================================
+
+oxy_pri_storage/Primary O2 Storage — LOW (CRITICAL):
+PRI O2 storage critically low — switch to SEC supply immediately and terminate EVA. Confirm SEC tank pressure before switching. Do not attempt to continue the mission on an exhausted primary tank.
+
+oxy_pri_storage/Primary O2 Storage — BELOW NOMINAL:
+PRI O2 storage below nominal — compare depletion rate against the astronaut's oxy_consumption/O2 Consumption reading. If depletion is faster than consumption rate explains, suspect a supply line leak. Monitor closely and prepare contingency return to habitat.
+
+oxy_pri_pressure/Primary O2 Pressure — LOW (CRITICAL):
+PRI O2 pressure critically low — switch to SEC O2 supply and terminate EVA. Low pressure may indicate regulator failure or tank near empty. Do not delay the switch.
+
+oxy_pri_pressure/Primary O2 Pressure — BELOW NOMINAL:
+PRI O2 pressure below nominal — monitor regulator output and prepare to switch to SEC supply. Cross-check with oxy_pri_storage/Primary O2 Storage to distinguish a regulator fault from a near-empty tank.
+
+oxy_pri_pressure/Primary O2 Pressure — HIGH (DANGEROUS):
+PRI O2 pressure dangerously high — risk of regulator failure or overpressure event. Switch to SEC supply immediately. Do not use PRI supply until inspected.
+
+suit_pressure_oxy/O2 Suit Pressure — LOW (CRITICAL):
+Suit O2 partial pressure critically low — hypoxia risk is immediate. Switch O2 supply source and return to pressurized resource (PR) immediately. Below 4.0 psi impairs cognitive function; below approximately 3.0 psi causes rapid incapacitation.
+
+suit_pressure_oxy/O2 Suit Pressure — ABOVE NOMINAL:
+Suit O2 partial pressure above nominal — check O2 regulator for over-delivery. Elevated O2 increases flammability risk inside the suit. Reduce flow if the regulator allows and monitor closely.
+
+suit_pressure_oxy/O2 Suit Pressure — HIGH (DANGEROUS):
+Suit O2 partial pressure dangerously high — swap to PRI/SEC O2 tank and return to PR immediately. Excess O2 partial pressure is a serious flammability hazard.
+
+
+=====================================
+SECTION 2: OXYGEN SYSTEM — SECONDARY TANK
+Parameters: oxy_sec_storage/Secondary O2 Storage, oxy_sec_pressure/Secondary O2 Pressure
+Context: The secondary tank is backup only and should remain full unless the primary has failed. Any depletion of the secondary during normal EVA without a known primary failure is anomalous.
+=====================================
+
+oxy_sec_storage/Secondary O2 Storage — LOW (CRITICAL):
+SEC O2 storage critically low — this is a double-failure condition. Terminate EVA immediately. If PRI is also depleted, emergency return to habitat is the only option. Declare an emergency.
+
+oxy_sec_storage/Secondary O2 Storage — BELOW NOMINAL:
+SEC O2 storage below nominal — investigate why the secondary is depleting. If PRI failed and SEC is now active, monitor consumption rate and plan immediate return. If SEC is depleting without being the active supply, suspect a valve fault or leak.
+
+oxy_sec_pressure/Secondary O2 Pressure — LOW (CRITICAL):
+SEC O2 pressure critically low — switch to PRI supply if available and terminate EVA. A degraded secondary offers no meaningful backup protection.
+
+oxy_sec_pressure/Secondary O2 Pressure — HIGH (DANGEROUS):
+SEC O2 pressure dangerously high — do not activate SEC supply. Risk of regulator failure under overpressure. Remain on PRI supply and return to PR for inspection.
+
+
+=====================================
+SECTION 3: CO2 SCRUBBER SYSTEM
+Parameters: scrubber_a_co2_storage/CO2 Scrubber A, scrubber_b_co2_storage/CO2 Scrubber B, suit_pressure_co2/CO2 Suit Pressure
+Context: The active scrubber fills gradually throughout the EVA — this is expected and normal. At 60% capacity, scrubber efficiency drops sharply and CO2 begins passing through into the suit atmosphere. Switch scrubbers before reaching 60%. Only one scrubber is active at a time; the other vents to space.
+=====================================
+
+scrubber_a_co2_storage/CO2 Scrubber A — HIGH (AT CAPACITY, ~60%):
+Scrubber A at capacity — switch to Scrubber B immediately and initiate Scrubber A venting. A full scrubber cannot absorb CO2 and suit atmosphere CO2 will rise rapidly if the switch is not made. Confirm Scrubber B is at low storage before switching.
+
+scrubber_a_co2_storage/CO2 Scrubber A — ABOVE NOMINAL:
+Scrubber A above nominal — prepare to switch to Scrubber B. Do not wait for the 60% threshold during high-activity periods when CO2 production is elevated. Initiate the vent procedure for Scrubber A once switched.
+
+scrubber_b_co2_storage/CO2 Scrubber B — HIGH (AT CAPACITY, ~60%):
+Scrubber B at capacity — switch to Scrubber A immediately and initiate Scrubber B venting. Confirm Scrubber A is at low storage before switching.
+
+scrubber_b_co2_storage/CO2 Scrubber B — ABOVE NOMINAL:
+Scrubber B above nominal — prepare to switch to Scrubber A. Monitor fill rate given the current co2_production/CO2 Production reading.
+
+suit_pressure_co2/CO2 Suit Pressure — HIGH (CRITICAL):
+Suit CO2 partial pressure critically high — vent the active scrubber immediately and switch to the empty scrubber. If suit_pressure_co2/CO2 Suit Pressure is rising while both scrubbers show remaining capacity, check fan RPM — poor circulation may be allowing CO2 to bypass the scrubber inlet.
+
+suit_pressure_co2/CO2 Suit Pressure — ABOVE NOMINAL:
+Suit CO2 above nominal — check the active scrubber fill level. If it is approaching 60%, switch now. If the scrubber has capacity, verify fan RPM and monitor helmet_pressure_co2/Helmet CO2 Pressure to distinguish suit-wide accumulation from helmet pooling.
+
+
+=====================================
+SECTION 4: HELMET CO2 & VENTILATION FANS
+Parameters: helmet_pressure_co2/Helmet CO2 Pressure, fan_pri_rpm/Fan 1, fan_sec_rpm/Fan 2
+Context: CO2 is denser than O2 and pools in the helmet bubble. Fans circulate air and push CO2 toward the scrubbers in the suit body. Both fans should spin at 30,000 RPM when active. A rising helmet CO2 with stable suit CO2 means the scrubber is functioning — the problem is insufficient fan-driven circulation, not scrubber capacity.
+=====================================
+
+helmet_pressure_co2/Helmet CO2 Pressure — HIGH (CRITICAL, above 0.15 psi):
+Helmet CO2 critically high — hypercapnia risk is immediate. Above 0.15 psi, cognitive impairment begins. Check fan RPM immediately. If fan is below 30,000 RPM, switch to the secondary fan. Return to PR immediately. Do not continue the EVA with impaired circulation.
+
+helmet_pressure_co2/Helmet CO2 Pressure — ABOVE NOMINAL:
+Helmet CO2 above nominal — increase fan speed/Speed if possible or switch to the secondary fan. Cross-check suit_pressure_co2/CO2 Suit Pressure: if suit CO2 is stable but helmet CO2 is rising, the scrubber is working but CO2 is pooling before reaching it. This is a circulation issue, not a scrubber issue.
+
+fan_pri_rpm/Fan 1 — LOW (CRITICAL, below 30,000 RPM while active):
+PRI fan critically low RPM or failed — switch to SEC fan immediately. A slow or stopped fan will cause CO2 to pool in the helmet even when the scrubber has capacity. Return to PR after switching; a failed fan bearing or motor will not recover on its own.
+
+fan_pri_rpm/Fan 1 — BELOW NOMINAL:
+PRI fan below 30,000 RPM — check motor and power supply. Monitor helmet_pressure_co2/Helmet CO2 Pressure for rising CO2. A gradual RPM decline suggests a developing bearing or motor fault. Prepare to switch to SEC fan if RPM continues to drop.
+
+fan_pri_rpm/Fan 1 — HIGH (DANGEROUS):
+PRI fan RPM dangerously high — fan failure mode; switch to SEC fan and return to PR immediately.
+
+fan_sec_rpm/Fan 2 — LOW (CRITICAL, below 30,000 RPM while active):
+SEC fan critically low RPM or failed — switch to PRI fan immediately if not already active. If both fans are degraded, return to PR immediately; no redundancy remains for helmet CO2 circulation.
+
+fan_sec_rpm/Fan 2 — BELOW NOMINAL:
+SEC fan below 30,000 RPM — check motor and power supply. If SEC fan is the active fan, monitor helmet CO2 closely and prepare to switch to PRI fan.
+
+fan_sec_rpm/Fan 2 — HIGH (DANGEROUS):
+SEC fan RPM dangerously high — fan failure mode; switch to PRI fan and return to PR immediately.
+
+
+=====================================
+SECTION 5: SUIT ATMOSPHERE & TOTAL PRESSURE
+Parameters: suit_pressure_total/Total Suit Pressure, suit_pressure_other/Other Suit Pressure
+Context: Total suit pressure is the sum of all partial pressures (O2 + CO2 + other gases). Target is approximately 4.0 psi, which should be almost entirely O2. After the decompression sequence during egress, suit_pressure_other/Other Suit Pressure must read 0.0 psi. Any non-zero other-gas reading after egress is anomalous and not a routine occurrence.
+=====================================
+
+suit_pressure_total/Total Suit Pressure — LOW (CRITICAL):
+Total suit pressure critically low — O2 is not entering the suit fast enough to compensate for consumption. Possible causes: primary tank near empty, regulator fault, or suit breach. Switch O2 supply source and return to PR immediately.
+
+suit_pressure_total/Total Suit Pressure — BELOW NOMINAL:
+Total pressure slightly below nominal — identify which partial pressure is responsible. If suit_pressure_oxy/O2 Suit Pressure is declining, it is an O2 supply issue. If CO2 and other gases are normal, suspect a slow suit breach or O2 flow restriction.
+
+suit_pressure_total/Total Suit Pressure — HIGH (DANGEROUS):
+Total suit pressure dangerously high — CO2 accumulation or other-gas contamination is the likely cause. Identify the contributing partial pressure immediately. If CO2, switch scrubbers. If other gases, begin decompress sequence and return to PR.
+
+suit_pressure_other/Other Suit Pressure — ABOVE NOMINAL (after egress):
+Other gas pressure above nominal post-egress — decompression may be incomplete. Prepare for another decompress sequence. Do not proceed with EVA tasks until resolved; an unresolved other-gas reading represents a suit integrity or procedure concern.
+
+suit_pressure_other/Other Suit Pressure — HIGH (CRITICAL):
+Other gas pressure critically high — begin decompress sequence immediately. If pressure does not reduce, return to PR immediately. This represents potential atmospheric contamination or a suit breach.
+
+
+=====================================
+SECTION 6: THERMAL CONTROL & COOLANT
+Parameters: temperature/Body Temperature, coolant_storage/Coolant Storage, coolant_liquid_pressure/Coolant Liquid Pressure, coolant_gas_pressure/Coolant Gas Pressure
+Context: The coolant loop is a sealed, self-recycling closed system. Any decline in coolant_storage/Coolant Storage confirms a breach in the loop. Temperature concern threshold is 32°C. Lunar surface extremes: +120°C in direct sunlight/Sunlight, -170°C in shadow.
+=====================================
+
+temperature/Body Temperature — HIGH (DANGEROUS, above 32°C threshold):
+Suit temperature/Body Temperature dangerously high — heat stroke risk. Reduce physical activity immediately and increase cooling. If coolant_storage/Coolant Storage has declined, the cooling loop is breached and thermal regulation is compromised. Return to PR immediately; continued exertion in a suit with a breached cooling loop is life-threatening.
+
+temperature/Body Temperature — ABOVE NOMINAL:
+Suit temperature/Body Temperature above nominal — reduce activity level and verify coolant_storage/Coolant Storage is not declining. Rising temperature/Body Temperature during rest may indicate a coolant loop issue rather than metabolic heat. Cross-check heart_rate/Heart Rate for signs of physiological heat stress.
+
+temperature/Body Temperature — LOW (CRITICAL):
+Suit temperature/Body Temperature critically low — hypothermia risk. Increase heating immediately. Check whether the astronaut has entered an extended shadow zone where passive thermal loss is accelerated.
+
+coolant_storage/Coolant Storage — LOW (CRITICAL):
+Coolant storage critically low — the sealed coolant loop has a breach. Thermal regulation is at serious risk. Reduce physical activity immediately to minimize heat generation and return to PR. Without coolant, heat will accumulate rapidly during any exertion.
+
+coolant_storage/Coolant Storage — BELOW NOMINAL:
+Coolant storage below nominal — since the loop is sealed and self-recycling, any decline confirms a breach is in progress. Monitor the rate of decline. If it continues to drop, prepare for thermal regulation failure and return to PR.
+
+coolant_liquid_pressure/Coolant Liquid Pressure — LOW (CRITICAL):
+Coolant liquid pressure critically low — the coolant pump may be failing or a breach has drained the loop. Thermal regulation is at risk. Reduce activity and return to PR.
+
+coolant_liquid_pressure/Coolant Liquid Pressure — BELOW NOMINAL:
+Coolant liquid pressure below nominal — check coolant pump and inspect lines for leaks.
+
+coolant_gas_pressure/Coolant Gas Pressure — HIGH (DANGEROUS):
+Coolant gas pressure dangerously high — risk of line rupture. Reduce pressure immediately and return to PR for inspection.
+
+coolant_gas_pressure/Coolant Gas Pressure — BELOW NOMINAL:
+Coolant gas pressure below nominal — verify coolant gas reservoir and check system integrity.
+
+
+=====================================
+SECTION 7: HEART RATE & METABOLIC INDICATORS
+Parameters: heart_rate/Heart Rate, oxy_consumption/O2 Consumption, co2_production/CO2 Production
+Context: Elevated heart rate is expected during exertion in a pressurized suit on the lunar surface. Sustained high heart rate paired with rising temperature/Body Temperature indicates heat stress. A sudden spike without a change in activity may reflect a suit comfort issue or physiological emergency. High oxy_consumption/O2 Consumption and co2_production/CO2 Production rates compound scrubber and O2 supply risks.
+=====================================
+
+heart_rate/Heart Rate — HIGH (DANGEROUS):
+Heart rate dangerously high — possible medical emergency. Halt EVA immediately and prepare for EV rescue. Instruct the astronaut to stop all physical activity. Cross-check temperature/Body Temperature and suit_pressure_oxy/O2 Suit Pressure for contributing factors such as heat stress or hypoxia. If no suit cause is identified, treat as a cardiac event.
+
+heart_rate/Heart Rate — ABOVE NOMINAL:
+Heart rate above nominal — reduce physical activity. Monitor temperature/Body Temperature for heat buildup. If heart rate is elevated at rest, verify suit_pressure_oxy/O2 Suit Pressure is at 4.0 psi (low O2 elevates resting heart rate) and check for dehydration or thermal stress.
+
+heart_rate/Heart Rate — LOW (CRITICAL):
+Heart rate critically low — possible medical emergency. Halt EVA and prepare for EV rescue immediately. A very low heart rate in an active EVA astronaut may indicate a serious physiological event.
+
+oxy_consumption/O2 Consumption — HIGH (CRITICAL):
+O2 consumption critically high — the astronaut is consuming oxygen faster than the mission profile allows. Primary tank will deplete ahead of schedule. Reduce activity immediately and recalculate the return timeline based on remaining oxy_pri_storage/Primary O2 Storage. Prepare to switch to secondary supply.
+
+oxy_consumption/O2 Consumption — ABOVE NOMINAL:
+O2 consumption above nominal — reduce activity to bring metabolic rate down. High consumption also elevates CO2 production, potentially overwhelming scrubber capacity sooner than planned. Monitor active scrubber fill levels closely.
+
+oxy_consumption/O2 Consumption — LOW:
+O2 consumption rate below range — verify sensor and confirm the astronaut is breathing normally.
+
+co2_production/CO2 Production — HIGH (CRITICAL):
+CO2 production critically high — scrubber may be overwhelmed. Reduce physical activity immediately. Monitor active scrubber fill rate and helmet_pressure_co2/Helmet CO2 Pressure. High CO2 production paired with a near-full scrubber creates a rapid hypercapnia risk.
+
+co2_production/CO2 Production — ABOVE NOMINAL:
+CO2 production above nominal — high metabolic rate. Reduce activity and monitor scrubber performance. Increase scrubber switch readiness.
+
+
+=====================================
+SECTION 8: BATTERY SYSTEM
+Parameters: primary_battery_level/Primary Battery, secondary_battery_level/Secondary Battery
+Context: The primary battery powers all suit electronics: fans, sensors, and communications. Secondary is backup. Unusually fast drain may indicate a component drawing excess power, such as a degraded fan motor. Battery levels below 20% are outside nominal range.
+=====================================
+
+primary_battery_level/Primary Battery — LOW (CRITICAL):
+PRI battery critically low — switch to SEC battery immediately or return to habitat for recharge or swap. Without power, fans stop (creating CO2 pooling risk), sensors go offline, and communications are lost. Do not delay action.
+
+primary_battery_level/Primary Battery — BELOW NOMINAL:
+PRI battery below nominal — monitor consumption rate. If drain is faster than expected for the current suit system load, check for a component drawing excess power (e.g., a fan motor in a degraded state). Plan for battery swap or return before the critical threshold is reached.
+
+secondary_battery_level/Secondary Battery — LOW (CRITICAL):
+SEC battery critically low — return to habitat or switch to PRI battery immediately. A critically low secondary means no backup power is available. If PRI is also degraded, this is a double-failure scenario.
+
+secondary_battery_level/Secondary Battery — BELOW NOMINAL:
+SEC battery below nominal — investigate why the secondary is depleting if it is not the active battery. If it is active due to a PRI failure, monitor the rate and plan immediate return to habitat before the secondary is exhausted.
+
+
+=====================================
+SECTION 9: ROVER NAVIGATION & TERRAIN
+Parameters: throttle/Throttle, speed/Speed, pitch/Pitch, roll/Roll, surface_incline/Surface Incline, steering/Steering, distance_traveled/Distance Traveled, distance_from_base/Distance from Base
+Context: The lunar surface has uncharted craters, slopes, and loose regolith that can cause loss of control at speed/Speed. The rover has no active suspension. High speed/Speed over uneven terrain significantly increases rollover risk.
+=====================================
+
+speed/Speed — HIGH (CRITICAL):
+Rover speed/Speed critically high — reduce speed/Speed immediately. Risk of loss of control on unpredictable lunar terrain. The rover has no active suspension; high speed/Speed over uneven regolith can cause a rollover.
+
+speed/Speed — ABOVE NOMINAL:
+Rover speed/Speed above nominal — monitor terrain conditions and reduce speed/Speed if surface is uneven.
+
+roll/Roll — HIGH (CRITICAL):
+Rover roll/Roll critically high — rollover imminent. Reduce speed/Speed and steer toward level ground immediately. Avoid sharp turns. If on a side slope, steer uphill to correct.
+
+roll/Roll — ABOVE NOMINAL:
+Rover roll/Roll above nominal — monitor lateral stability on uneven terrain and reduce speed/Speed.
+
+pitch/Pitch — LOW (CRITICAL, steep downhill):
+Rover pitch/Pitch critically negative — steep downhill grade. Reduce speed/Speed immediately to maintain control and prevent tipping forward. Apply lowest available throttle/Throttle.
+
+pitch/Pitch — HIGH (CRITICAL, steep uphill):
+Rover pitch/Pitch critically positive — steep uphill grade. Reduce speed/Speed and check traction. Risk of losing forward momentum and sliding backward. Assess an alternative route if the slope continues.
+
+surface_incline/Surface Incline — HIGH (CRITICAL):
+Surface incline critically steep — reduce speed/Speed immediately. Assess route for a safer path. A combination of high incline and high speed/Speed is the primary rollover risk vector.
+
+surface_incline/Surface Incline — LOW (CRITICAL, steep downhill):
+Surface incline critically steep downward — reduce speed/Speed immediately to prevent loss of control.
+
+distance_from_base/Distance from Base — HIGH (AT LIMIT):
+Rover at maximum distance from habitat — turn back immediately. Before proceeding further, verify remaining O2 storage, battery level, and rover power against the return distance and estimated travel time.
+
+distance_from_base/Distance from Base — ABOVE NOMINAL:
+Rover distance from habitat above nominal — monitor return route feasibility and resource margins.
+
+steering/Steering — LOW (FULL LEFT LOCK):
+Rover steering/Steering at full left lock — verify this is intentional and check for steering/Steering system faults.
+
+steering/Steering — HIGH (FULL RIGHT LOCK):
+Rover steering/Steering at full right lock — verify this is intentional and check for steering/Steering system faults.
+
+
+=====================================
+SECTION 10: ROVER LIFE SUPPORT & CABIN
+Parameters: oxygen_storage/Oxygen Storage, oxygen_pressure/O2 Pressure, oxygen_tank/Oxygen Tank, cabin_pressure/Cabin Pressure, cabin_temperature/Cabin Temperature, coolant_pressure/Coolant Pressure
+Context: The rover provides pressurized cabin support during transit. Cabin breach and O2 depletion are the primary life-safety concerns. Always cross-check O2 storage against distance_from_base/Distance from Base to ensure a safe return margin.
+=====================================
+
+oxygen_storage/Oxygen Storage / oxygen_tank/Oxygen Tank — LOW (CRITICAL):
+Rover O2 storage critically low — return to habitat immediately for resupply. Calculate whether remaining O2 is sufficient for the return journey before proceeding any further from base.
+
+oxygen_storage/Oxygen Storage / oxygen_tank/Oxygen Tank — BELOW NOMINAL:
+Rover O2 below nominal — monitor consumption and plan return timeline to habitat. Cross-check against distance_from_base/Distance from Base to ensure a safe return margin.
+
+oxygen_pressure/O2 Pressure — LOW (CRITICAL):
+Rover O2 pressure critically low — O2 regulator may be failing. Inspect regulator and lines immediately.
+
+oxygen_pressure/O2 Pressure — HIGH (DANGEROUS):
+Rover O2 pressure dangerously high — risk of regulator failure. Reduce pressure immediately.
+
+cabin_pressure/Cabin Pressure — LOW (CRITICAL):
+Rover cabin pressure critically low — possible cabin breach. Don suits and begin emergency protocol immediately. A sudden pressure drop indicates structural failure or a seal breach.
+
+cabin_pressure/Cabin Pressure — BELOW NOMINAL:
+Rover cabin pressure below nominal — inspect cabin seals for a slow leak. Prepare to don suits and monitor for further decline.
+
+cabin_pressure/Cabin Pressure — HIGH (DANGEROUS):
+Rover cabin pressure dangerously high — risk of structural failure. Vent pressure immediately using the pressure relief procedure.
+
+cabin_temperature/Cabin Temperature — LOW (CRITICAL):
+Rover cabin temperature/Body Temperature critically low — activate cabin heating immediately. Hypothermia risk for unsuited occupants.
+
+cabin_temperature/Cabin Temperature — HIGH (CRITICAL):
+Rover cabin temperature/Body Temperature critically high — activate cabin cooling immediately. Heat exhaustion risk for unsuited occupants.
+
+coolant_pressure/Coolant Pressure — LOW (CRITICAL):
+Rover coolant pressure critically low — coolant pump may be failing. Reduce system load and assess thermal management capacity before continuing.
+
+coolant_pressure/Coolant Pressure — HIGH (DANGEROUS):
+Rover coolant pressure dangerously high — risk of line rupture. Shut down coolant pump and investigate immediately.
+
+
+=====================================
+END OF DOCUMENT
+=====================================
