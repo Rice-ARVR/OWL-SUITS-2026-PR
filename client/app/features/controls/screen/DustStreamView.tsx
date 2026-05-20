@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-const WS_URL = import.meta.env.VITE_DUST_WS_URL ?? "ws://localhost:8765";
+const WS_URL = "ws://localhost:8765";
 
 export type StreamStatus = "idle" | "connecting" | "live" | "error";
 
@@ -56,12 +56,11 @@ export default function DustStreamView({ onStatusChange }: DustStreamViewProps) 
     }, [onStatusChange]);
 
     return (
-        <div className="w-full h-full overflow-hidden bg-black flex items-center justify-center">
-            <canvas
-                ref={canvasRef}
-                className="w-full h-full"
-                style={{ objectFit: "contain" }}
-            />
+        <div
+            className="w-full h-full overflow-hidden bg-black flex items-center justify-center"
+            style={{ borderRadius: "10px" }}
+        >
+            <canvas ref={canvasRef} className="w-full h-full" style={{ objectFit: "contain" }} />
         </div>
     );
 }

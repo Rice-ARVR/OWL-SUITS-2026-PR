@@ -1,0 +1,92 @@
+.root {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100vh;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    box-sizing: border-box;
+}
+
+.leftColumn {
+    flex: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+}
+
+.topRow {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    gap: 0.75rem;
+    min-height: 0;
+}
+
+.panel {
+    background-color: #3a3a41;
+    border-radius: 1rem;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.bottomRow {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+}
+
+.rightColumn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+}
+
+.secondStreamPanel {
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+}
+
+.mapPanel {
+    flex: 1;
+    min-height: 0;
+}
+
+.primaryStream {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex: 1 1 auto;
+    align-items: stretch;
+    justify-content: flex-start;
+    cursor: pointer;
+}
+
+.primaryStream:hover > * {
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+}
+
+.secondaryStream {
+    width: 100%;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.secondaryStream:hover > * {
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+}

@@ -1,0 +1,70 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: #3a3a41;
+    border-radius: 12px;
+    font-family: "Be Vietnam Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
+    color: #f1f2f5;
+}
+
+.title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #c5c9d2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.message {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #e8ebf2;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border-left: 3px solid #a1a4af;
+}
+
+.message.mode {
+    border-left-color: #60a5fa;
+}
+
+.message.threat {
+    border-left-color: #fbbf24;
+}
+
+.message.steering {
+    border-left-color: #34d399;
+}
+
+.message.throttle {
+    border-left-color: #f87171;
+}
+
+.message.health {
+    border-left-color: #a78bfa;
+}
+
+.loading {
+    padding: 16px;
+    color: #6b7280;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.error {
+    padding: 16px;
+    color: #ef4444;
+    font-size: 0.875rem;
+    text-align: center;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 6px;
+}
+
+.disconnected {
+    opacity: 0.5;
+    pointer-events: none;
+}

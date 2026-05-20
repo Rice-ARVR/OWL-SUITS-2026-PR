@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from app.models.nav_model import Hazard
 from app.services.navigation.navigation_service import (
     execute_ping,
+    get_distance_range,
     navigation_state,
     request_autonomous_ping,
     start_autonomous_loop,
@@ -85,10 +86,13 @@ async def execute_navigation_ping():
 
         # Otherwise, act normally
         success, rssi_value, category = await execute_ping()
+        r_min, r_max = get_distance_range(category)
         return {
             "success": success,
             "rssi_value": rssi_value,
             "category": category.value,
+            "distance_min": r_min,
+            "distance_max": r_max,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

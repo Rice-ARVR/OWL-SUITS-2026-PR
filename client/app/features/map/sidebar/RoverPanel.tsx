@@ -139,10 +139,6 @@ export default function RoverPanel() {
                     </div>
                 </div>
             </div>
-
-            <h5 className="medium">
-                Surface Incline: {telemetry.getRoverSurfaceIncline()?.toFixed(2)}°
-            </h5>
         </div>
     );
 }
