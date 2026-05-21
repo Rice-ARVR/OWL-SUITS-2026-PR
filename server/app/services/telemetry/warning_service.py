@@ -66,6 +66,18 @@ def _check_model(obj, model_class: type, source: str) -> list[Warning]:
             "secondary_battery_level",
             "fan_pri_rpm",
             "fan_sec_rpm",
+            "throttle",
+            "steering",
+            "rover_pos_x",
+            "rover_pos_y",
+            "rover_pos_z",
+            "heading",
+            "pitch",
+            "roll",
+            "distance_traveled",
+            "speed",
+            "surface_incline",
+            "cabin_temperature_target",
         ):
             continue
         if model_class == Eva2Telemetry:

@@ -50,7 +50,8 @@ const INITIAL_CURRENT: Task = {
         {
             id: 6,
             title: "Drop Pin at Current Location",
-            description: "Pilot drop pin at current location, verbally confirm success",
+            description:
+                "Pilot drop pin at current location by clicking the + button and clicking add POI, verbally confirm success",
         },
         {
             id: 7,
@@ -61,7 +62,7 @@ const INITIAL_CURRENT: Task = {
             id: 8,
             title: "Calculate Optimal Path",
             description:
-                "Start LTV Search to calculate optimal path to the LTV last nominal position",
+                "Click LTV Search button to start LTV search and to calculate optimal path to the LTV last nominal position",
         },
         {
             id: 9,
@@ -81,12 +82,14 @@ const INITIAL_UPCOMING: Task[] = [
             {
                 id: 10,
                 title: "Navigate to LTV Last Nominal Position",
-                description: "Begin navigation to LTV last nominal position",
+                description:
+                    "Check that we are navigating to LTV last nominal position (done autonomously through the LTV search button)",
             },
             {
                 id: 11,
                 title: "Navigate to LTV Last Nominal Position",
-                description: "Upon arrival, fully stop the PR, verbally confirm success",
+                description:
+                    "Check that upon arrival, we fully stop the PR, verbally confirm success (done autonomously through the LTV search button)",
             },
             {
                 id: 12,
@@ -115,19 +118,20 @@ const INITIAL_UPCOMING: Task[] = [
             {
                 id: 15,
                 title: "Establish Communication Link",
-                description: "Send first ping, analyze the incoming RSSI (signal strength)",
+                description:
+                    "Check that we send first ping, analyze the incoming RSSI (signal strength) (done autonomously through the LTV search button)",
             },
             {
                 id: 16,
                 title: "Calculate Search Area",
                 description:
-                    "Calculate a search area based on the LTV max speed and time away from last nominal position",
+                    "Check that we are calculating a search area based on the LTV max speed and time away from last nominal position (done autonomously through the LTV search button)",
             },
             {
                 id: 17,
                 title: "Set Pin for Next Ping Location",
                 description:
-                    "Set pin for next ping location (waypoint) and calculate optimal path of navigation",
+                    "Check that we have set pin for next ping location (waypoint) and calculate optimal path of navigation (done autonomously through the LTV search button)",
             },
             {
                 id: 18,
@@ -146,23 +150,26 @@ const INITIAL_UPCOMING: Task[] = [
             {
                 id: 19,
                 title: "Navigate to Next Ping Location",
-                description: "Begin navigation to next ping location",
+                description:
+                    "Check that we are beginning navigation to next ping location (done autonomously through the LTV search button)",
             },
             {
                 id: 20,
                 title: "Announce Arrival",
-                description: " Upon arrival, fully stop the PR, verbally confirm success",
+                description:
+                    "Check that upon arrival, we are fully stop the PR, verbally confirm success (done autonomously through the LTV search button)",
             },
             {
                 id: 21,
                 title: "Send Ping",
                 description:
-                    "Send ping and wait for new RSSI value, verbally confirm new RSSI update",
+                    "Check that we are sending a ping and wait for new RSSI value (done autonomously through the LTV search button), verbally confirm new RSSI update",
             },
             {
                 id: 22,
                 title: "Determine Next Ping Location",
-                description: "Determine next ping location based on RSSI",
+                description:
+                    "Check that we determine next ping location based on RSSI (done autonomously through the LTV search button)",
             },
             {
                 id: 23,
