@@ -3,7 +3,6 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from app.models.nav_model import SearchPhase  # <--- Added Import
 from app.models.rover_control_request import RoverControlRequest
 from app.services.navigation.navigation_service import (
     navigation_state,
@@ -27,15 +26,6 @@ async def rover_control_websocket(ws: WebSocket) -> None:
                 state = await navigation_state.get_snapshot()
 
                 if state.autonomous_driving:
-                    # Phase 2 (concentric triangle) must complete all 3 waypoints —
-                    # manual override is blocked so triangulation data stays valid.
-                    if state.session and state.session.phase == SearchPhase.CONCENTRIC_SEARCH:
-                        await navigation_state.update_status(
-                            "Manual input ignored: triangle scan must complete all 3 waypoints.",
-                            "warning",
-                        )
-                        continue
-
                     # 1. Alert the UI
                     await navigation_state.update_status(
                         "Emergency Override: Autonomy aborted by manual input.",

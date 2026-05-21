@@ -75,6 +75,7 @@ export default function InteractiveMap({
         savedPingHistory,
         setSavedPingHistory,
         savedPathHistory,
+        savedProjectedPath,
         savedSearchArea,
         setSavedSearchArea,
         navState: liveNavState,
@@ -1035,22 +1036,20 @@ export default function InteractiveMap({
                     />
                 )}
 
-                {/* Projected path (only while autonomous) */}
-                {isAutonomous &&
-                    navState?.session?.projected_path &&
-                    navState.session.projected_path.length >= 1 && (
-                        <polyline
-                            points={[
-                                `${roverPosition.x},${-roverPosition.y}`,
-                                ...navState.session.projected_path.map((p) => `${p.x},${-p.y}`),
-                            ].join(" ")}
-                            fill="none"
-                            stroke="#6ee7b7"
-                            strokeWidth="2"
-                            strokeDasharray="8 4"
-                            opacity="0.6"
-                        />
-                    )}
+                {/* Projected path */}
+                {savedProjectedPath.length >= 1 && (
+                    <polyline
+                        points={[
+                            `${roverPosition.x},${-roverPosition.y}`,
+                            ...savedProjectedPath.map((p) => `${p.x},${-p.y}`),
+                        ].join(" ")}
+                        fill="none"
+                        stroke="#6ee7b7"
+                        strokeWidth="2"
+                        strokeDasharray="8 4"
+                        opacity="0.6"
+                    />
+                )}
 
                 {/* Ping history markers (persisted after autonomy stops) */}
                 {savedPingHistory.map((ping, i) => {
@@ -1520,7 +1519,7 @@ export default function InteractiveMap({
                                     fill="#ccc"
                                     fontSize="11"
                                 >
-                                    LTV LNP
+                                    {`LTV LNP · ${Math.round(Math.sqrt((ltvLocation.x - roverPosition.x) ** 2 + (ltvLocation.y - roverPosition.y) ** 2))}m`}
                                 </text>
                                 {isLtvHovered && (
                                     <g pointerEvents="none">

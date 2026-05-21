@@ -95,7 +95,6 @@ export function useNavigationState(enabled: boolean = false) {
             cancelled = true;
             if (timeoutId) clearTimeout(timeoutId);
             sourceRef.current?.close();
-            setNavState(null);
             setConnected(false);
         };
     }, [enabled]);

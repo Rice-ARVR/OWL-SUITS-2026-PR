@@ -8,7 +8,7 @@ import { AstronautIcon } from "~/features/map/interactive-map/map-components/Ast
 import type { ViewBox, RoverPosition, MapPoint } from "~/types/map";
 
 export default function Minimap() {
-    const { points, hazards, savedPingHistory, savedPathHistory, savedSearchArea, navState } =
+    const { points, hazards, savedPingHistory, savedPathHistory, savedProjectedPath, savedSearchArea, navState } =
         useMapContext();
     const telemetry = useTelemetry();
 
@@ -16,6 +16,7 @@ export default function Minimap() {
     const roverPosition: RoverPosition = { ...pos, heading: telemetry.getRoverHeading() ?? 0 };
     const eva1Imu = telemetry.getEvaImu("eva1");
     const eva2Imu = telemetry.getEvaImu("eva2");
+    const ltvLocation = telemetry.getLtvLocation();
 
     const isAutonomous = navState?.autonomous_driving ?? false;
 
@@ -305,21 +306,19 @@ export default function Minimap() {
                 )}
 
                 {/* ── Projected path ── */}
-                {isAutonomous &&
-                    navState?.session?.projected_path &&
-                    navState.session.projected_path.length >= 1 && (
-                        <polyline
-                            points={[
-                                `${roverPosition.x},${-roverPosition.y}`,
-                                ...navState.session.projected_path.map((p) => `${p.x},${-p.y}`),
-                            ].join(" ")}
-                            fill="none"
-                            stroke="#6ee7b7"
-                            strokeWidth="2"
-                            strokeDasharray="8 4"
-                            opacity="0.6"
-                        />
-                    )}
+                {savedProjectedPath.length >= 1 && (
+                    <polyline
+                        points={[
+                            `${roverPosition.x},${-roverPosition.y}`,
+                            ...savedProjectedPath.map((p) => `${p.x},${-p.y}`),
+                        ].join(" ")}
+                        fill="none"
+                        stroke="#6ee7b7"
+                        strokeWidth="2"
+                        strokeDasharray="8 4"
+                        opacity="0.6"
+                    />
+                )}
 
                 {/* ── Ping history ── */}
                 {savedPingHistory.map((ping, i) => {
@@ -501,6 +500,27 @@ export default function Minimap() {
                             </g>
                         );
                     })}
+
+                {/* ── LTV last known position ── */}
+                {ltvLocation && (() => {
+                    const lx = ltvLocation.x;
+                    const ly = -ltvLocation.y;
+                    const dist = Math.round(Math.sqrt((ltvLocation.x - roverPosition.x) ** 2 + (ltvLocation.y - roverPosition.y) ** 2));
+                    return (
+                        <g>
+                            <path
+                                d={`M ${lx} ${ly} C ${lx - 4} ${ly - 6}, ${lx - 14} ${ly - 16}, ${lx - 14} ${ly - 26} A 14 14 0 1 1 ${lx + 14} ${ly - 26} C ${lx + 14} ${ly - 16}, ${lx + 4} ${ly - 6}, ${lx} ${ly} Z`}
+                                fill="#fbbf24"
+                                stroke="#1e1e22"
+                                strokeWidth="2"
+                            />
+                            <circle cx={lx} cy={ly - 26} r="5" fill="#1e1e22" />
+                            <text x={lx} y={ly + 13} textAnchor="middle" fill="#ccc" fontSize="9">
+                                {`LTV LNP · ${dist}m`}
+                            </text>
+                        </g>
+                    );
+                })()}
 
                 {/* ── Rover ── */}
                 <RoverIcon

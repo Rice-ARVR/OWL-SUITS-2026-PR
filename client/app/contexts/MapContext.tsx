@@ -84,6 +84,8 @@ interface MapContextValue {
     setSavedPingHistory: React.Dispatch<React.SetStateAction<SavedPingRecord[]>>;
     savedPathHistory: { x: number; y: number }[];
     setSavedPathHistory: React.Dispatch<React.SetStateAction<{ x: number; y: number }[]>>;
+    savedProjectedPath: { x: number; y: number }[];
+    setSavedProjectedPath: React.Dispatch<React.SetStateAction<{ x: number; y: number }[]>>;
     savedSearchArea: SavedSearchArea | null;
     setSavedSearchArea: React.Dispatch<React.SetStateAction<SavedSearchArea | null>>;
     navState: NavState | null;
@@ -105,6 +107,10 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
     );
     const [savedPathHistory, setSavedPathHistory] = useBroadcastState<{ x: number; y: number }[]>(
         "path-history",
+        [],
+    );
+    const [savedProjectedPath, setSavedProjectedPath] = useBroadcastState<{ x: number; y: number }[]>(
+        "projected-path",
         [],
     );
     const [savedSearchArea, setSavedSearchArea] = useBroadcastState<SavedSearchArea | null>(
@@ -136,6 +142,12 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
         }
     }, [navState?.session?.path_history]);
 
+    useEffect(() => {
+        if (navState?.session?.projected_path && navState.session.projected_path.length > 0) {
+            setSavedProjectedPath(navState.session.projected_path);
+        }
+    }, [navState?.session?.projected_path, setSavedProjectedPath]);
+
     return (
         <MapContext.Provider
             value={{
@@ -147,6 +159,8 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
                 setSavedPingHistory,
                 savedPathHistory,
                 setSavedPathHistory,
+                savedProjectedPath,
+                setSavedProjectedPath,
                 savedSearchArea,
                 setSavedSearchArea,
                 navState,
