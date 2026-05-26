@@ -13,7 +13,7 @@ Our design was selected as one of the top 5 PR designs in the nation, earning us
 ### Telemetry Dashboard
 Live monitoring of EV and PR telemetry, dynamic warning system, and trend graphs.
 
-https://github.com/user-attachments/assets/docs/media/telemetry_demo.mp4
+<video src="docs/media/telemetry_demo.mp4" controls width="100%"></video>
 
 ---
 
