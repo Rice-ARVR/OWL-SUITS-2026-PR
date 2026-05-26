@@ -1,361 +1,101 @@
-# Server Architecture Guide
+# Backend Guide
 
-## Environment Setup
-
-Before running the server, create a `.env` file inside the `server/` folder:
-
-```
-server/.env
-```
-
-Required variables:
-
-```
-TSS_HOST=172.31.xxx.xx
-MONGODB_URL=mongodb://...
-```
-
-All settings are loaded via `app/core/config.py`:
-
-```python
-# app/core/config.py
-class Settings(BaseSettings):
-    TSS_HOST: str
-    TSS_PORT: int = 14141
-    TSS_TIMEOUT: float = 2.0
-    POLL_INTERVAL: float = 1.0
-
-    MONGODB_URL: str
-    MONGO_DB: str = "app"
-
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
-
-settings = Settings()
-```
+A short reference for the server in [server/](../server/). For setup, see the project [README](../README.md).
 
 ---
 
-## Overview
+## 1. Frameworks & Tools
 
-The server is a **FastAPI** application organized in a layered architecture similar to MVC (Model-View-Controller). Each layer has a single, clearly defined responsibility. The React frontend never talks to the database or the SUITS telemetry server directly — all of that goes through this server.
+| Tool | Purpose |
+| --- | --- |
+| **FastAPI** | HTTP + WebSocket framework |
+| **Uvicorn** | ASGI server |
+| **Pydantic** / **pydantic-settings** | Schemas, validation, `.env` config |
+| **uv** | Python package + venv manager |
+| **PyMongo** | MongoDB driver |
+| **LangChain** + **Chroma** + **Ollama** | RAG pipeline for the AI Assistant |
+| **faster-whisper** | Speech-to-text |
+| **Ultralytics YOLO** + **OpenCV** + **PyTorch** | Computer vision (obstacle detection) |
+| **asyncio** | Background polling, WebSocket fan-out, thread-safe locks |
+
+Python `>=3.13.7`. Full list in [server/pyproject.toml](../server/pyproject.toml).
 
 ---
 
-## Folder Structure
+## 2. Folder Structure
 
 ```
 server/
-├── main.py                        # Entry point — creates the app and registers routers
-├── pyproject.toml                 # Python dependencies
+├── main.py              # FastAPI app, lifespan, router registration
+├── pyproject.toml       # Dependencies (uv)
+├── data/                # Static lookup data (e.g. error procedures)
+├── documents/           # Source documents for RAG ingest
 └── app/
-    ├── core/                      # App-wide configuration and settings
-    ├── models/                    # Pydantic schemas (data shape definitions)
-    ├── routers/                   # Endpoints the React frontend calls
-    ├── services/                  # Business logic and SUITS telemetry server calls
+    ├── core/            # config.py (settings), ws_manager.py
+    ├── models/          # Pydantic schemas + thread-safe in-memory wrappers
+    ├── routers/         # HTTP + WebSocket endpoints
+    ├── services/        # Business logic, grouped by subsystem:
+    │   ├── telemetry/   #   TSS polling, WS broadcast, warnings
+    │   ├── navigation/  #   Pathfinding, autonomous drive, vision, DUST stream
+    │   ├── rag/         #   Ollama, document ingest, whisper, procedures
+    │   └── example/     #   Reference implementation for new TSS reads
     └── db/
-        ├── database.py            # MongoDB connection setup
-        └── repositories/          # Database read/write operations
+        ├── database.py  # MongoDB connection
+        └── repositories/# DB CRUD classes
 ```
+
+### Layer responsibilities
+
+- **`routers/`** — receive request, call service, return response. No logic.
+- **`services/`** — all business logic; reads telemetry, calls repositories, runs algorithms.
+- **`models/`** — Pydantic schemas + wrapper classes holding parsed data behind an `asyncio.Lock`.
+- **`db/repositories/`** — only place that touches MongoDB.
+- **`core/`** — app-wide settings (`config.py`) and the shared `WebSocketManager`.
+
+Rule: a layer only depends on the layer directly below it.
 
 ---
 
-## `main.py` — Entry Point
+## 3. Networking & Standards
 
-Creates the FastAPI app, registers middleware, wires up the database and polling lifecycle, and includes all routers:
+### Protocols
 
-```python
-# main.py
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    connect()
-    await start_polling()   # starts polling TSS and broadcasting over WebSocket
-    yield
-    await stop_polling()
-    disconnect()
+| Direction | Protocol | Used for |
+| --- | --- | --- |
+| Server → TSS | **UDP** (host/port from `.env`) | Polling rover/EVA/LTV telemetry every `POLL_INTERVAL`s |
+| Server ↔ Client | **HTTP/JSON** | Request/response endpoints (procedures, locations, ollama, etc.) |
+| Server → Client | **WebSocket** | Live push of telemetry, warnings, navigation, CV results |
+| Server ↔ Ollama | **HTTP** (`OLLAMA_URL`) | LLM + embedding calls |
+| Server ↔ DUST | **WebSocket** (`DUST_CV_WS_URL`) | LiDAR / point-cloud stream consumed by CV |
 
-app = FastAPI(lifespan=lifespan)
+### WebSocket channels
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_methods=["GET", "POST", "OPTIONS"],
-)
-
-# Include Routers Here:
-app.include_router(warnings_router)      # ws://localhost:8000/ws/warnings
-app.include_router(telemetry_ws_router)  # ws://localhost:8000/ws/telemetry
-app.include_router(locations_router)
-```
-
----
-
-## Layers Explained
-
-### `routers/` — What React Talks To
-
-Routers define the HTTP endpoints that the React frontend calls. Their only job is to receive a request, hand it to a service, and return the response. They contain no logic.
-
-```python
-# app/routers/locations.py
-router = APIRouter()
-
-@router.get("/locations/rover")
-async def get_rover_current_location():
-    data = await get_rover_location()
-    return JSONResponse(data)
-
-@router.get("/locations/eva")
-async def get_eva_current_locations():
-    data = await get_eva_locations()
-    return JSONResponse(data)
-```
-
-Each file in `routers/` maps to a domain (e.g. `tss_example.py`, `locations.py`). All routers are registered in `main.py` with `app.include_router(...)`.
-
----
-
-### `services/` — Business Logic
-
-Services are the brain of the backend. They read from the in-memory telemetry data objects and return clean, structured data to the router.
-
-```python
-# app/services/locations_service.py
-async def get_rover_location() -> dict:
-    return {
-        "x": await telemetry_service.rover_data.get_pr_rover_pos_x(),
-        "y": await telemetry_service.rover_data.get_pr_rover_pos_y(),
-        "z": await telemetry_service.rover_data.get_pr_rover_pos_z(),
-    }
-
-async def get_eva_locations() -> dict:
-    return {
-        "eva1": {
-            "x": await telemetry_service.eva_data.get_imu_eva1_posx(),
-            "y": await telemetry_service.eva_data.get_imu_eva1_posy(),
-        },
-        "eva2": {
-            "x": await telemetry_service.eva_data.get_imu_eva2_posx(),
-            "y": await telemetry_service.eva_data.get_imu_eva2_posy(),
-        },
-    }
-```
-
-Services know nothing about HTTP routing. Routers know nothing about the TSS server. Each layer has one job.
-
----
-
-### `models/` — Data Shape Definitions
-
-Models are Pydantic classes that define the shape of data at API boundaries. They validate incoming TSS responses and guarantee the shape of data moving through the system.
-
-```python
-# app/models/eva.py
-class Eva1Telemetry(BaseModel):
-    primary_battery_level: float
-    secondary_battery_level: float
-    oxy_pri_storage: float
-    oxy_sec_storage: float
-    suit_pressure_oxy: float
-    suit_pressure_total: float
-    heart_rate: float
-    temperature: float
-    coolant_storage: float
-    eva_elapsed_time: float
-    # ... and more fields
-```
-
-Each model file also contains a **wrapper class** that holds the parsed data in memory and exposes async getter methods with a lock for thread safety:
-
-```python
-# app/models/eva.py
-class EvaData:
-    def __init__(self) -> None:
-        self._data: EvaSchema | None = None
-        self._lock: asyncio.Lock = asyncio.Lock()
-
-    async def update(self, raw: dict) -> None:
-        parsed = EvaSchema.model_validate(raw)
-        async with self._lock:
-            self._data = parsed
-
-    async def get_eva1_heart_rate(self) -> float | None:
-        async with self._lock:
-            return self._data.telemetry.eva1.heart_rate if self._data else None
-```
-
----
-
-### `services/telemetry/` — TSS Polling
-
-The telemetry service runs a background loop that polls the SUITS Telemetry Simulation Server (TSS) over UDP once per `POLL_INTERVAL` and updates the in-memory data objects.
-
-**`tss_client.py`** — Low-level UDP communication:
-
-```python
-# app/services/telemetry/tss_client.py
-COMMAND_ROVER = 0
-COMMAND_EVA = 1
-COMMAND_LTV = 2
-COMMAND_LTV_ERRORS = 3
-
-def _build_packet(command: int) -> bytes:
-    return struct.pack(">II", int(time.time()), command)
-
-async def fetch_json(command: int) -> dict:
-    packet = _build_packet(command)
-    raw = await asyncio.to_thread(
-        _send_and_receive,
-        settings.TSS_HOST,
-        settings.TSS_PORT,
-        packet,
-        settings.TSS_TIMEOUT,
-    )
-    text = raw[:].decode("utf-8")
-    obj, _ = json.JSONDecoder().raw_decode(text.lstrip())
-    return obj
-```
-
-**`telemetry_service.py`** — Polling loop, global data objects, and WebSocket broadcast:
-
-```python
-# app/services/telemetry/telemetry_service.py
-eva_data: EvaData | None = None
-ltv_data: LtvData | None = None
-ltv_errors_data: LtvErrorsData | None = None
-rover_data: RoverData | None = None
-
-async def _poll_once() -> None:
-    results = await asyncio.gather(
-        fetch_json(COMMAND_ROVER),
-        fetch_json(COMMAND_EVA),
-        fetch_json(COMMAND_LTV),
-        fetch_json(COMMAND_LTV_ERRORS),
-        return_exceptions=True,
-    )
-    rover_result, eva_result, ltv_result, ltv_errors_result = results
-
-    if isinstance(rover_result, Exception):
-        logger.error("Failed to fetch ROVER data: %s", rover_result)
-    else:
-        await rover_data.update(rover_result)
-    # ... same pattern for eva, ltv, ltv_errors
-
-    # Take one snapshot per cycle and reuse it for all downstream steps
-    eva_snap    = await eva_data.get_snapshot()
-    rover_snap  = await rover_data.get_snapshot()
-    ltv_snap    = await ltv_data.get_snapshot()
-    ltv_errors_snap = await ltv_errors_data.get_snapshot()
-
-    # Push the full snapshot to all connected /ws/telemetry clients
-    await broadcast_snapshot(eva_snap, rover_snap, ltv_snap, ltv_errors_snap)
-    # Check ranges and push any warnings to /ws/warnings clients
-    await check_and_broadcast(eva_snap, rover_snap)
-
-async def _polling_loop() -> None:
-    while True:
-        t0 = asyncio.get_event_loop().time()
-        await _poll_once()
-        elapsed = asyncio.get_event_loop().time() - t0
-        await asyncio.sleep(max(0.0, settings.POLL_INTERVAL - elapsed))
-```
-
-**`telemetry_ws_service.py`** — WebSocket manager and broadcast helper for telemetry:
-
-```python
-# app/services/telemetry/telemetry_ws_service.py
-manager = WebSocketManager()
-
-async def broadcast_snapshot(
-    eva: EvaSchema | None,
-    rover: RoverSchema | None,
-    ltv: LtvSchema | None,
-    ltv_errors: LtvErrorsSchema | None,
-) -> None:
-    if eva is None or rover is None or ltv is None or ltv_errors is None:
-        return
-    payload = {
-        "eva": eva.model_dump(),
-        "rover": rover.model_dump(),
-        "ltv": ltv.model_dump(),
-        "ltv_errors": ltv_errors.model_dump(),
-    }
-    await manager.broadcast(json.dumps(payload))
-```
-
----
-
-### `db/` — Database Layer
-
-**`db/database.py`** sets up the MongoDB connection using PyMongo:
-
-```python
-# app/db/database.py
-def connect():
-    global client, db
-    client = MongoClient(settings.MONGODB_URL)
-    client.admin.command("ping")
-    db = client[settings.MONGO_DB]
-    print(f"Connected to MongoDB (db: {settings.MONGO_DB})")
-
-def disconnect():
-    global client
-    if client:
-        client.close()
-```
-
-**`db/repositories/`** is where database read/write operations go. Services call repositories instead of touching the database directly.
-
----
-
-## Data Flow
+Mounted from [main.py](../server/main.py):
 
 ```
-TSS Telemetry Server (UDP, polled every 1s)
-      │
-      ▼
-services/telemetry/telemetry_service.py   polls TSS, updates in-memory data objects
-      │  _poll_once() completes
-      ├──► services/telemetry/telemetry_ws_service.py  broadcasts full snapshot
-      │          │  ws://localhost:8000/ws/telemetry
-      │          ▼
-      │    React Frontend (TelemetryManager singleton)   live push, no HTTP round-trip
-      │
-      ├──► services/telemetry/warning_service.py        checks ranges, broadcasts warnings
-      │          │  ws://localhost:8000/ws/warnings
-      │          ▼
-      │    React Frontend (warnings overlay in root.tsx)
-      │
-      └──► services/rag/context_builder.py              writes context file for RAG queries
-
-React Frontend (non-telemetry actions)
-      │  HTTP request
-      ▼
-routers/          receives request, calls service
-      │
-      ▼
-services/         implements business logic
-      │
-      ▼
-models/           Pydantic schemas + async wrapper classes (thread-safe)
-      │
-      ▼
-db/repositories/  reads and writes to MongoDB
+ws://localhost:8000/ws/telemetry      # full snapshot, every poll cycle
+ws://localhost:8000/ws/warnings       # range-check violations
+ws://localhost:8000/ws/navigation     # path + nav state
+ws://localhost:8000/ws/rover_control  # control commands
+ws://localhost:8000/ws/dust_cv        # CV/obstacle detections
 ```
 
----
+All WebSocket payloads are JSON, matching the Pydantic models in `app/models/`.
 
-## Adding a New Domain
+### HTTP conventions
 
-### Reading telemetry values (most common case)
+- Base URL: `http://localhost:8000`
+- Methods: `GET`, `POST`, `PATCH`, `OPTIONS` (set in CORS middleware)
+- CORS: dev allows **only** `http://localhost:5173`
+- Responses are JSON (`JSONResponse` or auto-serialized Pydantic models)
+- Route prefixes follow the domain name (`/locations/...`, `/procedures/...`, `/ollama/...`)
 
-No backend changes needed. The `/ws/telemetry` WebSocket already broadcasts the full snapshot of all EVA, rover, and LTV data every polling cycle. On the client, call a getter on `TelemetryManager` — or add one if the field is not yet exposed. See `docs/example.md` for the full walkthrough.
+### Coding standards
 
-### Adding a non-telemetry feature (write operations, DB, algorithms)
-
-When adding a new feature that is not a simple telemetry read (e.g. navigation, rover control, speech transcription), create a file in each relevant layer:
-
-1. `models/navigation.py` — define Pydantic schemas and a wrapper class with async getters
-2. `services/navigation_service.py` — implement the logic (reads telemetry via `telemetry_service.*_data.get_*()`, writes DB via repository)
-3. `routers/navigation.py` — define the endpoints and call the service
-4. `db/repositories/navigation_repo.py` — implement DB operations (if needed)
-5. Register the router in `main.py` with `app.include_router(...)`
+- **Async everywhere** — all I/O (UDP, WS, DB, HTTP) uses `async`/`await`; blocking calls are offloaded with `asyncio.to_thread`.
+- **Layered access** — routers never touch the TSS, DB, or models directly. Services are the only callers.
+- **Thread safety** — in-memory telemetry objects guard state with `asyncio.Lock`; never read `_data` directly.
+- **Config via env** — every tunable lives in `app/core/config.py` and is overridable through `server/.env`. No hard-coded hosts, ports, or model names.
+- **Validation at the boundary** — every TSS response and request body is parsed through a Pydantic model before reaching service logic.
+- **Lint/format** — `ruff` (configured in `pyproject.toml`); run before committing.
+- **Commits** — Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`).

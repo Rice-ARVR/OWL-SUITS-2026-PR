@@ -10,11 +10,29 @@ Our design was selected as one of the top 5 designs in the nation, earning us th
 
 <table align="center" border="0" cellspacing="10" cellpadding="0">
   <tr>
+    <td align="center"><b>Telemetry Screen</b></td>
+    <td align="center"><b>Driver Screen</b></td>
+    <td align="center"><b>Map Screen</b></td>
+  </tr>
+  <tr>
     <td><img src="docs/media/telemetry-screen.png" height="200"/></td>
     <td><img src="docs/media/driver-screen.png" height="200"/></td>
     <td><img src="docs/media/map-screen.png" height="200"/></td>
   </tr>
 </table>
+
+## Navigation
+- [Features](#features)
+  - [Telemetry Dashboard](#telemetry-dashboard)
+  - [Dynamic Map & LTV Search](#dynamic-map--ltv-search)
+  - [AI Assistant](#ai-assistant)
+  - [Autonomous Navigation](#autonomous-navigation)
+- [Presentations & Media](#presentations--media)
+- [Developer Guides](#developer-guides)
+- [Getting Started](#getting-started)
+  - [Installation Prerequisites](#installation-prerequisites)
+  - [Setup](#setup)
+  - [Running the App](#running-the-app)
 
 ## Features
 
@@ -58,7 +76,7 @@ Our design was selected as one of the top 5 designs in the nation, earning us th
   <img src="docs/media/auto_nav_demo.gif" height="250"/>
 </p>
 
-## Resources
+## Presentations & Media
 - [Project Proposal](docs/resouces/proposal.pdf)
 - [Software Design Review](https://docs.google.com/presentation/d/1mcC3QHHZB-tvO_A37ylLGBsO3wAHMOPN51M1vWQV4ro/edit?usp=sharing)
 - [Critical Design Review](https://docs.google.com/presentation/d/1mOYTwAb0BdUdTh-dxteZSn3tDG_9F39MJ5hq5R-FRUo/edit?usp=sharing)
