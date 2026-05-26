@@ -2,43 +2,70 @@
 
 Rice University's submission for the [NASA SUITS 2026 Challenge](https://www.nasa.gov/learning-resources/spacesuit-user-interface-technologies-for-students/).
 
-NASA SUITS (Spacesuit User Interface Technologies for Students) is a challenge that tasks university teams with designing and building software interfaces for astronaut spacesuits and rovers. For the 2026 competition, we built a Pressurized Rover Intelligence Platform — a three-screen display system that helps astronauts autonomously navigate the lunar south pole during Artemis missions and search for a damaged Lunar Terrain Vehicle (LTV).
+NASA SUITS (Spacesuit User Interface Technologies for Students) is a challenge that tasks university teams with designing and building software interfaces for astronaut spacesuits and rovers. For the 2026 competition, we built a three-screen display system that helps astronauts autonomously navigate the lunar south pole and search for a damaged Lunar Terrain Vehicle (LTV).
 
 The interface is designed to reduce astronaut cognitive load during high-stakes tasks. We validate this through human-in-the-loop testing grounded in human factors research, measuring how interface design choices affect operator performance and mental workload.
 
-Our design was selected as one of the top 5 PR designs in the nation, earning us the opportunity to test our interface in person at the Johnson Space Center.
+Our design was selected as one of the top 5 designs in the nation, earning us the opportunity to test our interface in person at the Johnson Space Center.
+
+<table align="center" border="0" cellspacing="10" cellpadding="0">
+  <tr>
+    <td><img src="docs/media/telemetry-screen.png" height="200"/></td>
+    <td><img src="docs/media/driver-screen.png" height="200"/></td>
+    <td><img src="docs/media/map-screen.png" height="200"/></td>
+  </tr>
+</table>
 
 ## Features
 
 ### Telemetry Dashboard
-Live monitoring of EV and PR telemetry, dynamic warning system, and trend graphs.
+- Live monitoring of EV and PR telemetry, dynamic warning system, and trend graphs.
 
-<video src="docs/media/telemetry_demo.mp4" controls width="100%"></video>
+<p align="center">
+  <img src="docs/media/telemetry_demo.gif" height="250"/>
+</p>
 
 ---
 
 ### Dynamic Map & LTV Search
-Dynamic map displaying hazards and projected path. Autonomous LTV search using location pings and gradient ascent.
+- Dynamic map displaying hazards and projected path.
+- Autonomous LTV search using location pings and gradient ascent.
 
-https://github.com/user-attachments/assets/docs/media/map_interactions_demo.mp4
-
-https://github.com/user-attachments/assets/docs/media/ltv_search_demo.mp4
+<table align="center" border="0" cellspacing="10" cellpadding="0">
+  <tr>
+    <td><img src="docs/media/map_demo.gif" height="250"/></td>
+    <td><img src="docs/media/ltv_search_demo.gif" height="250"/></td>
+  </tr>
+</table>
 
 ---
 
 ### AI Assistant
-RAG system with deep integration into mission procedures and telemetry warning handling. Supports voice control and widget generation for fast visual feedback.
+- RAG system with deep integration into mission procedures and telemetry warning handling. 
+- Supports voice control and widget generation for fast visual feedback.
 
-https://github.com/user-attachments/assets/docs/media/aia_demo.mp4
+<p align="center">
+  <img src="docs/media/aia_demo.gif" height="250"/>
+</p>
 
 ---
 
 ### Autonomous Navigation
-Computer vision pipeline using a fine-tuned YOLOv26s model to identify obstacles like craters and boulders. Automatic obstacle avoidance and steering to target position, deeply integrated with manual controls to keep humans in the loop.
+- Computer vision pipeline using a fine-tuned YOLOv26s model to identify obstacles like craters and boulders. 
+- Automatic obstacle avoidance and steering to target position, deeply integrated with manual controls to keep humans in the loop.
 
-https://github.com/user-attachments/assets/docs/media/auto_nav_demo.mp4
+<p align="center">
+  <img src="docs/media/auto_nav_demo.gif" height="250"/>
+</p>
 
-## Documentation
+## Resources
+- [Project Proposal](docs/resouces/proposal.pdf)
+- [Software Design Review](https://docs.google.com/presentation/d/1mcC3QHHZB-tvO_A37ylLGBsO3wAHMOPN51M1vWQV4ro/edit?usp=sharing)
+- [Critical Design Review](https://docs.google.com/presentation/d/1mOYTwAb0BdUdTh-dxteZSn3tDG_9F39MJ5hq5R-FRUo/edit?usp=sharing)
+- [Exit Pitch Slides](https://docs.google.com/presentation/d/17pI6eu1O87Ero6XG_PJkbaEzfBmWmDGLCrxGnhLNep8/edit?usp=sharing)
+- [Exit Pitch Recording](https://www.youtube.com/live/VIQ5LbNfwNY?t=8556&si=ZFugoQ2kFGSLxOyk)
+
+## Developer Guides
 
 - [Frontend Guide](docs/frontend.md)
 - [Backend Guide](docs/backend.md)
@@ -46,43 +73,55 @@ https://github.com/user-attachments/assets/docs/media/auto_nav_demo.mp4
 - [GitHub Workflow](docs/github.md)
 - [Example](docs/example.md)
 
-## Proposal
-
-- [Proposal](docs/proposal.pdf)
 
 ## Getting Started
 
-### Prerequisites
-
+### Installation Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [VS Code](https://code.visualstudio.com/) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
-- [Ollama](https://ollama.com/) (Ollama 3.2, Gemma 4, nomic-embed-text)
+- [Ollama](https://ollama.com/) (Ollama 3.2 or Gemma 4, nomic-embed-text)
 - [DUST](https://software.nasa.gov/software/MSC-27522-1)
 - [PR-Tools](https://github.com/Rice-ARVR/PR-Tools) Stream Server Required for Teleop
-- [MongoDB+](https://www.mongodb.com/)
+- [TSS](https://github.com/SUITS-Techteam/TSS2026)
 
 ### Setup
 
-1. Clone the repo.
-2. Open the repo in VS Code, then when prompted click **Reopen in Container** (or run `Dev Containers: Reopen in Container` from the command palette).
-3. Wait for the build — subsequent opens are much faster. Dependencies are installed automatically.
+1. Install all prerequisites.
+2. Download Repository in VS Code, then when prompted click **Reopen in Container**.
+3. Wait for the build. Dependencies are installed automatically.
 4. Add .env to client folder
+```bash
+VITE_MEDIAMTX_URL=http://localhost:8889
+VITE_STREAM_NAME=dust_stream
+VITE_DUST_WS_URL=ws://host.docker.internal:8765
+```
 5. Add .env to server folder
+```bash
+TSS_HOST = Place TSS IP here 
+```
 
-### Running the App+
+### Running the App
 
-Start the backend:
+1. Start TSS
+2. Start DUST
+3. Start DUST Streaming Server
+4. Start the backend:
 
 ```bash
 cd server
 uv run fastapi dev main.py --host 0.0.0.0
 ```
 
-Start the frontend:
+5. Start the frontend:
 
 ```bash
 cd client
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173` and the API at `http://localhost:8000`.
+#### Routes
+- Telemetry Dashboard: `http://localhost:5173/telemetry`
+- Driving Screen: `http://localhost:5173/screen`
+- Map Screen: `http://localhost:5173/map`
+
+The frontend will be available at `http://localhost:5173` and the api at `http://localhost:8000`.
