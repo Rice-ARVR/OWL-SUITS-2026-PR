@@ -1,12 +1,42 @@
-# OWL-SUITS-2026-PR
+# Pressurized Rover Intelligence Platform (OWL SUITS 2026)
 
-Rice University's pressurized rover interface for the [NASA SUITS 2026 Challenge](https://www.nasa.gov/learning-resources/spacesuit-user-interface-technologies-for-students/).
+Rice University's submission for the [NASA SUITS 2026 Challenge](https://www.nasa.gov/learning-resources/spacesuit-user-interface-technologies-for-students/).
 
-NASA SUITS (Spacesuit User Interface Technologies for Students) is a challenge that tasks university teams with designing and building software interfaces for astronaut spacesuits and rovers. Our team, OWL SUITS, is building the pressurized rover (PR) interface — a dual-monitor display system used inside the rover during simulated lunar surface operations.
+NASA SUITS (Spacesuit User Interface Technologies for Students) is a challenge that tasks university teams with designing and building software interfaces for astronaut spacesuits and rovers. For the 2026 competition, we built a Pressurized Rover Intelligence Platform — a three-screen display system that helps astronauts autonomously navigate the lunar south pole during Artemis missions and search for a damaged Lunar Terrain Vehicle (LTV).
 
-The interface is designed to reduce astronaut cognitive load during high-stakes tasks. We validate this through human-in-the-loop testing grounded in HF (human factors) research, measuring how interface design choices affect operator performance and mental workload.
+The interface is designed to reduce astronaut cognitive load during high-stakes tasks. We validate this through human-in-the-loop testing grounded in human factors research, measuring how interface design choices affect operator performance and mental workload.
 
-Our design was selected as one of the top 5 PR designs in the nation, earning us the opportunity to test our interface in person at the NASA SUITS challenge.
+Our design was selected as one of the top 5 PR designs in the nation, earning us the opportunity to test our interface in person at the Johnson Space Center.
+
+## Features
+
+### Telemetry Dashboard
+Live monitoring of EV and PR telemetry, dynamic warning system, and trend graphs.
+
+https://github.com/user-attachments/assets/docs/media/telemetry_demo.mp4
+
+---
+
+### Dynamic Map & LTV Search
+Dynamic map displaying hazards and projected path. Autonomous LTV search using location pings and gradient ascent.
+
+https://github.com/user-attachments/assets/docs/media/map_interactions_demo.mp4
+
+https://github.com/user-attachments/assets/docs/media/ltv_search_demo.mp4
+
+---
+
+### AI Assistant
+RAG system with deep integration into mission procedures and telemetry warning handling. Supports voice control and widget generation for fast visual feedback.
+
+https://github.com/user-attachments/assets/docs/media/aia_demo.mp4
+
+---
+
+### Autonomous Navigation
+Computer vision pipeline using a fine-tuned YOLOv26s model to identify obstacles like craters and boulders. Automatic obstacle avoidance and steering to target position, deeply integrated with manual controls to keep humans in the loop.
+
+https://github.com/user-attachments/assets/docs/media/auto_nav_demo.mp4
 
 ## Documentation
 
