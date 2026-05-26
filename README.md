@@ -24,9 +24,10 @@ Our design was selected as one of the top 5 designs in the nation, earning us th
 ## Navigation
 - [Features](#features)
   - [Telemetry Dashboard](#telemetry-dashboard)
+  - [Autonomous Driving](#autonomous-driving)
   - [Dynamic Map & LTV Search](#dynamic-map--ltv-search)
   - [AI Assistant](#ai-assistant)
-  - [Autonomous Navigation](#autonomous-navigation)
+
 - [Presentations & Media](#presentations--media)
 - [Developer Guides](#developer-guides)
 - [Getting Started](#getting-started)
@@ -41,6 +42,16 @@ Our design was selected as one of the top 5 designs in the nation, earning us th
 
 <p align="center">
   <img src="docs/media/telemetry_demo.gif" height="250"/>
+</p>
+
+---
+
+### Autonomous Driving
+- Computer vision pipeline using a fine-tuned YOLOv26s model to identify obstacles like craters and boulders. 
+- Automatic obstacle avoidance and steering to target position, deeply integrated with manual controls to keep humans in the loop.
+
+<p align="center">
+  <img src="docs/media/auto_nav_demo.gif" height="250"/>
 </p>
 
 ---
@@ -66,15 +77,6 @@ Our design was selected as one of the top 5 designs in the nation, earning us th
   <img src="docs/media/aia_demo.gif" height="250"/>
 </p>
 
----
-
-### Autonomous Navigation
-- Computer vision pipeline using a fine-tuned YOLOv26s model to identify obstacles like craters and boulders. 
-- Automatic obstacle avoidance and steering to target position, deeply integrated with manual controls to keep humans in the loop.
-
-<p align="center">
-  <img src="docs/media/auto_nav_demo.gif" height="250"/>
-</p>
 
 ## Presentations & Media
 - [Project Proposal](docs/resouces/proposal.pdf)
@@ -98,9 +100,9 @@ Our design was selected as one of the top 5 designs in the nation, earning us th
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [VS Code](https://code.visualstudio.com/) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
 - [Ollama](https://ollama.com/) (Ollama 3.2 or Gemma 4, nomic-embed-text)
-- [DUST](https://software.nasa.gov/software/MSC-27522-1)
-- [PR-Tools](https://github.com/Rice-ARVR/PR-Tools) Stream Server Required for Teleop
-- [TSS](https://github.com/SUITS-Techteam/TSS2026)
+- [DUST](https://software.nasa.gov/software/MSC-27522-1) - Lunar Simulation
+- [PR-Tools](https://github.com/Rice-ARVR/PR-Tools) - DUST Streaming Server
+- [TSS](https://github.com/SUITS-Techteam/TSS2026) - Telemtry Streaming Server
 
 ### Setup
 
@@ -141,5 +143,3 @@ npm run dev
 - Telemetry Dashboard: `http://localhost:5173/telemetry`
 - Driving Screen: `http://localhost:5173/screen`
 - Map Screen: `http://localhost:5173/map`
-
-The frontend will be available at `http://localhost:5173` and the api at `http://localhost:8000`.
