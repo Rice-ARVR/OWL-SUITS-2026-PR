@@ -79,7 +79,7 @@ Our design was selected as one of the top 5 designs in the nation, earning us th
 
 
 ## Presentations & Media
-- [Project Proposal](docs/resouces/proposal.pdf)
+- [Project Proposal](https://docs.google.com/document/d/1vViXCav1NrxgJCWB73lyFr7TjIqc36ObeJcpyedRY2I/edit?tab=t.0)
 - [Software Design Review](https://docs.google.com/presentation/d/1mcC3QHHZB-tvO_A37ylLGBsO3wAHMOPN51M1vWQV4ro/edit?usp=sharing)
 - [Critical Design Review](https://docs.google.com/presentation/d/1mOYTwAb0BdUdTh-dxteZSn3tDG_9F39MJ5hq5R-FRUo/edit?usp=sharing)
 - [Exit Pitch Slides](https://docs.google.com/presentation/d/17pI6eu1O87Ero6XG_PJkbaEzfBmWmDGLCrxGnhLNep8/edit?usp=sharing)
